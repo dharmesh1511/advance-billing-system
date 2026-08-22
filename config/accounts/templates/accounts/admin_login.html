@@ -137,8 +137,8 @@
         </div>
     {% endif %}
 
-    <form method="POST">
-        {% csrf_token %}
+    <form method="POST" action="{% url 'admin_login' %}">
+    {% csrf_token %}
 
         <label>Username</label>
         <input
