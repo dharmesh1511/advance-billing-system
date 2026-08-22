@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Verify OTP | Advance Billing System</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #111827, #16a34a);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 430px;
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.25);
+        }
+
+        .logo {
+            width: 65px;
+            height: 65px;
+            background: #16a34a;
+            color: white;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            font-weight: bold;
+            margin: 0 auto 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #111827;
+            margin-bottom: 8px;
+            font-size: 24px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #6b7280;
+            margin-bottom: 30px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .subtitle strong {
+            color: #111827;
+            word-break: break-all;
+        }
+
+        .otp-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 25px;
+        }
+
+        .otp-box {
+            flex: 1;
+            width: 100%;
+            height: 52px;
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            color: #111827;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            outline: none;
+            transition: all 0.2s ease;
+            background: #f9fafb;
+        }
+
+        .otp-box:focus {
+            border-color: #16a34a;
+            box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+            background: #ffffff;
+        }
+
+        .otp-box.filled {
+            border-color: #16a34a;
+            background: #ffffff;
+        }
+
+        button.primary-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            background: #16a34a;
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        button.primary-btn:hover {
+            background: #15803d;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #b91c1c;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .message-toast {
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: center;
+            font-size: 14px;
+            display: none;
+        }
+
+        .message-toast.success {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .message-toast.error-toast {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .resend-section {
+            text-align: center;
+            margin-top: 25px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .resend-btn {
+            background: none;
+            border: none;
+            color: #16a34a;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 4px 8px;
+            margin-top: 6px;
+            transition: color 0.2s ease;
+        }
+
+        .resend-btn:disabled {
+            color: #9ca3af;
+            cursor: not-allowed;
+            font-weight: 500;
+        }
+
+        .resend-btn:not(:disabled):hover {
+            color: #15803d;
+            text-decoration: underline;
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .back-link a {
+            color: #6b7280;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .back-link a:hover {
+            color: #111827;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="login-card">
+
+    <div class="logo">AB</div>
+
+    <h1>Verify OTP</h1>
+
+    <p class="subtitle">
+        Enter the 6-digit OTP sent to your registered email{% if email %} (<strong>{{ email }}</strong>){% endif %}.
+    </p>
+
+    {% if error %}
+        <div class="error" id="backend-error">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <form method="POST" action="{% url 'verify_otp' %}" id="otp-form">
+        {% csrf_token %}
+
+        <input type="hidden" name="otp" id="combined-otp">
+
+        <div class="otp-container">
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="off" autofocus>
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+        </div>
+
+        <button type="submit" class="primary-btn">
+            Verify OTP
+        </button>
+    </form>
+
+    <div class="resend-section">
+        <p>Didn't receive the OTP?</p>
+        <button type="button" id="resend-btn" class="resend-btn" disabled>
+            Resend OTP in <span id="countdown">60</span>s
+        </button>
+    </div>
+
+    <div id="toast" class="message-toast"></div>
+
+    <div class="back-link">
+        <a href="{% url 'forgot_password' %}">
+            ← Change email
+        </a>
+    </div>
+
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const boxes = document.querySelectorAll(".otp-box");
+        const combinedInput = document.getElementById("combined-otp");
+        const form = document.getElementById("otp-form");
+        const resendBtn = document.getElementById("resend-btn");
+        const countdownSpan = document.getElementById("countdown");
+        const toast = document.getElementById("toast");
+
+        let timer = null;
+        let countdown = 60;
+
+        // Auto focus first box
+        if (boxes.length > 0) {
+            boxes[0].focus();
+        }
+
+        // Sync values to hidden input
+        function syncOTP() {
+            let val = "";
+            boxes.forEach(box => {
+                val += box.value;
+                if (box.value) {
+                    box.classList.add("filled");
+                } else {
+                    box.classList.remove("filled");
+                }
+            });
+            combinedInput.value = val;
+        }
+
+        // Handle typing, auto-focus next, and backspace
+        boxes.forEach((box, index) => {
+            box.addEventListener("input", function (e) {
+                // Allow digits only
+                this.value = this.value.replace(/[^0-9]/g, "");
+
+                if (this.value && index < boxes.length - 1) {
+                    boxes[index + 1].focus();
+                }
+                syncOTP();
+            });
+
+            box.addEventListener("keydown", function (e) {
+                if (e.key === "Backspace") {
+                    if (!this.value && index > 0) {
+                        boxes[index - 1].focus();
+                        boxes[index - 1].value = "";
+                    } else {
+                        this.value = "";
+                    }
+                    syncOTP();
+                }
+            });
+
+            // Handle Paste
+            box.addEventListener("paste", function (e) {
+                e.preventDefault();
+                const pasteData = (e.clipboardData || window.clipboardData).getData("text").trim();
+                const digits = pasteData.replace(/[^0-9]/g, "").slice(0, 6);
+
+                if (digits.length > 0) {
+                    for (let i = 0; i < boxes.length; i++) {
+                        boxes[i].value = digits[i] || "";
+                    }
+                    const focusIndex = Math.min(digits.length, boxes.length - 1);
+                    boxes[focusIndex].focus();
+                    syncOTP();
+                }
+            });
+        });
+
+        // Form Submit Validation
+        form.addEventListener("submit", function (e) {
+            syncOTP();
+            if (combinedInput.value.length !== 6) {
+                e.preventDefault();
+                showToast("Please enter all 6 digits of the OTP.", false);
+            }
+        });
+
+        // Resend Timer Countdown
+        function startTimer() {
+            countdown = 60;
+            resendBtn.disabled = true;
+            resendBtn.innerHTML = `Resend OTP in <span id="countdown">${countdown}</span>s`;
+
+            if (timer) clearInterval(timer);
+
+            timer = setInterval(() => {
+                countdown--;
+                const span = document.getElementById("countdown");
+                if (span) span.innerText = countdown;
+
+                if (countdown <= 0) {
+                    clearInterval(timer);
+                    resendBtn.disabled = false;
+                    resendBtn.innerText = "Resend OTP";
+                }
+            }, 1000);
+        }
+
+        startTimer();
+
+        // Resend OTP AJAX Handler
+        resendBtn.addEventListener("click", function () {
+            if (resendBtn.disabled) return;
+
+            resendBtn.disabled = true;
+            resendBtn.innerText = "Sending...";
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            fetch("{% url 'resend_otp' %}", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": csrfToken,
+                    "Content-Type": "application/x-www-form-urlencoded"
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message || "OTP sent successfully.", true);
+                    startTimer();
+                } else {
+                    showToast(data.message || "Failed to resend OTP.", false);
+                    resendBtn.disabled = false;
+                    resendBtn.innerText = "Resend OTP";
+                }
+            })
+            .catch(err => {
+                showToast("Error sending request. Please try again.", false);
+                resendBtn.disabled = false;
+                resendBtn.innerText = "Resend OTP";
+            });
+        });
+
+        function showToast(msg, isSuccess) {
+            toast.innerText = msg;
+            toast.className = "message-toast " + (isSuccess ? "success" : "error-toast");
+            toast.style.display = "block";
+            setTimeout(() => {
+                toast.style.display = "none";
+            }, 5000);
+        }
+    });
+</script>
+
+</body>
+</html>
