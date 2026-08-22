@@ -1,11 +1,13 @@
-import random
-import time
+import secrets
+from datetime import timedelta
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
+from django.utils import timezone
+from .models import OTPVerification
 
 
 def is_distributor(user):
@@ -177,20 +179,46 @@ def forgot_password(request):
                    User.objects.filter(username__iexact=email_or_username).first()
 
             if user:
-                otp = f"{random.randint(100000, 999999)}"
-                request.session['reset_user_id'] = user.id
-                request.session['reset_email'] = user.email or email_or_username
-                request.session['reset_otp'] = otp
-                request.session['otp_created_at'] = time.time()
-                request.session['otp_verified'] = False
+                target_email = user.email if user.email else email_or_username
 
-                recipient_email = user.email if user.email else email_or_username
+                # Invalidate prior active OTPs for same email & purpose
+                OTPVerification.objects.filter(
+                    email=target_email,
+                    purpose="forgot_password",
+                    is_verified=False
+                ).update(is_verified=True)
+
+                # Secure 6-digit OTP generation using secrets
+                otp_code = f"{secrets.randbelow(1000000):06d}"
+                expires_at = timezone.now() + timedelta(minutes=5)
+
+                # Save OTP in database
+                OTPVerification.objects.create(
+                    user=user,
+                    email=target_email,
+                    otp_code=otp_code,
+                    purpose="forgot_password",
+                    expires_at=expires_at,
+                    is_verified=False,
+                    attempts=0
+                )
+
+                # Store minimal session metadata for tracking reset flow
+                request.session["reset_user_id"] = user.id
+                request.session["reset_email"] = target_email
+                request.session["password_reset_verified"] = False
+
+                # Send Email
                 try:
                     send_mail(
                         subject="Password Reset OTP - Advance Billing System",
-                        message=f"Hello,\n\nYour OTP to reset your password is: {otp}\n\nThis OTP is valid for 10 minutes.\nIf you did not request this, please ignore this email.",
+                        message=(
+                            f"Your OTP is: {otp_code}\n\n"
+                            f"This OTP is valid for 5 minutes.\n\n"
+                            f"Do not share this OTP with anyone."
+                        ),
                         from_email=None,
-                        recipient_list=[recipient_email],
+                        recipient_list=[target_email],
                         fail_silently=False,
                     )
                 except Exception as e:
@@ -212,26 +240,44 @@ def forgot_password(request):
 # =========================
 
 def verify_otp(request):
-    if not request.session.get('reset_user_id') or not request.session.get('reset_otp'):
+    target_email = request.session.get("reset_email")
+    if not target_email or not request.session.get("reset_user_id"):
         return redirect("forgot_password")
 
     error = None
-    email = request.session.get('reset_email', '')
 
     if request.method == "POST":
         user_otp = request.POST.get("otp", "").strip()
 
-        stored_otp = request.session.get('reset_otp')
-        created_at = request.session.get('otp_created_at', 0)
+        # Find latest active OTP record from DB
+        otp_record = OTPVerification.objects.filter(
+            email=target_email,
+            purpose="forgot_password",
+            is_verified=False
+        ).order_by("-created_at").first()
 
-        if not user_otp:
-            error = "Please enter the 6-digit OTP."
-        elif time.time() - created_at > 600:
-            error = "OTP has expired. Please click 'Resend OTP' to get a new code."
-        elif user_otp != stored_otp:
-            error = "Invalid OTP. Please check and try again."
+        if not otp_record:
+            error = "No active OTP found. Please request a new OTP."
+        elif timezone.now() > otp_record.expires_at:
+            error = "OTP has expired. Please request a new OTP."
+        elif otp_record.attempts >= 5:
+            error = "Too many incorrect attempts. Please request a new OTP."
+        elif otp_record.otp_code != user_otp:
+            otp_record.attempts += 1
+            otp_record.save()
+            if otp_record.attempts >= 5:
+                error = "Too many incorrect attempts. Please request a new OTP."
+            else:
+                error = f"Invalid OTP. You have {5 - otp_record.attempts} attempts remaining."
         else:
-            request.session['otp_verified'] = True
+            # Mark OTP as verified in database
+            otp_record.is_verified = True
+            otp_record.save()
+
+            # Store verification state in Django session
+            request.session["password_reset_verified"] = True
+            request.session["password_reset_email"] = target_email
+
             return redirect("reset_password")
 
     return render(
@@ -239,7 +285,7 @@ def verify_otp(request):
         "accounts/verify_otp.html",
         {
             "error": error,
-            "email": email,
+            "email": target_email,
         }
     )
 
@@ -249,34 +295,73 @@ def verify_otp(request):
 # =========================
 
 def resend_otp(request):
-    user_id = request.session.get('reset_user_id')
-    if not user_id:
+    target_email = request.session.get("reset_email")
+    user_id = request.session.get("reset_user_id")
+
+    if not target_email or not user_id:
         return JsonResponse({"success": False, "message": "Session expired. Please restart the process."}, status=400)
+
+    # 60-second rate limiting cooldown check
+    latest_otp = OTPVerification.objects.filter(
+        email=target_email,
+        purpose="forgot_password"
+    ).order_by("-created_at").first()
+
+    if latest_otp:
+        elapsed = (timezone.now() - latest_otp.created_at).total_seconds()
+        if elapsed < 60:
+            remaining = int(60 - elapsed)
+            return JsonResponse({
+                "success": False,
+                "message": f"Please wait {remaining} seconds before requesting a new OTP."
+            }, status=429)
 
     try:
         user = User.objects.get(id=user_id)
-        otp = f"{random.randint(100000, 999999)}"
-        request.session['reset_otp'] = otp
-        request.session['otp_created_at'] = time.time()
 
-        recipient_email = user.email if user.email else request.session.get('reset_email', '')
-        if recipient_email:
-            try:
-                send_mail(
-                    subject="Password Reset OTP (Resent) - Advance Billing System",
-                    message=f"Hello,\n\nYour new OTP to reset your password is: {otp}\n\nThis OTP is valid for 10 minutes.",
-                    from_email=None,
-                    recipient_list=[recipient_email],
-                    fail_silently=False,
-                )
-            except Exception as e:
-                print(f"Error resending OTP email: {e}")
+        # Invalidate previous unverified OTPs
+        OTPVerification.objects.filter(
+            email=target_email,
+            purpose="forgot_password",
+            is_verified=False
+        ).update(is_verified=True)
+
+        # Generate new 6-digit numeric OTP
+        otp_code = f"{secrets.randbelow(1000000):06d}"
+        expires_at = timezone.now() + timedelta(minutes=5)
+
+        # Create new DB record
+        OTPVerification.objects.create(
+            user=user,
+            email=target_email,
+            otp_code=otp_code,
+            purpose="forgot_password",
+            expires_at=expires_at,
+            is_verified=False,
+            attempts=0
+        )
+
+        # Send email
+        try:
+            send_mail(
+                subject="Password Reset OTP (Resent) - Advance Billing System",
+                message=(
+                    f"Your OTP is: {otp_code}\n\n"
+                    f"This OTP is valid for 5 minutes.\n\n"
+                    f"Do not share this OTP with anyone."
+                ),
+                from_email=None,
+                recipient_list=[target_email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            print(f"Error resending OTP email: {e}")
 
         return JsonResponse({"success": True, "message": "OTP sent successfully."})
     except User.DoesNotExist:
         return JsonResponse({"success": False, "message": "User not found."}, status=404)
     except Exception as e:
-        return JsonResponse({"success": True, "message": "OTP regenerated successfully."})
+        return JsonResponse({"success": False, "message": "Something went wrong. Please try again."}, status=500)
 
 
 # =========================
@@ -284,8 +369,11 @@ def resend_otp(request):
 # =========================
 
 def reset_password(request):
-    user_id = request.session.get('reset_user_id')
-    if not user_id or not request.session.get('otp_verified'):
+    user_id = request.session.get("reset_user_id")
+    is_verified = request.session.get("password_reset_verified")
+
+    # Security Check: Require successful OTP verification
+    if not user_id or not is_verified:
         return redirect("forgot_password")
 
     error = None
@@ -307,8 +395,15 @@ def reset_password(request):
                 user.set_password(new_password)
                 user.save()
 
+                # Invalidate any remaining active OTP records in DB
+                OTPVerification.objects.filter(
+                    email=user.email,
+                    purpose="forgot_password",
+                    is_verified=False
+                ).update(is_verified=True)
+
                 # Clear reset session variables
-                for key in ['reset_user_id', 'reset_email', 'reset_otp', 'otp_created_at', 'otp_verified']:
+                for key in ["reset_user_id", "reset_email", "password_reset_verified", "password_reset_email"]:
                     if key in request.session:
                         del request.session[key]
 
@@ -323,4 +418,5 @@ def reset_password(request):
             "error": error,
             "success": success
         }
-    )
+    )
+
