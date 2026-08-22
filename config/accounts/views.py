@@ -2,12 +2,13 @@ import secrets
 from datetime import timedelta
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from django.core.mail import send_mail
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.utils import timezone
-from .models import OTPVerification
+from .models import OTPVerification, DistributorProfile
+from .forms import DistributorRegistrationForm
 
 
 def is_distributor(user):
@@ -118,6 +119,76 @@ def distributor_login(request):
             "error": error
         }
     )
+
+
+# =========================
+# DISTRIBUTOR REGISTRATION
+# =========================
+
+def distributor_register(request):
+    if request.user.is_authenticated:
+        if is_distributor(request.user):
+            return redirect("distributor_dashboard")
+
+    error = None
+    success = None
+    form = DistributorRegistrationForm()
+
+    if request.method == "POST":
+        form = DistributorRegistrationForm(request.POST)
+        if form.is_valid():
+            full_name = form.cleaned_data.get("full_name", "").strip()
+            email = form.cleaned_data.get("email", "").strip()
+            phone = form.cleaned_data.get("phone", "").strip()
+            password = form.cleaned_data.get("password", "")
+
+            try:
+                name_parts = full_name.split(" ", 1)
+                first_name = name_parts[0]
+                last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+                user = User.objects.create_user(
+                    username=email,
+                    email=email,
+                    password=password,
+                    first_name=first_name,
+                    last_name=last_name
+                )
+
+                distributor_group, _ = Group.objects.get_or_create(name="Distributor")
+                user.groups.add(distributor_group)
+
+                # Save profile details in DistributorProfile model
+                DistributorProfile.objects.create(
+                    user=user,
+                    full_name=full_name,
+                    email=email,
+                    phone=phone
+                )
+
+                success = "Account created successfully! You can now login with your credentials."
+                return render(
+                    request,
+                    "accounts/distributor_register.html",
+                    {"success": success, "form": DistributorRegistrationForm()}
+                )
+            except Exception as e:
+                error = f"Error creating account: {str(e)}"
+        else:
+            for field, errors in form.errors.items():
+                error = errors[0]
+                break
+
+    return render(
+        request,
+        "accounts/distributor_register.html",
+        {
+            "error": error,
+            "success": success,
+            "form": form
+        }
+    )
+
 
 
 # =========================
