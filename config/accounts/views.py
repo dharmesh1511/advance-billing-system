@@ -224,6 +224,29 @@ def distributor_dashboard(request):
 
 
 # =========================
+# DISTRIBUTOR PROFILE
+# =========================
+
+@login_required(login_url="/distributor/login/")
+def distributor_profile(request):
+
+    if not is_distributor(request.user):
+        return redirect("distributor_login")
+
+    profile = getattr(request.user, "distributor_profile", None)
+    if not profile:
+        profile = DistributorProfile.objects.filter(user=request.user).first()
+
+    return render(
+        request,
+        "dashboard/distributor_profile.html",
+        {
+            "profile": profile
+        }
+    )
+
+
+# =========================
 # LOGOUT
 # =========================
 

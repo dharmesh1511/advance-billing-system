@@ -7,6 +7,7 @@ urlpatterns = [
     path("distributor/register/", views.distributor_register, name="distributor_register"),
     path("admin/dashboard/", views.admin_dashboard, name="admin_dashboard"),
     path("distributor/dashboard/", views.distributor_dashboard, name="distributor_dashboard"),
+    path("distributor/profile/", views.distributor_profile, name="distributor_profile"),
     path("logout/", views.logout_view, name="logout"),
     path("forgot-password/", views.forgot_password, name="forgot_password"),
     path("verify-otp/", views.verify_otp, name="verify_otp"),
