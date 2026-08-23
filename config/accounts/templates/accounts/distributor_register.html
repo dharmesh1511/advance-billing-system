@@ -87,6 +87,7 @@
             width: 18px;
             height: 18px;
             pointer-events: none;
+            transition: color 0.2s ease;
         }
 
         input {
@@ -96,7 +97,7 @@
             border-radius: 10px;
             font-size: 15px;
             outline: none;
-            transition: all 0.2s ease;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
             color: #111827;
             background: #ffffff;
         }
@@ -108,6 +109,55 @@
         input:focus {
             border-color: #16a34a;
             box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.12);
+        }
+
+        input.is-invalid {
+            border-color: #ef4444;
+            background-color: #fef2f2;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+        }
+
+        input.is-invalid:focus {
+            border-color: #dc2626;
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
+        }
+
+        input.is-valid {
+            border-color: #16a34a;
+            background-color: #f0fdf4;
+            box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.12);
+        }
+
+        .field-message {
+            margin-top: 6px;
+            font-size: 13px;
+            line-height: 1.4;
+            word-break: break-word;
+            min-height: 0;
+            display: none;
+        }
+
+        .field-message.visible {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+        }
+
+        .field-message.error-text {
+            color: #dc2626;
+            font-weight: 500;
+        }
+
+        .field-message.success-text {
+            color: #16a34a;
+            font-weight: 500;
+        }
+
+        .field-message svg {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+            margin-top: 1px;
         }
 
         .toggle-password {
@@ -212,20 +262,20 @@
     </p>
 
     {% if error %}
-        <div class="error" id="server-error">
+        <div class="error" id="server-error" role="alert">
             {{ error }}
         </div>
     {% endif %}
 
     {% if success %}
-        <div class="success">
+        <div class="success" role="status">
             {{ success }}
         </div>
     {% endif %}
 
-    <div class="error" id="client-error" style="display: none;"></div>
+    <div class="error" id="client-error" style="display: none;" role="alert"></div>
 
-    <form method="POST" action="{% url 'distributor_register' %}" id="register-form">
+    <form method="POST" action="{% url 'distributor_register' %}" id="register-form" novalidate>
         {% csrf_token %}
 
         <!-- Full Name -->
@@ -242,8 +292,10 @@
                     placeholder="Enter your full name"
                     required
                     autofocus
+                    aria-describedby="full_name_msg"
                 >
             </div>
+            <div class="field-message" id="full_name_msg" role="alert" aria-live="polite"></div>
         </div>
 
         <!-- Email Address -->
@@ -259,8 +311,10 @@
                     name="email"
                     placeholder="Enter your email address"
                     required
+                    aria-describedby="email_msg"
                 >
             </div>
+            <div class="field-message" id="email_msg" role="alert" aria-live="polite"></div>
         </div>
 
         <!-- Phone Number -->
@@ -276,8 +330,10 @@
                     name="phone"
                     placeholder="Enter your phone number"
                     required
+                    aria-describedby="phone_msg"
                 >
             </div>
+            <div class="field-message" id="phone_msg" role="alert" aria-live="polite"></div>
         </div>
 
         <!-- Password -->
@@ -294,7 +350,7 @@
                     class="has-toggle"
                     placeholder="Enter your password"
                     required
-                    minlength="6"
+                    aria-describedby="password_msg"
                 >
                 <button type="button" class="toggle-password" id="toggle-pwd" title="Toggle password visibility">
                     <svg id="eye-icon-pwd" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -303,6 +359,7 @@
                     </svg>
                 </button>
             </div>
+            <div class="field-message" id="password_msg" role="alert" aria-live="polite"></div>
         </div>
 
         <!-- Confirm Password -->
@@ -319,7 +376,7 @@
                     class="has-toggle"
                     placeholder="Confirm your password"
                     required
-                    minlength="6"
+                    aria-describedby="confirm_password_msg"
                 >
                 <button type="button" class="toggle-password" id="toggle-confirm-pwd" title="Toggle password visibility">
                     <svg id="eye-icon-confirm" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -328,6 +385,7 @@
                     </svg>
                 </button>
             </div>
+            <div class="field-message" id="confirm_password_msg" role="alert" aria-live="polite"></div>
         </div>
 
         <button type="submit" class="submit-btn" id="submit-btn">
@@ -346,43 +404,230 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-        const passwordInput = document.getElementById("password");
-        const confirmPasswordInput = document.getElementById("confirm_password");
-        const togglePwdBtn = document.getElementById("toggle-pwd");
-        const toggleConfirmPwdBtn = document.getElementById("toggle-confirm-pwd");
         const form = document.getElementById("register-form");
         const submitBtn = document.getElementById("submit-btn");
-        const clientError = document.getElementById("client-error");
+
+        const fullNameInput = document.getElementById("full_name");
+        const emailInput = document.getElementById("email");
+        const phoneInput = document.getElementById("phone");
+        const passwordInput = document.getElementById("password");
+        const confirmPasswordInput = document.getElementById("confirm_password");
+
+        const togglePwdBtn = document.getElementById("toggle-pwd");
+        const toggleConfirmPwdBtn = document.getElementById("toggle-confirm-pwd");
 
         const eyeOpenSVG = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>`;
         const eyeSlashSVG = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"></path>`;
 
-        // Password Toggle 1
+        const errorIconSVG = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+        const checkIconSVG = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
+
+        // Track fields that have been interacted with (touched)
+        const touched = {
+            full_name: false,
+            email: false,
+            phone: false,
+            password: false,
+            confirm_password: false
+        };
+
+        // Password Visibility Toggle 1
         togglePwdBtn.addEventListener("click", function () {
             const isPassword = passwordInput.type === "password";
             passwordInput.type = isPassword ? "text" : "password";
             document.getElementById("eye-icon-pwd").innerHTML = isPassword ? eyeSlashSVG : eyeOpenSVG;
         });
 
-        // Password Toggle 2
+        // Password Visibility Toggle 2
         toggleConfirmPwdBtn.addEventListener("click", function () {
             const isPassword = confirmPasswordInput.type === "password";
             confirmPasswordInput.type = isPassword ? "text" : "password";
             document.getElementById("eye-icon-confirm").innerHTML = isPassword ? eyeSlashSVG : eyeOpenSVG;
         });
 
-        // Form Submit Handler
-        form.addEventListener("submit", function (e) {
-            clientError.style.display = "none";
+        // Validation Rules Functions
+        function validateFullName() {
+            const val = fullNameInput.value.trim();
+            if (!val) {
+                return "Please enter a valid full name.";
+            }
+            if (val.length < 2 || val.length > 100) {
+                return "Please enter a valid full name.";
+            }
+            // Do not allow numbers-only input or numeric values
+            if (/^\d+$/.test(val)) {
+                return "Please enter a valid full name.";
+            }
+            // Allow normal letters, spaces, dots, hyphens
+            if (!/^[a-zA-Z\s.'-]+$/.test(val)) {
+                return "Please enter a valid full name.";
+            }
+            return "";
+        }
 
-            if (passwordInput.value !== confirmPasswordInput.value) {
-                e.preventDefault();
-                clientError.innerText = "Passwords do not match. Please verify.";
-                clientError.style.display = "block";
-                return;
+        function validateEmail() {
+            const val = emailInput.value.trim();
+            if (!val) {
+                return "Please enter a valid email address.";
+            }
+            // RFC 5322 compliant simple email format check
+            const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+            if (!emailRegex.test(val)) {
+                return "Please enter a valid email address.";
+            }
+            return "";
+        }
+
+        function validatePhone() {
+            const val = phoneInput.value.trim();
+            if (!val) {
+                return "Please enter a valid 10-digit phone number.";
+            }
+            // Indian 10-digit phone format: starts with 6,7,8,9 and followed by 9 digits
+            const phoneRegex = /^[6-9]\d{9}$/;
+            if (!phoneRegex.test(val)) {
+                return "Please enter a valid 10-digit phone number.";
+            }
+            return "";
+        }
+
+        function validatePassword() {
+            const val = passwordInput.value;
+            if (!val) {
+                return "Password must be at least 8 characters long.";
+            }
+            if (val.length < 8) {
+                return "Password must be at least 8 characters long.";
+            }
+            const hasUpper = /[A-Z]/.test(val);
+            const hasLower = /[a-z]/.test(val);
+            const hasNumber = /[0-9]/.test(val);
+            if (!hasUpper || !hasLower || !hasNumber) {
+                return "Password must contain at least one uppercase letter, one lowercase letter, and one number.";
+            }
+            return "";
+        }
+
+        function validateConfirmPassword() {
+            const val = confirmPasswordInput.value;
+            if (!val) {
+                return "Passwords do not match.";
+            }
+            if (val !== passwordInput.value) {
+                return "Passwords do not match.";
+            }
+            return "";
+        }
+
+        // Helper function to render UI state for a field
+        function renderFieldState(inputElem, msgElem, errorMsg, successMsg) {
+            if (errorMsg) {
+                inputElem.classList.add("is-invalid");
+                inputElem.classList.remove("is-valid");
+                inputElem.setAttribute("aria-invalid", "true");
+
+                msgElem.className = "field-message error-text visible";
+                msgElem.innerHTML = errorIconSVG + `<span>${errorMsg}</span>`;
+            } else {
+                inputElem.classList.remove("is-invalid");
+                inputElem.classList.add("is-valid");
+                inputElem.setAttribute("aria-invalid", "false");
+
+                if (successMsg) {
+                    msgElem.className = "field-message success-text visible";
+                    msgElem.innerHTML = checkIconSVG + `<span>${successMsg}</span>`;
+                } else {
+                    msgElem.className = "field-message";
+                    msgElem.innerHTML = "";
+                }
+            }
+        }
+
+        // Field Validation Runner
+        function checkField(fieldName, isBlurEvent = false) {
+            if (!touched[fieldName] && !isBlurEvent) {
+                return true;
             }
 
-            // Disable submit button and change text to prevent double submission
+            let error = "";
+            let success = "";
+
+            if (fieldName === "full_name") {
+                error = validateFullName();
+                renderFieldState(fullNameInput, document.getElementById("full_name_msg"), error, "");
+            } else if (fieldName === "email") {
+                error = validateEmail();
+                renderFieldState(emailInput, document.getElementById("email_msg"), error, "");
+            } else if (fieldName === "phone") {
+                error = validatePhone();
+                renderFieldState(phoneInput, document.getElementById("phone_msg"), error, "");
+            } else if (fieldName === "password") {
+                error = validatePassword();
+                renderFieldState(passwordInput, document.getElementById("password_msg"), error, "");
+                // Re-check confirm password if confirm password has already been touched
+                if (touched["confirm_password"]) {
+                    checkField("confirm_password");
+                }
+            } else if (fieldName === "confirm_password") {
+                error = validateConfirmPassword();
+                if (!error && passwordInput.value.length >= 8) {
+                    success = "Passwords match.";
+                }
+                renderFieldState(confirmPasswordInput, document.getElementById("confirm_password_msg"), error, success);
+            }
+
+            return error === "";
+        }
+
+        // Event Listeners for Real-Time Validation
+        const fields = [
+            { id: "full_name", elem: fullNameInput },
+            { id: "email", elem: emailInput },
+            { id: "phone", elem: phoneInput },
+            { id: "password", elem: passwordInput },
+            { id: "confirm_password", elem: confirmPasswordInput }
+        ];
+
+        fields.forEach(field => {
+            field.elem.addEventListener("blur", function () {
+                touched[field.id] = true;
+                checkField(field.id, true);
+            });
+
+            field.elem.addEventListener("input", function () {
+                if (touched[field.id]) {
+                    checkField(field.id);
+                }
+            });
+        });
+
+        // Form Submit Handler
+        form.addEventListener("submit", function (e) {
+            // Mark all fields as touched
+            fields.forEach(field => {
+                touched[field.id] = true;
+            });
+
+            let firstInvalidElem = null;
+            let allValid = true;
+
+            fields.forEach(field => {
+                const isValid = checkField(field.id, true);
+                if (!isValid && allValid) {
+                    allValid = false;
+                    firstInvalidElem = field.elem;
+                }
+            });
+
+            if (!allValid) {
+                e.preventDefault();
+                if (firstInvalidElem) {
+                    firstInvalidElem.focus();
+                }
+                return false;
+            }
+
+            // All frontend validation passed, disable submit button to prevent double-submission
             submitBtn.disabled = true;
             submitBtn.innerText = "Creating Account...";
         });
@@ -391,3 +636,4 @@
 
 </body>
 </html>
+
