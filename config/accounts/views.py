@@ -1,9 +1,11 @@
 import secrets
 from datetime import timedelta
+from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User, Group
 from django.core.mail import send_mail
+from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.utils import timezone
@@ -131,7 +133,6 @@ def distributor_register(request):
             return redirect("distributor_dashboard")
 
     error = None
-    success = None
     form = DistributorRegistrationForm()
 
     if request.method == "POST":
@@ -143,37 +144,37 @@ def distributor_register(request):
             password = form.cleaned_data.get("password", "")
 
             try:
-                name_parts = full_name.split(" ", 1)
-                first_name = name_parts[0]
-                last_name = name_parts[1] if len(name_parts) > 1 else ""
+                with transaction.atomic():
+                    name_parts = full_name.split(" ", 1)
+                    first_name = name_parts[0]
+                    last_name = name_parts[1] if len(name_parts) > 1 else ""
 
-                user = User.objects.create_user(
-                    username=email,
-                    email=email,
-                    password=password,
-                    first_name=first_name,
-                    last_name=last_name
-                )
+                    user = User.objects.create_user(
+                        username=email,
+                        email=email,
+                        password=password,
+                        first_name=first_name,
+                        last_name=last_name
+                    )
 
-                distributor_group, _ = Group.objects.get_or_create(name="Distributor")
-                user.groups.add(distributor_group)
+                    distributor_group, _ = Group.objects.get_or_create(name="Distributor")
+                    user.groups.add(distributor_group)
 
-                # Save profile details in DistributorProfile model
-                DistributorProfile.objects.create(
-                    user=user,
-                    full_name=full_name,
-                    email=email,
-                    phone=phone
-                )
+                    # Save profile details in DistributorProfile model
+                    DistributorProfile.objects.create(
+                        user=user,
+                        full_name=full_name,
+                        email=email,
+                        phone=phone
+                    )
 
-                success = "Account created successfully! You can now login with your credentials."
-                return render(
+                messages.success(
                     request,
-                    "accounts/distributor_register.html",
-                    {"success": success, "form": DistributorRegistrationForm()}
+                    "Distributor account created successfully. Please login."
                 )
+                return redirect("distributor_login")
             except Exception as e:
-                error = f"Error creating account: {str(e)}"
+                error = "Unable to create your account right now. Please try again."
         else:
             for field, errors in form.errors.items():
                 error = errors[0]
@@ -184,7 +185,6 @@ def distributor_register(request):
         "accounts/distributor_register.html",
         {
             "error": error,
-            "success": success,
             "form": form
         }
     )

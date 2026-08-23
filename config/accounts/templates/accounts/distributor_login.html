@@ -105,6 +105,17 @@
             text-align: center;
         }
 
+        .success {
+            background: #dcfce7;
+            color: #15803d;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
         .switch {
             text-align: center;
             margin-top: 25px;
@@ -131,8 +142,16 @@
         Advance Billing System
     </p>
 
+    {% if messages %}
+        {% for message in messages %}
+            <div class="success" role="status">
+                ✓ {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
     {% if error %}
-        <div class="error">
+        <div class="error" role="alert">
             {{ error }}
         </div>
     {% endif %}
