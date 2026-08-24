@@ -10,7 +10,7 @@ from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from .models import OTPVerification, DistributorProfile
-from .forms import DistributorRegistrationForm
+from .forms import DistributorRegistrationForm, DistributorProfileUpdateForm
 
 
 def is_distributor(user):
@@ -244,6 +244,79 @@ def distributor_profile(request):
             "profile": profile
         }
     )
+
+
+# =========================
+# EDIT DISTRIBUTOR PROFILE
+# =========================
+
+@login_required(login_url="/distributor/login/")
+def edit_distributor_profile(request):
+
+    if not is_distributor(request.user):
+        return redirect("distributor_login")
+
+    profile = getattr(request.user, "distributor_profile", None)
+    if not profile:
+        profile = DistributorProfile.objects.filter(user=request.user).first()
+
+    if not profile:
+        profile = DistributorProfile.objects.create(
+            user=request.user,
+            full_name=request.user.get_full_name() or request.user.username,
+            email=request.user.email or request.user.username,
+            phone=""
+        )
+
+    error = None
+
+    if request.method == "POST":
+        form = DistributorProfileUpdateForm(request.POST, user=request.user)
+        if form.is_valid():
+            cleaned_name = form.cleaned_data["full_name"]
+            cleaned_email = form.cleaned_data["email"]
+            cleaned_phone = form.cleaned_data["phone"]
+
+            try:
+                with transaction.atomic():
+                    profile.full_name = cleaned_name
+                    profile.email = cleaned_email
+                    profile.phone = cleaned_phone
+                    profile.save()
+
+                    name_parts = cleaned_name.split(" ", 1)
+                    first_name = name_parts[0]
+                    last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+                    user = request.user
+                    user.first_name = first_name
+                    user.last_name = last_name
+                    user.email = cleaned_email
+                    user.username = cleaned_email
+                    user.save()
+
+                messages.success(request, "Profile updated successfully.")
+                return redirect("distributor_profile")
+            except Exception as e:
+                error = "Unable to update your profile right now. Please try again."
+    else:
+        initial_data = {
+            "full_name": profile.full_name,
+            "email": profile.email,
+            "phone": profile.phone,
+        }
+        form = DistributorProfileUpdateForm(initial=initial_data, user=request.user)
+
+    return render(
+        request,
+        "dashboard/edit_distributor_profile.html",
+        {
+            "form": form,
+            "profile": profile,
+            "error": error
+        }
+    )
+
 
 
 # =========================

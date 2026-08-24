@@ -464,6 +464,16 @@
 
         <main class="content-body">
             
+            {% if messages %}
+                <div class="alert-messages">
+                    {% for message in messages %}
+                        <div class="alert-success" role="status" style="background-color: #dcfce7; border: 1px solid #86efac; color: #15803d; padding: 14px 18px; border-radius: 10px; font-size: 15px; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+                            ✓ {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
             <!-- Hero Profile Card -->
             <div class="profile-hero-card">
                 <div class="profile-avatar-wrapper">
@@ -580,12 +590,12 @@
 
             <!-- Action Card -->
             <div class="actions-card">
-                <button type="button" class="edit-profile-btn" onclick="alert('Profile editing functionality is coming soon.');">
+                <a href="{% url 'edit_distributor_profile' %}" class="edit-profile-btn">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                     </svg>
                     <span>Edit Profile</span>
-                </button>
+                </a>
             </div>
 
         </main>
