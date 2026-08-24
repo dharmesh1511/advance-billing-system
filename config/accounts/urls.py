@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from billing import views as billing_views
 
 urlpatterns = [
     path("admin/login/", views.admin_login, name="admin_login"),
@@ -10,6 +11,7 @@ urlpatterns = [
     path("distributor/profile/", views.distributor_profile, name="distributor_profile"),
     path("distributor/profile/edit/", views.edit_distributor_profile, name="edit_distributor_profile"),
     path("distributor/profile/update/", views.edit_distributor_profile, name="distributor_profile_edit"),
+    path("distributor/customers/add/", billing_views.add_customer, name="add_customer"),
     path("logout/", views.logout_view, name="logout"),
     path("forgot-password/", views.forgot_password, name="forgot_password"),
     path("verify-otp/", views.verify_otp, name="verify_otp"),
