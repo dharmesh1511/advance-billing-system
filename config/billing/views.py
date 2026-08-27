@@ -3,8 +3,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
 from django.core.paginator import Paginator
-from .forms import CustomerForm
-from .models import Customer
+from .forms import CustomerForm, ProductForm
+from .models import Customer, Product
+
 
 
 def is_distributor(user):
@@ -129,6 +130,39 @@ def delete_customer(request, pk):
         return redirect("customer_list")
 
     return redirect("customer_list")
+
+
+@login_required(login_url="/distributor/login/")
+def add_product(request):
+    if not is_distributor(request.user):
+        return redirect("distributor_login")
+
+    error = None
+
+    if request.method == "POST":
+        form = ProductForm(request.POST)
+        if form.is_valid():
+            try:
+                product = form.save(commit=False)
+                product.distributor = request.user
+                product.save()
+
+                messages.success(request, "Product added successfully.")
+                return redirect("distributor_dashboard")
+            except Exception as e:
+                error = "Unable to add product right now. Please try again."
+    else:
+        form = ProductForm()
+
+    return render(
+        request,
+        "billing/add_product.html",
+        {
+            "form": form,
+            "error": error
+        }
+    )
+
 
 
 

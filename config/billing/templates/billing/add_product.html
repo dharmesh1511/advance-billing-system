@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add New Customer | Advance Billing System</title>
+    <title>Add New Product | Advance Billing System</title>
     <style>
         * {
             box-sizing: border-box;
@@ -420,14 +420,14 @@
                 <span>Customers</span>
             </a>
 
-            <a href="{% url 'add_customer' %}" class="nav-item active">
+            <a href="{% url 'add_customer' %}" class="nav-item">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
                 </svg>
                 <span>Add Customer</span>
             </a>
 
-            <a href="{% url 'product_add' %}" class="nav-item">
+            <a href="{% url 'product_add' %}" class="nav-item active">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                 </svg>
@@ -456,8 +456,8 @@
     <div class="main-wrapper">
         <header class="top-header">
             <div class="header-title">
-                <h1>Add New Customer</h1>
-                <p>Enter customer details to create a new customer record.</p>
+                <h1>Add New Product</h1>
+                <p>Add product details for billing and inventory management.</p>
             </div>
 
             <a href="{% url 'distributor_profile' %}" class="user-profile-badge">
@@ -475,9 +475,9 @@
             <div class="form-card">
                 <div class="form-card-header">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                     </svg>
-                    <h2 class="form-card-title">Customer Information</h2>
+                    <h2 class="form-card-title">Product Details</h2>
                 </div>
 
                 {% if error %}
@@ -486,21 +486,21 @@
                     </div>
                 {% endif %}
 
-                <form method="POST" action="{% url 'add_customer' %}" id="add-customer-form" novalidate>
+                <form method="POST" action="{% url 'product_add' %}" id="add-product-form" novalidate>
                     {% csrf_token %}
 
                     <div class="form-grid">
-                        <!-- Full Name -->
+                        <!-- Product Name -->
                         <div class="form-group">
                             <label for="id_name" class="form-label">
-                                Full Name <span class="required-star">*</span>
+                                Product Name <span class="required-star">*</span>
                             </label>
                             <input
                                 type="text"
                                 name="name"
                                 id="id_name"
                                 class="form-input {% if form.name.errors %}is-invalid{% endif %}"
-                                placeholder="Enter customer full name"
+                                placeholder="Enter product name"
                                 value="{{ form.name.value|default:'' }}"
                                 aria-invalid="{% if form.name.errors %}true{% else %}false{% endif %}"
                                 {% if form.name.errors %}aria-describedby="name-error"{% endif %}
@@ -512,133 +512,140 @@
                             {% endif %}
                         </div>
 
-                        <!-- Email Address -->
+                        <!-- Category -->
                         <div class="form-group">
-                            <label for="id_email" class="form-label">
-                                Email Address
-                            </label>
-                            <input
-                                type="email"
-                                name="email"
-                                id="id_email"
-                                class="form-input {% if form.email.errors %}is-invalid{% endif %}"
-                                placeholder="Enter email address (optional)"
-                                value="{{ form.email.value|default:'' }}"
-                                aria-invalid="{% if form.email.errors %}true{% else %}false{% endif %}"
-                                {% if form.email.errors %}aria-describedby="email-error"{% endif %}
-                            >
-                            {% if form.email.errors %}
-                                <div id="email-error" class="field-error" role="alert">
-                                    ✕ {{ form.email.errors.0 }}
-                                </div>
-                            {% endif %}
-                        </div>
-
-                        <!-- Phone Number -->
-                        <div class="form-group">
-                            <label for="id_phone" class="form-label">
-                                Phone Number <span class="required-star">*</span>
+                            <label for="id_category" class="form-label">
+                                Category
                             </label>
                             <input
                                 type="text"
-                                name="phone"
-                                id="id_phone"
-                                class="form-input {% if form.phone.errors %}is-invalid{% endif %}"
-                                placeholder="Enter 10-digit phone number"
-                                value="{{ form.phone.value|default:'' }}"
-                                aria-invalid="{% if form.phone.errors %}true{% else %}false{% endif %}"
-                                {% if form.phone.errors %}aria-describedby="phone-error"{% endif %}
+                                name="category"
+                                id="id_category"
+                                class="form-input {% if form.category.errors %}is-invalid{% endif %}"
+                                placeholder="Enter category (e.g. Electronics)"
+                                value="{{ form.category.value|default:'' }}"
+                                aria-invalid="{% if form.category.errors %}true{% else %}false{% endif %}"
+                                {% if form.category.errors %}aria-describedby="category-error"{% endif %}
                             >
-                            {% if form.phone.errors %}
-                                <div id="phone-error" class="field-error" role="alert">
-                                    ✕ {{ form.phone.errors.0 }}
+                            {% if form.category.errors %}
+                                <div id="category-error" class="field-error" role="alert">
+                                    ✕ {{ form.category.errors.0 }}
                                 </div>
                             {% endif %}
                         </div>
 
-                        <!-- Pincode -->
+                        <!-- SKU -->
                         <div class="form-group">
-                            <label for="id_pincode" class="form-label">
-                                Pincode
+                            <label for="id_sku" class="form-label">
+                                SKU / Product Code
                             </label>
                             <input
                                 type="text"
-                                name="pincode"
-                                id="id_pincode"
-                                class="form-input {% if form.pincode.errors %}is-invalid{% endif %}"
-                                placeholder="Enter 6-digit pincode (optional)"
-                                value="{{ form.pincode.value|default:'' }}"
-                                aria-invalid="{% if form.pincode.errors %}true{% else %}false{% endif %}"
-                                {% if form.pincode.errors %}aria-describedby="pincode-error"{% endif %}
+                                name="sku"
+                                id="id_sku"
+                                class="form-input {% if form.sku.errors %}is-invalid{% endif %}"
+                                placeholder="Enter SKU (e.g. WM-001)"
+                                value="{{ form.sku.value|default:'' }}"
+                                aria-invalid="{% if form.sku.errors %}true{% else %}false{% endif %}"
+                                {% if form.sku.errors %}aria-describedby="sku-error"{% endif %}
                             >
-                            {% if form.pincode.errors %}
-                                <div id="pincode-error" class="field-error" role="alert">
-                                    ✕ {{ form.pincode.errors.0 }}
+                            {% if form.sku.errors %}
+                                <div id="sku-error" class="field-error" role="alert">
+                                    ✕ {{ form.sku.errors.0 }}
                                 </div>
                             {% endif %}
                         </div>
 
-                        <!-- Address -->
+                        <!-- Price -->
+                        <div class="form-group">
+                            <label for="id_price" class="form-label">
+                                Price (₹) <span class="required-star">*</span>
+                            </label>
+                            <input
+                                type="number"
+                                name="price"
+                                id="id_price"
+                                step="0.01"
+                                min="0.01"
+                                class="form-input {% if form.price.errors %}is-invalid{% endif %}"
+                                placeholder="Enter price (e.g. 499.00)"
+                                value="{{ form.price.value|default:'' }}"
+                                aria-invalid="{% if form.price.errors %}true{% else %}false{% endif %}"
+                                {% if form.price.errors %}aria-describedby="price-error"{% endif %}
+                            >
+                            {% if form.price.errors %}
+                                <div id="price-error" class="field-error" role="alert">
+                                    ✕ {{ form.price.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Stock -->
+                        <div class="form-group">
+                            <label for="id_stock" class="form-label">
+                                Stock Quantity <span class="required-star">*</span>
+                            </label>
+                            <input
+                                type="number"
+                                name="stock"
+                                id="id_stock"
+                                step="1"
+                                min="0"
+                                class="form-input {% if form.stock.errors %}is-invalid{% endif %}"
+                                placeholder="Enter available stock (e.g. 50)"
+                                value="{{ form.stock.value|default:'' }}"
+                                aria-invalid="{% if form.stock.errors %}true{% else %}false{% endif %}"
+                                {% if form.stock.errors %}aria-describedby="stock-error"{% endif %}
+                            >
+                            {% if form.stock.errors %}
+                                <div id="stock-error" class="field-error" role="alert">
+                                    ✕ {{ form.stock.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- GST Rate -->
+                        <div class="form-group">
+                            <label for="id_gst_rate" class="form-label">
+                                GST Rate (%)
+                            </label>
+                            <input
+                                type="number"
+                                name="gst_rate"
+                                id="id_gst_rate"
+                                step="0.01"
+                                min="0"
+                                max="100"
+                                class="form-input {% if form.gst_rate.errors %}is-invalid{% endif %}"
+                                placeholder="Enter GST % (e.g. 18)"
+                                value="{{ form.gst_rate.value|default:'0' }}"
+                                aria-invalid="{% if form.gst_rate.errors %}true{% else %}false{% endif %}"
+                                {% if form.gst_rate.errors %}aria-describedby="gst-rate-error"{% endif %}
+                            >
+                            {% if form.gst_rate.errors %}
+                                <div id="gst-rate-error" class="field-error" role="alert">
+                                    ✕ {{ form.gst_rate.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Description -->
                         <div class="form-group full-width">
-                            <label for="id_address" class="form-label">
-                                Address
+                            <label for="id_description" class="form-label">
+                                Description
                             </label>
                             <textarea
-                                name="address"
-                                id="id_address"
-                                class="form-textarea {% if form.address.errors %}is-invalid{% endif %}"
-                                placeholder="Enter complete customer address (optional)"
+                                name="description"
+                                id="id_description"
+                                class="form-textarea {% if form.description.errors %}is-invalid{% endif %}"
+                                placeholder="Enter product description (optional)"
                                 rows="3"
-                                aria-invalid="{% if form.address.errors %}true{% else %}false{% endif %}"
-                                {% if form.address.errors %}aria-describedby="address-error"{% endif %}
-                            >{{ form.address.value|default:'' }}</textarea>
-                            {% if form.address.errors %}
-                                <div id="address-error" class="field-error" role="alert">
-                                    ✕ {{ form.address.errors.0 }}
-                                </div>
-                            {% endif %}
-                        </div>
-
-                        <!-- City -->
-                        <div class="form-group">
-                            <label for="id_city" class="form-label">
-                                City
-                            </label>
-                            <input
-                                type="text"
-                                name="city"
-                                id="id_city"
-                                class="form-input {% if form.city.errors %}is-invalid{% endif %}"
-                                placeholder="Enter city (optional)"
-                                value="{{ form.city.value|default:'' }}"
-                                aria-invalid="{% if form.city.errors %}true{% else %}false{% endif %}"
-                                {% if form.city.errors %}aria-describedby="city-error"{% endif %}
-                            >
-                            {% if form.city.errors %}
-                                <div id="city-error" class="field-error" role="alert">
-                                    ✕ {{ form.city.errors.0 }}
-                                </div>
-                            {% endif %}
-                        </div>
-
-                        <!-- State -->
-                        <div class="form-group">
-                            <label for="id_state" class="form-label">
-                                State
-                            </label>
-                            <input
-                                type="text"
-                                name="state"
-                                id="id_state"
-                                class="form-input {% if form.state.errors %}is-invalid{% endif %}"
-                                placeholder="Enter state (optional)"
-                                value="{{ form.state.value|default:'' }}"
-                                aria-invalid="{% if form.state.errors %}true{% else %}false{% endif %}"
-                                {% if form.state.errors %}aria-describedby="state-error"{% endif %}
-                            >
-                            {% if form.state.errors %}
-                                <div id="state-error" class="field-error" role="alert">
-                                    ✕ {{ form.state.errors.0 }}
+                                aria-invalid="{% if form.description.errors %}true{% else %}false{% endif %}"
+                                {% if form.description.errors %}aria-describedby="description-error"{% endif %}
+                            >{{ form.description.value|default:'' }}</textarea>
+                            {% if form.description.errors %}
+                                <div id="description-error" class="field-error" role="alert">
+                                    ✕ {{ form.description.errors.0 }}
                                 </div>
                             {% endif %}
                         </div>
@@ -650,7 +657,7 @@
                             Cancel
                         </a>
                         <button type="submit" id="submit-btn" class="btn-save">
-                            Add Customer
+                            Add Product
                         </button>
                     </div>
                 </form>
@@ -659,11 +666,11 @@
     </div>
 
     <script>
-        document.getElementById('add-customer-form').addEventListener('submit', function () {
+        document.getElementById('add-product-form').addEventListener('submit', function () {
             const submitBtn = document.getElementById('submit-btn');
             if (submitBtn) {
                 submitBtn.disabled = true;
-                submitBtn.innerText = 'Adding Customer...';
+                submitBtn.innerText = 'Adding Product...';
             }
         });
     </script>

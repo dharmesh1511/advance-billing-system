@@ -538,5 +538,130 @@ class ProductModelTests(TestCase):
         self.assertNotIn(product_a, dist2_products)
 
 
+class AddProductViewTests(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.distributor_group = Group.objects.create(name="Distributor")
+
+        self.distributor1 = User.objects.create_user(
+            username="dist1",
+            password="password123"
+        )
+        self.distributor1.groups.add(self.distributor_group)
+
+        self.regular_user = User.objects.create_user(
+            username="regular",
+            password="password123"
+        )
+
+        self.url = reverse("product_add")
+
+    def test_add_product_requires_login(self):
+        """Unauthenticated user should be redirected to distributor login page."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/distributor/login/", response.url)
+
+    def test_add_product_requires_distributor_role(self):
+        """Non-distributor user should be redirected to distributor login page."""
+        self.client.login(username="regular", password="password123")
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("distributor_login"))
+
+    def test_add_product_get_page(self):
+        """Authenticated distributor GET should render Add Product form."""
+        self.client.login(username="dist1", password="password123")
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "billing/add_product.html")
+        self.assertContains(response, "Add New Product")
+
+    def test_add_product_successful_post(self):
+        """Valid POST should create product owned by request.user and redirect to dashboard."""
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "name": "Wireless Mouse",
+            "category": "Electronics",
+            "sku": "WM-001",
+            "price": "599.00",
+            "stock": "50",
+            "gst_rate": "18.00",
+            "description": "USB wireless optical mouse"
+        }
+        response = self.client.post(self.url, payload)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("distributor_dashboard"))
+
+        product = Product.objects.get(name="Wireless Mouse")
+        self.assertEqual(product.distributor, self.distributor1)
+        self.assertEqual(product.category, "Electronics")
+        self.assertEqual(product.sku, "WM-001")
+        self.assertEqual(product.price, Decimal("599.00"))
+        self.assertEqual(product.stock, 50)
+        self.assertEqual(product.gst_rate, Decimal("18.00"))
+        self.assertEqual(product.description, "USB wireless optical mouse")
+
+        dashboard_response = self.client.get(response.url)
+        self.assertContains(dashboard_response, "Product added successfully.")
+
+    def test_add_product_invalid_price(self):
+        """Price <= 0 should fail validation and not save product."""
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "name": "Invalid Price Product",
+            "price": "0.00",
+            "stock": "10",
+            "gst_rate": "18.00"
+        }
+        response = self.client.post(self.url, payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Price must be greater than 0.")
+        self.assertFalse(Product.objects.filter(name="Invalid Price Product").exists())
+
+    def test_add_product_invalid_stock(self):
+        """Negative stock should fail validation and not save product."""
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "name": "Invalid Stock Product",
+            "price": "100.00",
+            "stock": "-5",
+            "gst_rate": "18.00"
+        }
+        response = self.client.post(self.url, payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Stock cannot be negative.")
+        self.assertFalse(Product.objects.filter(name="Invalid Stock Product").exists())
+
+    def test_add_product_invalid_gst(self):
+        """GST rate > 100 or < 0 should fail validation and not save product."""
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "name": "Invalid GST Product",
+            "price": "100.00",
+            "stock": "10",
+            "gst_rate": "150.00"
+        }
+        response = self.client.post(self.url, payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "GST rate must be between 0% and 100%.")
+        self.assertFalse(Product.objects.filter(name="Invalid GST Product").exists())
+
+    def test_add_product_empty_name(self):
+        """Empty or whitespace-only product name should fail validation."""
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "name": "   ",
+            "price": "100.00",
+            "stock": "10",
+            "gst_rate": "18.00"
+        }
+        response = self.client.post(self.url, payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Please enter a valid product name.")
+
+
+
 
 
