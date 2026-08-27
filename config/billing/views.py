@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
@@ -80,4 +80,36 @@ def customer_list(request):
             "filtered_count": filtered_count,
         }
     )
+
+
+@login_required(login_url="/distributor/login/")
+def edit_customer(request, pk):
+    if not is_distributor(request.user):
+        return redirect("distributor_login")
+
+    customer = get_object_or_404(Customer, pk=pk, distributor=request.user)
+    error = None
+
+    if request.method == "POST":
+        form = CustomerForm(request.POST, instance=customer)
+        if form.is_valid():
+            try:
+                form.save()
+                messages.success(request, "Customer updated successfully.")
+                return redirect("customer_list")
+            except Exception as e:
+                error = "Unable to update customer information right now. Please try again."
+    else:
+        form = CustomerForm(instance=customer)
+
+    return render(
+        request,
+        "billing/edit_customer.html",
+        {
+            "form": form,
+            "customer": customer,
+            "error": error
+        }
+    )
+
 

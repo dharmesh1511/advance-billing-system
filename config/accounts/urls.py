@@ -13,6 +13,7 @@ urlpatterns = [
     path("distributor/profile/update/", views.edit_distributor_profile, name="distributor_profile_edit"),
     path("distributor/customers/", billing_views.customer_list, name="customer_list"),
     path("distributor/customers/add/", billing_views.add_customer, name="add_customer"),
+    path("distributor/customers/<int:pk>/edit/", billing_views.edit_customer, name="customer_edit"),
     path("logout/", views.logout_view, name="logout"),
     path("forgot-password/", views.forgot_password, name="forgot_password"),
     path("verify-otp/", views.verify_otp, name="verify_otp"),

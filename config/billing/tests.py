@@ -184,3 +184,112 @@ class CustomerListViewTests(TestCase):
         self.assertEqual(len(response_search_p2.context["page_obj"]), 2) # 12 Bulk customers -> 10 on p1, 2 on p2
         self.assertContains(response_search_p2, "q=Bulk")
 
+
+class CustomerEditViewTests(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.distributor_group = Group.objects.create(name="Distributor")
+
+        self.distributor1 = User.objects.create_user(
+            username="dist1",
+            password="password123"
+        )
+        self.distributor1.groups.add(self.distributor_group)
+
+        self.distributor2 = User.objects.create_user(
+            username="dist2",
+            password="password123"
+        )
+        self.distributor2.groups.add(self.distributor_group)
+
+        self.customer1 = Customer.objects.create(
+            distributor=self.distributor1,
+            name="Original Name",
+            email="original@example.com",
+            phone="9876543210",
+            address="Original Address",
+            city="Ahmedabad",
+            state="Gujarat",
+            pincode="380001"
+        )
+
+        self.customer2 = Customer.objects.create(
+            distributor=self.distributor2,
+            name="Other Customer",
+            phone="9123456789"
+        )
+
+        self.edit_url = reverse("customer_edit", kwargs={"pk": self.customer1.pk})
+
+    def test_edit_customer_requires_login(self):
+        """Unauthenticated GET should redirect to login."""
+        response = self.client.get(self.edit_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/distributor/login/", response.url)
+
+    def test_edit_customer_prefills_form(self):
+        """GET request should load page with pre-filled customer details."""
+        self.client.login(username="dist1", password="password123")
+        response = self.client.get(self.edit_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Original Name")
+        self.assertContains(response, "original@example.com")
+        self.assertContains(response, "9876543210")
+
+    def test_distributor_cannot_edit_other_distributor_customer(self):
+        """Distributor A attempting to access Customer B should get 404 Not Found."""
+        self.client.login(username="dist1", password="password123")
+        other_edit_url = reverse("customer_edit", kwargs={"pk": self.customer2.pk})
+        response = self.client.get(other_edit_url)
+        self.assertEqual(response.status_code, 404)
+
+        # POST attempt
+        post_response = self.client.post(other_edit_url, {"name": "Hacked Name", "phone": "9876543210"})
+        self.assertEqual(post_response.status_code, 404)
+        self.customer2.refresh_from_db()
+        self.assertEqual(self.customer2.name, "Other Customer")
+
+    def test_successful_customer_update(self):
+        """Valid POST should update existing DB record and redirect to customer list."""
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "name": "Updated Name",
+            "email": "updated@example.com",
+            "phone": "9998887776",
+            "address": "Updated Address",
+            "city": "Surat",
+            "state": "Gujarat",
+            "pincode": "395001"
+        }
+        response = self.client.post(self.edit_url, payload)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("customer_list"))
+
+        # Verify DB update
+        self.customer1.refresh_from_db()
+        self.assertEqual(self.customer1.name, "Updated Name")
+        self.assertEqual(self.customer1.email, "updated@example.com")
+        self.assertEqual(self.customer1.phone, "9998887776")
+        self.assertEqual(self.customer1.city, "Surat")
+        self.assertEqual(self.customer1.distributor, self.distributor1)
+
+        # Verify success message on customer list
+        list_response = self.client.get(response.url)
+        self.assertContains(list_response, "Customer updated successfully.")
+
+    def test_invalid_phone_number_validation_error(self):
+        """Invalid phone number should display validation error and not save changes."""
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "name": "Updated Name",
+            "phone": "123"
+        }
+        response = self.client.post(self.edit_url, payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Please enter a valid 10-digit phone number.")
+
+        self.customer1.refresh_from_db()
+        self.assertEqual(self.customer1.name, "Original Name")
+
+
