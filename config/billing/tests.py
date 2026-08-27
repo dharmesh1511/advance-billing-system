@@ -1,7 +1,10 @@
+from decimal import Decimal
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth.models import User, Group
-from billing.models import Customer
+from django.core.exceptions import ValidationError
+from billing.models import Customer, Product
+
 
 
 class CustomerListViewTests(TestCase):
@@ -359,6 +362,181 @@ class CustomerDeleteViewTests(TestCase):
 
         list_response = self.client.get(response.url)
         self.assertContains(list_response, "Customer deleted successfully.")
+
+
+class ProductModelTests(TestCase):
+
+    def setUp(self):
+        self.distributor1 = User.objects.create_user(
+            username="distributor_a",
+            password="password123"
+        )
+        self.distributor2 = User.objects.create_user(
+            username="distributor_b",
+            password="password123"
+        )
+
+    def test_product_creation(self):
+        """Verify product is created and fields are saved correctly."""
+        product = Product.objects.create(
+            distributor=self.distributor1,
+            name="Wireless Mouse",
+            category="Electronics",
+            description="USB wireless mouse",
+            price=Decimal("599.00"),
+            stock=50,
+            gst_rate=Decimal("18.00"),
+            sku="WM-001"
+        )
+        self.assertIsNotNone(product.pk)
+        self.assertEqual(product.name, "Wireless Mouse")
+        self.assertEqual(product.category, "Electronics")
+        self.assertEqual(product.description, "USB wireless mouse")
+        self.assertEqual(product.price, Decimal("599.00"))
+        self.assertEqual(product.stock, 50)
+        self.assertEqual(product.gst_rate, Decimal("18.00"))
+        self.assertEqual(product.sku, "WM-001")
+        self.assertEqual(product.distributor, self.distributor1)
+
+    def test_price_validation(self):
+        """Test valid prices (0, 499.00, 999.99, 125000.00) and negative price failure."""
+        valid_prices = [Decimal("0.00"), Decimal("499.00"), Decimal("999.99"), Decimal("125000.00")]
+        for p in valid_prices:
+            product = Product(
+                distributor=self.distributor1,
+                name=f"Product {p}",
+                price=p,
+                stock=10,
+                gst_rate=Decimal("18.00")
+            )
+            product.full_clean()  # should not raise
+            product.save()
+
+        # Negative price must fail
+        invalid_product = Product(
+            distributor=self.distributor1,
+            name="Invalid Price Product",
+            price=Decimal("-10.00"),
+            stock=10
+        )
+        with self.assertRaises(ValidationError):
+            invalid_product.save()
+
+    def test_stock_validation(self):
+        """Test valid stock values (0, 1, 100, 1000) and negative stock failure."""
+        valid_stocks = [0, 1, 100, 1000]
+        for s in valid_stocks:
+            product = Product(
+                distributor=self.distributor1,
+                name=f"Stock Product {s}",
+                price=Decimal("100.00"),
+                stock=s
+            )
+            product.full_clean()  # should not raise
+            product.save()
+
+        # Negative stock must fail
+        invalid_stock_product = Product(
+            distributor=self.distributor1,
+            name="Negative Stock Product",
+            price=Decimal("100.00"),
+            stock=-5
+        )
+        with self.assertRaises(ValidationError):
+            invalid_stock_product.save()
+
+    def test_gst_rate_validation(self):
+        """Test valid GST rates (0, 5, 12, 18, 28, 100) and invalid rates (<0 or >100)."""
+        valid_rates = [Decimal("0.00"), Decimal("5.00"), Decimal("12.00"), Decimal("18.00"), Decimal("28.00"), Decimal("100.00")]
+        for r in valid_rates:
+            product = Product(
+                distributor=self.distributor1,
+                name=f"GST Product {r}",
+                price=Decimal("100.00"),
+                gst_rate=r
+            )
+            product.full_clean()
+            product.save()
+
+        # Negative GST rate must fail
+        invalid_gst_neg = Product(
+            distributor=self.distributor1,
+            name="Negative GST Product",
+            price=Decimal("100.00"),
+            gst_rate=Decimal("-5.00")
+        )
+        with self.assertRaises(ValidationError):
+            invalid_gst_neg.save()
+
+        # GST rate > 100 must fail
+        invalid_gst_high = Product(
+            distributor=self.distributor1,
+            name="High GST Product",
+            price=Decimal("100.00"),
+            gst_rate=Decimal("105.00")
+        )
+        with self.assertRaises(ValidationError):
+            invalid_gst_high.save()
+
+    def test_name_validation(self):
+        """Empty or whitespace-only name must fail validation."""
+        empty_name_product = Product(
+            distributor=self.distributor1,
+            name="",
+            price=Decimal("100.00")
+        )
+        with self.assertRaises(ValidationError):
+            empty_name_product.save()
+
+        whitespace_name_product = Product(
+            distributor=self.distributor1,
+            name="   ",
+            price=Decimal("100.00")
+        )
+        with self.assertRaises(ValidationError):
+            whitespace_name_product.save()
+
+    def test_timestamps_auto_populated(self):
+        """Verify created_at and updated_at are automatically populated."""
+        product = Product.objects.create(
+            distributor=self.distributor1,
+            name="Timestamp Product",
+            price=Decimal("150.00")
+        )
+        self.assertIsNotNone(product.created_at)
+        self.assertIsNotNone(product.updated_at)
+
+    def test_string_representation(self):
+        """str(product) should return product name."""
+        product = Product(
+            distributor=self.distributor1,
+            name="Office Chair",
+            price=Decimal("2500.00")
+        )
+        self.assertEqual(str(product), "Office Chair")
+
+    def test_distributor_isolation(self):
+        """Distributor A products must not be returned in Distributor B's product queryset."""
+        product_a = Product.objects.create(
+            distributor=self.distributor1,
+            name="Product A",
+            price=Decimal("100.00")
+        )
+        product_b = Product.objects.create(
+            distributor=self.distributor2,
+            name="Product B",
+            price=Decimal("200.00")
+        )
+
+        dist1_products = Product.objects.filter(distributor=self.distributor1)
+        dist2_products = Product.objects.filter(distributor=self.distributor2)
+
+        self.assertIn(product_a, dist1_products)
+        self.assertNotIn(product_b, dist1_products)
+
+        self.assertIn(product_b, dist2_products)
+        self.assertNotIn(product_a, dist2_products)
+
 
 
 
