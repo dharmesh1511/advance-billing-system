@@ -293,3 +293,72 @@ class CustomerEditViewTests(TestCase):
         self.assertEqual(self.customer1.name, "Original Name")
 
 
+class CustomerDeleteViewTests(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.distributor_group = Group.objects.create(name="Distributor")
+
+        self.distributor1 = User.objects.create_user(
+            username="dist1",
+            password="password123"
+        )
+        self.distributor1.groups.add(self.distributor_group)
+
+        self.distributor2 = User.objects.create_user(
+            username="dist2",
+            password="password123"
+        )
+        self.distributor2.groups.add(self.distributor_group)
+
+        self.customer1 = Customer.objects.create(
+            distributor=self.distributor1,
+            name="Customer One",
+            phone="9876543210"
+        )
+
+        self.customer2 = Customer.objects.create(
+            distributor=self.distributor2,
+            name="Customer Two",
+            phone="9123456789"
+        )
+
+        self.delete_url = reverse("customer_delete", kwargs={"pk": self.customer1.pk})
+
+    def test_delete_requires_login(self):
+        """Unauthenticated POST request should redirect to login."""
+        response = self.client.post(self.delete_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/distributor/login/", response.url)
+        self.assertTrue(Customer.objects.filter(pk=self.customer1.pk).exists())
+
+    def test_get_request_rejects_deletion(self):
+        """GET request should not delete customer and redirect to customer list."""
+        self.client.login(username="dist1", password="password123")
+        response = self.client.get(self.delete_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("customer_list"))
+        self.assertTrue(Customer.objects.filter(pk=self.customer1.pk).exists())
+
+    def test_distributor_cannot_delete_other_distributor_customer(self):
+        """Distributor 1 attempting to delete Distributor 2's customer should receive 404."""
+        self.client.login(username="dist1", password="password123")
+        other_delete_url = reverse("customer_delete", kwargs={"pk": self.customer2.pk})
+        response = self.client.post(other_delete_url)
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(Customer.objects.filter(pk=self.customer2.pk).exists())
+
+    def test_successful_customer_deletion(self):
+        """Authenticated POST request should delete customer from database and redirect with success message."""
+        self.client.login(username="dist1", password="password123")
+        response = self.client.post(self.delete_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("customer_list"))
+
+        self.assertFalse(Customer.objects.filter(pk=self.customer1.pk).exists())
+
+        list_response = self.client.get(response.url)
+        self.assertContains(list_response, "Customer deleted successfully.")
+
+
+

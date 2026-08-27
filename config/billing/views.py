@@ -113,3 +113,22 @@ def edit_customer(request, pk):
     )
 
 
+@login_required(login_url="/distributor/login/")
+def delete_customer(request, pk):
+    if not is_distributor(request.user):
+        return redirect("distributor_login")
+
+    customer = get_object_or_404(Customer, pk=pk, distributor=request.user)
+
+    if request.method == "POST":
+        try:
+            customer.delete()
+            messages.success(request, "Customer deleted successfully.")
+        except Exception as e:
+            messages.error(request, "Unable to delete customer right now. Please try again.")
+        return redirect("customer_list")
+
+    return redirect("customer_list")
+
+
+
