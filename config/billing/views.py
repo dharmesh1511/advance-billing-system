@@ -1,7 +1,10 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db.models import Q
+from django.core.paginator import Paginator
 from .forms import CustomerForm
+from .models import Customer
 
 
 def is_distributor(user):
@@ -38,3 +41,43 @@ def add_customer(request):
             "error": error
         }
     )
+
+
+@login_required(login_url="/distributor/login/")
+def customer_list(request):
+    if not is_distributor(request.user):
+        return redirect("distributor_login")
+
+    queryset = Customer.objects.filter(distributor=request.user)
+    total_count = queryset.count()
+
+    query = request.GET.get("q", "").strip()
+
+    if query:
+        queryset = queryset.filter(
+            Q(name__icontains=query) |
+            Q(email__icontains=query) |
+            Q(phone__icontains=query) |
+            Q(address__icontains=query) |
+            Q(city__icontains=query) |
+            Q(state__icontains=query) |
+            Q(pincode__icontains=query)
+        )
+
+    filtered_count = queryset.count()
+
+    paginator = Paginator(queryset, 10)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    return render(
+        request,
+        "billing/customer_list.html",
+        {
+            "page_obj": page_obj,
+            "query": query,
+            "total_count": total_count,
+            "filtered_count": filtered_count,
+        }
+    )
+
