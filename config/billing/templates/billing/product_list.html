@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customers | Advance Billing System</title>
+    <title>Products | Advance Billing System</title>
     <style>
         * {
             box-sizing: border-box;
@@ -154,7 +154,7 @@
             gap: 16px;
         }
 
-        .add-customer-btn {
+        .add-product-btn {
             display: inline-flex;
             align-items: center;
             gap: 8px;
@@ -169,7 +169,7 @@
             box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
         }
 
-        .add-customer-btn:hover {
+        .add-product-btn:hover {
             background-color: #15803d;
         }
 
@@ -322,14 +322,14 @@
             border: 1px solid #e5e7eb;
         }
 
-        .customer-table {
+        .product-table {
             width: 100%;
             border-collapse: collapse;
             text-align: left;
             font-size: 14px;
         }
 
-        .customer-table th {
+        .product-table th {
             background-color: #f9fafb;
             color: #4b5563;
             font-weight: 600;
@@ -338,18 +338,18 @@
             white-space: nowrap;
         }
 
-        .customer-table td {
+        .product-table td {
             padding: 14px 16px;
             border-bottom: 1px solid #f3f4f6;
             color: #1f2937;
             vertical-align: middle;
         }
 
-        .customer-table tbody tr:last-child td {
+        .product-table tbody tr:last-child td {
             border-bottom: none;
         }
 
-        .customer-table tbody tr:hover {
+        .product-table tbody tr:hover {
             background-color: #f9fafb;
         }
 
@@ -361,6 +361,39 @@
         .text-muted {
             color: #9ca3af;
             font-style: italic;
+        }
+
+        .price-text {
+            font-weight: 700;
+            color: #111827;
+        }
+
+        /* Stock badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background-color: #dcfce7;
+            color: #15803d;
+            border: 1px solid #86efac;
+        }
+
+        .badge-warning {
+            background-color: #fef3c7;
+            color: #b45309;
+            border: 1px solid #fde68a;
+        }
+
+        .badge-danger {
+            background-color: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fca5a5;
         }
 
         /* Empty State */
@@ -547,7 +580,7 @@
                 <span>Dashboard</span>
             </a>
 
-            <a href="{% url 'customer_list' %}" class="nav-item active">
+            <a href="{% url 'customer_list' %}" class="nav-item">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
                 </svg>
@@ -561,11 +594,18 @@
                 <span>Add Customer</span>
             </a>
 
-            <a href="{% url 'product_list' %}" class="nav-item">
+            <a href="{% url 'product_list' %}" class="nav-item active">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                 </svg>
                 <span>Products</span>
+            </a>
+
+            <a href="{% url 'add_product' %}" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                <span>Add Product</span>
             </a>
 
             <a href="{% url 'distributor_profile' %}" class="nav-item">
@@ -590,16 +630,16 @@
     <div class="main-wrapper">
         <header class="top-header">
             <div class="header-title">
-                <h1>Customers</h1>
-                <p>Manage and view your customers.</p>
+                <h1>Products</h1>
+                <p>Manage your products, prices, stock and GST details.</p>
             </div>
 
             <div class="header-actions">
-                <a href="{% url 'add_customer' %}" class="add-customer-btn">
+                <a href="{% url 'add_product' %}" class="add-product-btn">
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                     </svg>
-                    <span>+ Add Customer</span>
+                    <span>+ Add Product</span>
                 </a>
 
                 <a href="{% url 'distributor_profile' %}" class="user-profile-badge">
@@ -628,104 +668,75 @@
             <div class="page-card">
                 <!-- Search Controls -->
                 <div class="search-container">
-                    <form method="GET" action="{% url 'customer_list' %}" class="search-form">
+                    <form method="GET" action="{% url 'product_list' %}" class="search-form">
                         <div class="search-input-wrapper">
                             <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                             </svg>
-                            <input type="text" name="q" value="{{ query }}" placeholder="🔍 Search customers..." class="search-input" id="id_search_input" />
+                            <input type="text" name="q" value="{{ query }}" placeholder="🔍 Search products..." class="search-input" id="id_search_input" />
                         </div>
                         <button type="submit" class="search-btn">Search</button>
                         {% if query %}
-                            <a href="{% url 'customer_list' %}" class="clear-search-link">Clear</a>
+                            <a href="{% url 'product_list' %}" class="clear-search-link">Clear</a>
                         {% endif %}
                     </form>
 
                     <div class="results-summary">
                         {% if query %}
-                            {{ filtered_count }} customer{% if filtered_count != 1 %}s{% endif %} found
+                            {{ filtered_count }} product{% if filtered_count != 1 %}s{% endif %} found
                         {% else %}
-                            {{ total_count }} customer{% if total_count != 1 %}s{% endif %}
+                            {{ total_count }} product{% if total_count != 1 %}s{% endif %}
                         {% endif %}
                     </div>
                 </div>
 
-                <!-- Customer Table or Empty States -->
+                <!-- Product Table or Empty States -->
                 {% if page_obj.object_list %}
                     <div class="table-responsive">
-                        <table class="customer-table">
+                        <table class="product-table">
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>Name</th>
-                                    <th>Email</th>
-                                    <th>Phone</th>
-                                    <th>Address</th>
-                                    <th>City</th>
-                                    <th>State</th>
-                                    <th>Pincode</th>
+                                    <th>Product Name</th>
+                                    <th>Category</th>
+                                    <th>SKU</th>
+                                    <th>Price</th>
+                                    <th>Stock</th>
+                                    <th>GST Rate</th>
                                     <th>Created At</th>
-                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for customer in page_obj.object_list %}
+                                {% for product in page_obj.object_list %}
                                     <tr>
                                         <td class="badge-cell">{{ page_obj.start_index|add:forloop.counter0 }}</td>
-                                        <td><strong>{{ customer.name }}</strong></td>
+                                        <td><strong>{{ product.name }}</strong></td>
                                         <td>
-                                            {% if customer.email %}
-                                                {{ customer.email }}
-                                            {% else %}
-                                                <span class="text-muted">-</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>{{ customer.phone }}</td>
-                                        <td>
-                                            {% if customer.address %}
-                                                {{ customer.address }}
+                                            {% if product.category %}
+                                                {{ product.category }}
                                             {% else %}
                                                 <span class="text-muted">-</span>
                                             {% endif %}
                                         </td>
                                         <td>
-                                            {% if customer.city %}
-                                                {{ customer.city }}
+                                            {% if product.sku %}
+                                                <code>{{ product.sku }}</code>
                                             {% else %}
                                                 <span class="text-muted">-</span>
                                             {% endif %}
                                         </td>
+                                        <td class="price-text">₹{{ product.price }}</td>
                                         <td>
-                                            {% if customer.state %}
-                                                {{ customer.state }}
+                                            {% if product.stock == 0 %}
+                                                <span class="badge badge-danger">Out of Stock (0)</span>
+                                            {% elif product.stock <= 5 %}
+                                                <span class="badge badge-warning">Low Stock ({{ product.stock }})</span>
                                             {% else %}
-                                                <span class="text-muted">-</span>
+                                                <span class="badge badge-success">{{ product.stock }}</span>
                                             {% endif %}
                                         </td>
-                                        <td>
-                                            {% if customer.pincode %}
-                                                {{ customer.pincode }}
-                                            {% else %}
-                                                <span class="text-muted">-</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>{{ customer.created_at|date:"M d, Y, h:i A" }}</td>
-                                        <td style="white-space: nowrap;">
-                                            <div style="display: flex; gap: 8px; align-items: center;">
-                                                <a href="{% url 'customer_edit' customer.pk %}" class="edit-action-btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background-color: #f3f4f6; color: #111827; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; transition: all 0.2s ease;">
-                                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                                    </svg>
-                                                    <span>Edit</span>
-                                                </a>
-                                                <button type="button" onclick="openDeleteModal('{{ customer.pk }}', '{{ customer.name|escapejs }}')" class="delete-action-btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background-color: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
-                                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                                    </svg>
-                                                    <span>Delete</span>
-                                                </button>
-                                            </div>
-                                        </td>
+                                        <td>{{ product.gst_rate|floatformat:"-2" }}%</td>
+                                        <td>{{ product.created_at|date:"M d, Y, h:i A" }}</td>
                                     </tr>
                                 {% endfor %}
                             </tbody>
@@ -736,7 +747,7 @@
                     {% if page_obj.has_other_pages %}
                         <div class="pagination-container">
                             <div class="pagination-info">
-                                Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} customers
+                                Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} products
                             </div>
                             <nav class="pagination-nav">
                                 {% if page_obj.has_previous %}
@@ -770,84 +781,26 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                             </svg>
                         </div>
-                        <h3>No customers found</h3>
-                        <p>We couldn't find any customers matching "<strong>{{ query }}</strong>".</p>
-                        <a href="{% url 'customer_list' %}" class="empty-btn-secondary">Clear Search</a>
+                        <h3>No products found</h3>
+                        <p>We couldn't find any products matching "<strong>{{ query }}</strong>".</p>
+                        <a href="{% url 'product_list' %}" class="empty-btn-secondary">Clear Search</a>
                     </div>
                 {% else %}
-                    <!-- No Customers State -->
+                    <!-- No Products State -->
                     <div class="empty-state">
                         <div class="empty-state-icon">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                             </svg>
                         </div>
-                        <h3>No Customers Yet</h3>
-                        <p>You haven't added any customers yet.</p>
-                        <a href="{% url 'add_customer' %}" class="empty-btn">+ Add Customer</a>
+                        <h3>No Products Yet</h3>
+                        <p>You haven't added any products yet.</p>
+                        <a href="{% url 'add_product' %}" class="empty-btn">+ Add Product</a>
                     </div>
                 {% endif %}
             </div>
         </main>
     </div>
-
-    <!-- Delete Confirmation Modal -->
-    <div id="deleteModal" style="display: none; position: fixed; inset: 0; background-color: rgba(17, 24, 39, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center; padding: 20px;">
-        <div style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 440px; padding: 28px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); border: 1px solid #e5e7eb; position: relative;">
-            <div style="width: 48px; height: 48px; background-color: #fee2e2; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; color: #dc2626;">
-                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                </svg>
-            </div>
-            
-            <h3 style="font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 8px;">Delete Customer?</h3>
-            <p style="font-size: 14px; color: #6b7280; line-height: 1.5; margin-bottom: 24px;">
-                Are you sure you want to delete <strong id="deleteCustomerName" style="color: #111827;"></strong>? This action cannot be undone.
-            </p>
-
-            <form id="deleteCustomerForm" method="POST" action="">
-                {% csrf_token %}
-                <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                    <button type="button" onclick="closeDeleteModal()" style="padding: 10px 18px; background-color: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
-                        Cancel
-                    </button>
-                    <button type="submit" id="confirmDeleteSubmitBtn" onclick="onDeleteSubmit(this)" style="padding: 10px 18px; background-color: #dc2626; color: #ffffff; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background-color 0.2s ease;">
-                        Delete
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <script>
-        function openDeleteModal(customerId, customerName) {
-            const modal = document.getElementById('deleteModal');
-            const nameEl = document.getElementById('deleteCustomerName');
-            const form = document.getElementById('deleteCustomerForm');
-            
-            nameEl.textContent = '"' + customerName + '"';
-            form.action = '/distributor/customers/' + customerId + '/delete/';
-            modal.style.display = 'flex';
-        }
-
-        function closeDeleteModal() {
-            const modal = document.getElementById('deleteModal');
-            modal.style.display = 'none';
-        }
-
-        function onDeleteSubmit(btn) {
-            btn.disabled = true;
-            btn.textContent = 'Deleting...';
-            btn.form.submit();
-        }
-
-        window.onclick = function(event) {
-            const modal = document.getElementById('deleteModal');
-            if (event.target === modal) {
-                closeDeleteModal();
-            }
-        };
-    </script>
 
 </body>
 </html>

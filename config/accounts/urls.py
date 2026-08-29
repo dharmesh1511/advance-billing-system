@@ -15,6 +15,7 @@ urlpatterns = [
     path("distributor/customers/add/", billing_views.add_customer, name="add_customer"),
     path("distributor/customers/<int:pk>/edit/", billing_views.edit_customer, name="customer_edit"),
     path("distributor/customers/<int:pk>/delete/", billing_views.delete_customer, name="customer_delete"),
+    path("distributor/products/", billing_views.product_list, name="product_list"),
     path("distributor/products/add/", billing_views.add_product, name="product_add"),
     path("distributor/products/add/", billing_views.add_product, name="add_product"),
     path("logout/", views.logout_view, name="logout"),

@@ -164,5 +164,37 @@ def add_product(request):
     )
 
 
+@login_required(login_url="/distributor/login/")
+def product_list(request):
+    if not is_distributor(request.user):
+        return redirect("distributor_login")
 
+    queryset = Product.objects.filter(distributor=request.user)
+    total_count = queryset.count()
 
+    query = request.GET.get("q", "").strip()
+
+    if query:
+        queryset = queryset.filter(
+            Q(name__icontains=query) |
+            Q(category__icontains=query) |
+            Q(sku__icontains=query) |
+            Q(description__icontains=query)
+        )
+
+    filtered_count = queryset.count()
+
+    paginator = Paginator(queryset, 10)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    return render(
+        request,
+        "billing/product_list.html",
+        {
+            "page_obj": page_obj,
+            "query": query,
+            "total_count": total_count,
+            "filtered_count": filtered_count,
+        }
+    )

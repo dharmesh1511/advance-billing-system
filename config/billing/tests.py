@@ -662,6 +662,185 @@ class AddProductViewTests(TestCase):
         self.assertContains(response, "Please enter a valid product name.")
 
 
+class ProductListViewTests(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.distributor_group = Group.objects.create(name="Distributor")
+
+        # Distributor 1
+        self.distributor1 = User.objects.create_user(
+            username="distributor1",
+            password="password123",
+            first_name="Rahul",
+            last_name="Patel"
+        )
+        self.distributor1.groups.add(self.distributor_group)
+
+        # Distributor 2
+        self.distributor2 = User.objects.create_user(
+            username="distributor2",
+            password="password123",
+            first_name="Amit",
+            last_name="Shah"
+        )
+        self.distributor2.groups.add(self.distributor_group)
+
+        # Regular non-distributor user
+        self.regular_user = User.objects.create_user(
+            username="regularuser",
+            password="password123"
+        )
+
+        # Sample Products for Distributor 1
+        self.p1 = Product.objects.create(
+            distributor=self.distributor1,
+            name="Wireless Mouse",
+            category="Electronics",
+            price=Decimal("599.00"),
+            stock=50,
+            gst_rate=Decimal("18.00"),
+            sku="WM-001",
+            description="USB wireless mouse"
+        )
+
+        self.p2 = Product.objects.create(
+            distributor=self.distributor1,
+            name="Mechanical Keyboard",
+            category="Electronics",
+            price=Decimal("999.50"),
+            stock=20,
+            gst_rate=Decimal("18.00"),
+            sku="MK-002",
+            description="RGB mechanical keyboard"
+        )
+
+        # Sample Product for Distributor 2
+        self.p3 = Product.objects.create(
+            distributor=self.distributor2,
+            name="Gaming Chair",
+            category="Furniture",
+            price=Decimal("12500.00"),
+            stock=5,
+            gst_rate=Decimal("28.00"),
+            sku="GC-003",
+            description="Ergonomic leather chair"
+        )
+
+        self.url = reverse("product_list")
+
+    def test_product_list_requires_login(self):
+        """Unauthenticated user should be redirected to distributor login page."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/distributor/login/", response.url)
+
+    def test_product_list_requires_distributor_role(self):
+        """Non-distributor logged-in user should be redirected to distributor login page."""
+        self.client.login(username="regularuser", password="password123")
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("distributor_login"))
+
+    def test_distributor_ownership_isolation(self):
+        """Distributor 1 should only see their own products, not Distributor 2's."""
+        self.client.login(username="distributor1", password="password123")
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        page_products = list(response.context["page_obj"])
+        self.assertIn(self.p1, page_products)
+        self.assertIn(self.p2, page_products)
+        self.assertNotIn(self.p3, page_products)
+
+    def test_search_by_name(self):
+        """Searching by name should return matching product."""
+        self.client.login(username="distributor1", password="password123")
+        response = self.client.get(self.url, {"q": "mouse"})
+        self.assertEqual(response.status_code, 200)
+        page_products = list(response.context["page_obj"])
+        self.assertEqual(len(page_products), 1)
+        self.assertEqual(page_products[0], self.p1)
+        self.assertEqual(response.context["query"], "mouse")
+
+    def test_search_by_sku(self):
+        """Searching by SKU should return matching product."""
+        self.client.login(username="distributor1", password="password123")
+        response = self.client.get(self.url, {"q": "WM-001"})
+        self.assertEqual(response.status_code, 200)
+        page_products = list(response.context["page_obj"])
+        self.assertEqual(len(page_products), 1)
+        self.assertEqual(page_products[0], self.p1)
+
+    def test_search_by_category(self):
+        """Searching by category should return matching products."""
+        self.client.login(username="distributor1", password="password123")
+        response = self.client.get(self.url, {"q": "electronics"})
+        self.assertEqual(response.status_code, 200)
+        page_products = list(response.context["page_obj"])
+        self.assertEqual(len(page_products), 2)
+
+    def test_search_cannot_bypass_ownership(self):
+        """Searching for Distributor 2's product should return empty results for Distributor 1."""
+        self.client.login(username="distributor1", password="password123")
+        response = self.client.get(self.url, {"q": "Gaming Chair"})
+        self.assertEqual(response.status_code, 200)
+        page_products = list(response.context["page_obj"])
+        self.assertEqual(len(page_products), 0)
+
+    def test_search_no_results_empty_state(self):
+        """Searching for non-existent query should display empty state."""
+        self.client.login(username="distributor1", password="password123")
+        response = self.client.get(self.url, {"q": "nonexistentproduct"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["page_obj"]), 0)
+        self.assertContains(response, "No products found")
+        self.assertContains(response, 'matching "<strong>nonexistentproduct</strong>"')
+
+    def test_no_products_empty_state(self):
+        """Distributor with zero products should see No Products Yet empty state."""
+        new_dist = User.objects.create_user(
+            username="distributor3",
+            password="password123"
+        )
+        new_dist.groups.add(self.distributor_group)
+        self.client.login(username="distributor3", password="password123")
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["total_count"], 0)
+        self.assertContains(response, "No Products Yet")
+
+    def test_pagination_and_query_preservation(self):
+        """Pagination should limit items to 10 per page and preserve search query parameter."""
+        self.client.login(username="distributor1", password="password123")
+        for i in range(12):
+            Product.objects.create(
+                distributor=self.distributor1,
+                name=f"Bulk Item {i}",
+                category="Bulk",
+                price=Decimal("100.00"),
+                stock=10
+            )
+
+        # Page 1 (Total = 14 products: p1, p2 + 12 bulk items)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["page_obj"]), 10)
+        self.assertTrue(response.context["page_obj"].has_next())
+
+        # Page 2
+        response_p2 = self.client.get(self.url, {"page": 2})
+        self.assertEqual(response_p2.status_code, 200)
+        self.assertEqual(len(response_p2.context["page_obj"]), 4)
+
+        # Search with pagination (12 Bulk items -> 10 on page 1, 2 on page 2)
+        response_search_p2 = self.client.get(self.url, {"q": "Bulk", "page": 2})
+        self.assertEqual(response_search_p2.status_code, 200)
+        self.assertEqual(len(response_search_p2.context["page_obj"]), 2)
+        self.assertContains(response_search_p2, "q=Bulk")
+
+
+
 
 
 
