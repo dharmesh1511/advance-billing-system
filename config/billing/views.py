@@ -198,3 +198,35 @@ def product_list(request):
             "filtered_count": filtered_count,
         }
     )
+
+
+@login_required(login_url="/distributor/login/")
+def edit_product(request, pk):
+    if not is_distributor(request.user):
+        return redirect("distributor_login")
+
+    product = get_object_or_404(Product, pk=pk, distributor=request.user)
+    error = None
+
+    if request.method == "POST":
+        form = ProductForm(request.POST, instance=product)
+        if form.is_valid():
+            try:
+                form.save()
+                messages.success(request, "Product updated successfully.")
+                return redirect("product_list")
+            except Exception as e:
+                error = "Unable to update product right now. Please try again."
+    else:
+        form = ProductForm(instance=product)
+
+    return render(
+        request,
+        "billing/edit_product.html",
+        {
+            "form": form,
+            "product": product,
+            "error": error
+        }
+    )
+

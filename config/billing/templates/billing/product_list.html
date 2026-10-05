@@ -704,6 +704,7 @@
                                     <th>Stock</th>
                                     <th>GST Rate</th>
                                     <th>Created At</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -737,6 +738,14 @@
                                         </td>
                                         <td>{{ product.gst_rate|floatformat:"-2" }}%</td>
                                         <td>{{ product.created_at|date:"M d, Y, h:i A" }}</td>
+                                        <td style="white-space: nowrap;">
+                                            <a href="{% url 'product_edit' product.pk %}" class="edit-action-btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background-color: #f3f4f6; color: #111827; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; transition: all 0.2s ease;">
+                                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                                </svg>
+                                                <span>Edit</span>
+                                            </a>
+                                        </td>
                                     </tr>
                                 {% endfor %}
                             </tbody>

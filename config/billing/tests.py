@@ -840,6 +840,179 @@ class ProductListViewTests(TestCase):
         self.assertContains(response_search_p2, "q=Bulk")
 
 
+class ProductEditViewTests(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.distributor_group = Group.objects.create(name="Distributor")
+
+        self.distributor1 = User.objects.create_user(
+            username="dist1",
+            password="password123"
+        )
+        self.distributor1.groups.add(self.distributor_group)
+
+        self.distributor2 = User.objects.create_user(
+            username="dist2",
+            password="password123"
+        )
+        self.distributor2.groups.add(self.distributor_group)
+
+        self.product1 = Product.objects.create(
+            distributor=self.distributor1,
+            name="Wireless Mouse",
+            category="Electronics",
+            sku="WM-001",
+            price=Decimal("599.00"),
+            stock=50,
+            gst_rate=Decimal("18.00"),
+            description="Wireless optical mouse"
+        )
+
+        self.product2 = Product.objects.create(
+            distributor=self.distributor2,
+            name="Other Product",
+            price=Decimal("999.00"),
+            stock=10
+        )
+
+        self.edit_url = reverse("product_edit", kwargs={"pk": self.product1.pk})
+
+    def test_edit_product_requires_login(self):
+        """Unauthenticated GET should redirect to login."""
+        response = self.client.get(self.edit_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/distributor/login/", response.url)
+
+    def test_edit_product_prefills_form(self):
+        """GET request should load page with pre-filled product details."""
+        self.client.login(username="dist1", password="password123")
+        response = self.client.get(self.edit_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Wireless Mouse")
+        self.assertContains(response, "Electronics")
+        self.assertContains(response, "WM-001")
+        self.assertContains(response, "599.00")
+        self.assertContains(response, "50")
+
+    def test_distributor_cannot_edit_other_distributor_product(self):
+        """Distributor A attempting to access Customer B's product should get 404 Not Found."""
+        self.client.login(username="dist1", password="password123")
+        other_edit_url = reverse("product_edit", kwargs={"pk": self.product2.pk})
+        response = self.client.get(other_edit_url)
+        self.assertEqual(response.status_code, 404)
+
+        # POST attempt
+        post_response = self.client.post(other_edit_url, {"name": "Hacked Product", "price": "1.00", "stock": "1"})
+        self.assertEqual(post_response.status_code, 404)
+        self.product2.refresh_from_db()
+        self.assertEqual(self.product2.name, "Other Product")
+
+    def test_successful_product_update(self):
+        """Valid POST should update existing DB record and redirect to product list."""
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "name": "Gaming Wireless Mouse",
+            "category": "Gaming Electronics",
+            "sku": "WM-001",
+            "price": "699.00",
+            "stock": "45",
+            "gst_rate": "18.00",
+            "description": "High precision gaming wireless mouse"
+        }
+        response = self.client.post(self.edit_url, payload)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("product_list"))
+
+        # Verify DB update (ID must remain unchanged)
+        self.product1.refresh_from_db()
+        self.assertEqual(self.product1.name, "Gaming Wireless Mouse")
+        self.assertEqual(self.product1.category, "Gaming Electronics")
+        self.assertEqual(self.product1.price, Decimal("699.00"))
+        self.assertEqual(self.product1.stock, 45)
+        self.assertEqual(self.product1.distributor, self.distributor1)
+
+        # Verify success message on product list
+        list_response = self.client.get(response.url)
+        self.assertContains(list_response, "Product updated successfully.")
+
+    def test_price_validation_errors(self):
+        """Price <= 0 should show error and not update record."""
+        self.client.login(username="dist1", password="password123")
+        for invalid_price in ["0", "-10"]:
+            payload = {
+                "name": "Gaming Wireless Mouse",
+                "price": invalid_price,
+                "stock": "50",
+                "gst_rate": "18.00"
+            }
+            response = self.client.post(self.edit_url, payload)
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, "Price must be greater than 0.")
+
+        self.product1.refresh_from_db()
+        self.assertEqual(self.product1.name, "Wireless Mouse")
+
+    def test_stock_validation_errors(self):
+        """Negative stock should show error and not update record."""
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "name": "Gaming Wireless Mouse",
+            "price": "599.00",
+            "stock": "-1",
+            "gst_rate": "18.00"
+        }
+        response = self.client.post(self.edit_url, payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Stock cannot be negative.")
+
+        self.product1.refresh_from_db()
+        self.assertEqual(self.product1.name, "Wireless Mouse")
+
+    def test_gst_rate_validation_errors(self):
+        """GST rate outside 0-100 should show error."""
+        self.client.login(username="dist1", password="password123")
+        for invalid_gst in ["-1", "101"]:
+            payload = {
+                "name": "Gaming Wireless Mouse",
+                "price": "599.00",
+                "stock": "50",
+                "gst_rate": invalid_gst
+            }
+            response = self.client.post(self.edit_url, payload)
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, "GST rate must be between 0% and 100%.")
+
+    def test_empty_product_name_error(self):
+        """Empty product name should show error."""
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "name": "   ",
+            "price": "599.00",
+            "stock": "50",
+            "gst_rate": "18.00"
+        }
+        response = self.client.post(self.edit_url, payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Please enter a valid product name.")
+
+    def test_search_finds_updated_product(self):
+        """After updating name, product list search for new name returns product."""
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "name": "Super Gaming Mouse",
+            "price": "699.00",
+            "stock": "45",
+            "gst_rate": "18.00"
+        }
+        self.client.post(self.edit_url, payload)
+
+        search_response = self.client.get(reverse("product_list"), {"q": "Super Gaming"})
+        self.assertEqual(search_response.status_code, 200)
+        self.assertContains(search_response, "Super Gaming Mouse")
+
+
+
 
 
 
