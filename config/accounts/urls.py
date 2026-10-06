@@ -22,6 +22,11 @@ urlpatterns = [
     path("distributor/products/<int:pk>/edit/", billing_views.edit_product, name="edit_product"),
     path("distributor/products/<int:pk>/delete/", billing_views.delete_product, name="product_delete"),
     path("distributor/products/<int:pk>/delete/", billing_views.delete_product, name="delete_product"),
+    path("distributor/products/<int:pk>/details/", billing_views.product_details, name="product_details"),
+    path("distributor/invoices/create/", billing_views.create_invoice, name="create_invoice"),
+    path("distributor/invoices/create/", billing_views.create_invoice, name="invoice_create"),
+
+
 
     path("logout/", views.logout_view, name="logout"),
     path("forgot-password/", views.forgot_password, name="forgot_password"),

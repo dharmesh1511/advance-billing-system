@@ -1231,6 +1231,142 @@ class InvoiceModelTests(TestCase):
             self.customer1.delete()
 
 
+class CreateInvoiceViewTests(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.distributor_group = Group.objects.create(name="Distributor")
+
+        # Distributor 1
+        self.distributor1 = User.objects.create_user(
+            username="dist1",
+            password="password123"
+        )
+        self.distributor1.groups.add(self.distributor_group)
+
+        # Distributor 2
+        self.distributor2 = User.objects.create_user(
+            username="dist2",
+            password="password123"
+        )
+        self.distributor2.groups.add(self.distributor_group)
+
+        # Distributor 1 records
+        self.c1 = Customer.objects.create(
+            distributor=self.distributor1,
+            name="Rahul Patel",
+            phone="9876543210"
+        )
+        self.p1 = Product.objects.create(
+            distributor=self.distributor1,
+            name="Wireless Mouse",
+            price=Decimal("599.00"),
+            stock=50,
+            gst_rate=Decimal("18.00")
+        )
+
+        # Distributor 2 records
+        self.c2 = Customer.objects.create(
+            distributor=self.distributor2,
+            name="Amit Shah",
+            phone="9123456789"
+        )
+        self.p2 = Product.objects.create(
+            distributor=self.distributor2,
+            name="Mechanical Keyboard",
+            price=Decimal("1299.00"),
+            stock=20,
+            gst_rate=Decimal("18.00")
+        )
+
+        self.create_url = reverse("create_invoice")
+
+    def test_create_invoice_requires_login(self):
+        """Unauthenticated GET should redirect to distributor login page."""
+        response = self.client.get(self.create_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/distributor/login/", response.url)
+
+    def test_dropdown_filters_by_authenticated_distributor(self):
+        """Distributor 1 should only see Customer 1 and Product 1 in choices."""
+        self.client.login(username="dist1", password="password123")
+        response = self.client.get(self.create_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Rahul Patel")
+        self.assertNotContains(response, "Amit Shah")
+
+        products_json = response.context["products_json"]
+        self.assertIn(self.p1.id, products_json)
+        self.assertNotIn(self.p2.id, products_json)
+
+    def test_successful_invoice_creation(self):
+        """Valid POST should create Invoice & InvoiceItem, calculate totals from DB price/GST, and redirect."""
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "customer": self.c1.id,
+            "invoice_date": "2026-10-06",
+            "items-TOTAL_FORMS": "1",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "1",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-product": self.p1.id,
+            "items-0-quantity": "2",
+        }
+        response = self.client.post(self.create_url, payload)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("distributor_dashboard"))
+
+        invoice = Invoice.objects.filter(distributor=self.distributor1, customer=self.c1).first()
+        self.assertIsNotNone(invoice)
+        self.assertEqual(invoice.items.count(), 1)
+
+        item = invoice.items.first()
+        self.assertEqual(item.product, self.p1)
+        self.assertEqual(item.quantity, 2)
+        self.assertEqual(item.unit_price, Decimal("599.00"))
+        self.assertEqual(item.gst_rate, Decimal("18.00"))
+        self.assertEqual(item.taxable_amount, Decimal("1198.00"))
+        self.assertEqual(item.gst_amount, Decimal("215.64"))
+        self.assertEqual(item.line_total, Decimal("1413.64"))
+
+        self.assertEqual(invoice.subtotal, Decimal("1198.00"))
+        self.assertEqual(invoice.total_gst, Decimal("215.64"))
+        self.assertEqual(invoice.grand_total, Decimal("1413.64"))
+
+    def test_cannot_invoice_other_distributor_customer_or_product(self):
+        """Distributor 1 attempting to post Distributor 2's customer or product should be rejected."""
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "customer": self.c2.id,
+            "invoice_date": "2026-10-06",
+            "items-TOTAL_FORMS": "1",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "1",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-product": self.p1.id,
+            "items-0-quantity": "1",
+        }
+        response = self.client.post(self.create_url, payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Invoice.objects.filter(customer=self.c2).exists())
+
+    def test_product_details_endpoint_security(self):
+        """Product details endpoint must verify distributor ownership."""
+        self.client.login(username="dist1", password="password123")
+
+        # Distributor 1 product -> 200 OK with json details
+        url_own = reverse("product_details", kwargs={"pk": self.p1.pk})
+        res_own = self.client.get(url_own)
+        self.assertEqual(res_own.status_code, 200)
+        self.assertEqual(res_own.json()["name"], "Wireless Mouse")
+
+        # Distributor 2 product -> 404 Not Found
+        url_other = reverse("product_details", kwargs={"pk": self.p2.pk})
+        res_other = self.client.get(url_other)
+        self.assertEqual(res_other.status_code, 404)
+
+
+
 
 
 

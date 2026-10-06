@@ -1,7 +1,8 @@
 import re
 from decimal import Decimal
 from django import forms
-from .models import Customer, Product
+from .models import Customer, Product, Invoice, InvoiceItem
+
 
 
 class CustomerForm(forms.ModelForm):
@@ -388,3 +389,106 @@ class CustomerForm(forms.ModelForm):
             if not re.match(r"^\d{6}$", pincode):
                 raise forms.ValidationError("Please enter a valid 6-digit pincode.")
         return pincode
+
+
+class InvoiceForm(forms.ModelForm):
+    class Meta:
+        model = Invoice
+        fields = ["customer", "invoice_date"]
+        widgets = {
+            "customer": forms.Select(attrs={
+                "class": "form-input",
+                "id": "id_customer",
+                "required": True
+            }),
+            "invoice_date": forms.DateInput(attrs={
+                "type": "date",
+                "class": "form-input",
+                "id": "id_invoice_date",
+                "required": True
+            }),
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user is not None:
+            self.fields["customer"].queryset = Customer.objects.filter(distributor=user)
+        else:
+            self.fields["customer"].queryset = Customer.objects.none()
+        self.fields["customer"].empty_label = "Select Customer"
+        if not self.initial.get("invoice_date"):
+            import datetime
+            self.initial["invoice_date"] = datetime.date.today().strftime("%Y-%m-%d")
+
+    def clean_customer(self):
+        customer = self.cleaned_data.get("customer")
+        if not customer:
+            raise forms.ValidationError("Please select a valid customer.")
+        return customer
+
+    def clean_invoice_date(self):
+        invoice_date = self.cleaned_data.get("invoice_date")
+        if not invoice_date:
+            raise forms.ValidationError("Please select a valid invoice date.")
+        return invoice_date
+
+
+class InvoiceItemForm(forms.ModelForm):
+    class Meta:
+        model = InvoiceItem
+        fields = ["product", "quantity"]
+        widgets = {
+            "product": forms.Select(attrs={
+                "class": "form-input product-select",
+                "required": True
+            }),
+            "quantity": forms.NumberInput(attrs={
+                "class": "form-input quantity-input",
+                "min": "1",
+                "step": "1",
+                "value": "1",
+                "required": True
+            }),
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user is not None:
+            self.fields["product"].queryset = Product.objects.filter(distributor=user)
+        else:
+            self.fields["product"].queryset = Product.objects.none()
+        self.fields["product"].empty_label = "Select Product"
+
+    def clean_product(self):
+        product = self.cleaned_data.get("product")
+        if not product:
+            raise forms.ValidationError("Please select a product.")
+        return product
+
+    def clean_quantity(self):
+        quantity = self.cleaned_data.get("quantity")
+        if quantity is None or quantity < 1:
+            raise forms.ValidationError("Quantity must be at least 1.")
+        return quantity
+
+
+BaseInvoiceItemFormSet = forms.inlineformset_factory(
+    Invoice,
+    InvoiceItem,
+    form=InvoiceItemForm,
+    extra=1,
+    can_delete=True,
+    min_num=1,
+    validate_min=True
+)
+
+
+class InvoiceItemFormSet(BaseInvoiceItemFormSet):
+    def __init__(self, *args, user=None, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def _construct_form(self, i, **kwargs):
+        kwargs['user'] = self.user
+        return super()._construct_form(i, **kwargs)
+

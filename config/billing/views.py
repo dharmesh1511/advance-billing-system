@@ -1,10 +1,14 @@
+from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q, ProtectedError, RestrictedError
+from django.db import transaction
+from django.http import JsonResponse
 from django.core.paginator import Paginator
-from .forms import CustomerForm, ProductForm
-from .models import Customer, Product
+from .forms import CustomerForm, ProductForm, InvoiceForm, InvoiceItemFormSet
+from .models import Customer, Product, Invoice, InvoiceItem
+
 
 
 
@@ -254,4 +258,153 @@ def delete_product(request, pk):
         return redirect("product_list")
 
     return redirect("product_list")
+
+
+def generate_unique_invoice_number(user):
+    last_invoice = Invoice.objects.filter(distributor=user).order_by("-id").first()
+    num = 1
+    if last_invoice and last_invoice.invoice_number:
+        parts = last_invoice.invoice_number.split("-")
+        if len(parts) >= 2 and parts[-1].isdigit():
+            num = int(parts[-1]) + 1
+        else:
+            num = Invoice.objects.filter(distributor=user).count() + 1
+    else:
+        num = Invoice.objects.filter(distributor=user).count() + 1
+
+    inv_num = f"INV-{num:06d}"
+    while Invoice.objects.filter(distributor=user, invoice_number=inv_num).exists():
+        num += 1
+        inv_num = f"INV-{num:06d}"
+    return inv_num
+
+
+@login_required(login_url="/distributor/login/")
+def create_invoice(request):
+    if not is_distributor(request.user):
+        return redirect("distributor_login")
+
+    customers_count = Customer.objects.filter(distributor=request.user).count()
+    products_count = Product.objects.filter(distributor=request.user).count()
+
+    error = None
+
+    if request.method == "POST":
+        form = InvoiceForm(request.POST, user=request.user)
+        formset = InvoiceItemFormSet(request.POST, user=request.user)
+
+        if form.is_valid() and formset.is_valid():
+            try:
+                with transaction.atomic():
+                    invoice = form.save(commit=False)
+                    invoice.distributor = request.user
+                    invoice.invoice_number = generate_unique_invoice_number(request.user)
+                    invoice.subtotal = Decimal("0.00")
+                    invoice.total_gst = Decimal("0.00")
+                    invoice.grand_total = Decimal("0.00")
+                    invoice.save()
+
+                    subtotal = Decimal("0.00")
+                    total_gst = Decimal("0.00")
+
+                    valid_item_count = 0
+
+                    for item_form in formset:
+                        if item_form.cleaned_data and not item_form.cleaned_data.get("DELETE", False):
+                            product = item_form.cleaned_data.get("product")
+                            quantity = item_form.cleaned_data.get("quantity")
+
+                            if not product or product.distributor != request.user:
+                                raise ValueError("Invalid product selection.")
+
+                            if not quantity or quantity < 1:
+                                raise ValueError("Quantity must be at least 1.")
+
+                            # Authoritative snapshot from DB product
+                            unit_price = product.price
+                            gst_rate = product.gst_rate
+                            product_name = product.name
+
+                            taxable_amount = Decimal(quantity) * unit_price
+                            gst_amount = taxable_amount * (gst_rate / Decimal("100.00"))
+                            line_total = taxable_amount + gst_amount
+
+                            InvoiceItem.objects.create(
+                                invoice=invoice,
+                                product=product,
+                                product_name=product_name,
+                                quantity=quantity,
+                                unit_price=unit_price,
+                                gst_rate=gst_rate,
+                                taxable_amount=taxable_amount,
+                                gst_amount=gst_amount,
+                                line_total=line_total
+                            )
+
+                            subtotal += taxable_amount
+                            total_gst += gst_amount
+                            valid_item_count += 1
+
+                    if valid_item_count == 0:
+                        raise ValueError("Please add at least one product item to the invoice.")
+
+                    invoice.subtotal = subtotal
+                    invoice.total_gst = total_gst
+                    invoice.grand_total = subtotal + total_gst
+                    invoice.save()
+
+                    messages.success(request, f'Invoice "{invoice.invoice_number}" created successfully.')
+                    return redirect("distributor_dashboard")
+            except Exception as e:
+                error = str(e) if isinstance(e, ValueError) else "Unable to create invoice right now. Please check your input and try again."
+        else:
+            error = "Please correct errors in the invoice form."
+    else:
+        form = InvoiceForm(user=request.user)
+        formset = InvoiceItemFormSet(user=request.user)
+
+    user_products = Product.objects.filter(distributor=request.user)
+    products_dict = {
+        p.id: {
+            "id": p.id,
+            "name": p.name,
+            "price": float(p.price),
+            "gst_rate": float(p.gst_rate),
+            "stock": p.stock,
+            "sku": p.sku or ""
+        }
+        for p in user_products
+    }
+
+    return render(
+        request,
+        "billing/create_invoice.html",
+        {
+            "form": form,
+            "formset": formset,
+            "customers_count": customers_count,
+            "products_count": products_count,
+            "products_json": products_dict,
+            "error": error
+        }
+    )
+
+
+@login_required(login_url="/distributor/login/")
+def product_details(request, pk):
+    if not is_distributor(request.user):
+        return JsonResponse({"error": "Unauthorized"}, status=403)
+
+    product = get_object_or_404(Product, pk=pk, distributor=request.user)
+
+    return JsonResponse({
+        "id": product.id,
+        "name": product.name,
+        "category": product.category or "",
+        "sku": product.sku or "",
+        "price": str(product.price),
+        "gst_rate": str(product.gst_rate),
+        "stock": product.stock,
+    })
+
 
