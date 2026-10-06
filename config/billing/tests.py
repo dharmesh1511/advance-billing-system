@@ -1012,6 +1012,104 @@ class ProductEditViewTests(TestCase):
         self.assertContains(search_response, "Super Gaming Mouse")
 
 
+class ProductDeleteViewTests(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.distributor_group = Group.objects.create(name="Distributor")
+
+        self.distributor1 = User.objects.create_user(
+            username="dist1",
+            password="password123"
+        )
+        self.distributor1.groups.add(self.distributor_group)
+
+        self.distributor2 = User.objects.create_user(
+            username="dist2",
+            password="password123"
+        )
+        self.distributor2.groups.add(self.distributor_group)
+
+        self.product1 = Product.objects.create(
+            distributor=self.distributor1,
+            name="Wireless Mouse",
+            category="Electronics",
+            price=Decimal("599.00"),
+            stock=50,
+            gst_rate=Decimal("18.00")
+        )
+
+        self.product2 = Product.objects.create(
+            distributor=self.distributor2,
+            name="Gaming Keyboard",
+            category="Electronics",
+            price=Decimal("1299.00"),
+            stock=20
+        )
+
+        self.delete_url = reverse("product_delete", kwargs={"pk": self.product1.pk})
+
+    def test_delete_requires_login(self):
+        """Unauthenticated POST request should redirect to login."""
+        response = self.client.post(self.delete_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/distributor/login/", response.url)
+        self.assertTrue(Product.objects.filter(pk=self.product1.pk).exists())
+
+    def test_get_request_rejects_deletion(self):
+        """GET request should not delete product and redirect to product list."""
+        self.client.login(username="dist1", password="password123")
+        response = self.client.get(self.delete_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("product_list"))
+        self.assertTrue(Product.objects.filter(pk=self.product1.pk).exists())
+
+    def test_distributor_cannot_delete_other_distributor_product(self):
+        """Distributor 1 attempting to delete Distributor 2's product should receive 404."""
+        self.client.login(username="dist1", password="password123")
+        other_delete_url = reverse("product_delete", kwargs={"pk": self.product2.pk})
+        response = self.client.post(other_delete_url)
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(Product.objects.filter(pk=self.product2.pk).exists())
+
+    def test_successful_product_deletion(self):
+        """Authenticated POST request should delete product from database and redirect with success message."""
+        self.client.login(username="dist1", password="password123")
+        response = self.client.post(self.delete_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("product_list"))
+
+        self.assertFalse(Product.objects.filter(pk=self.product1.pk).exists())
+
+        list_response = self.client.get(response.url)
+        self.assertContains(list_response, '"Wireless Mouse" deleted successfully.')
+
+    def test_nonexistent_product_returns_404(self):
+        """Attempting to delete non-existent product should return 404."""
+        self.client.login(username="dist1", password="password123")
+        invalid_url = reverse("product_delete", kwargs={"pk": 99999})
+        response = self.client.post(invalid_url)
+        self.assertEqual(response.status_code, 404)
+
+    def test_search_and_pagination_after_deletion(self):
+        """After product deletion, search and pagination continue working correctly."""
+        self.client.login(username="dist1", password="password123")
+        p_extra = Product.objects.create(
+            distributor=self.distributor1,
+            name="Wireless Headphones",
+            price=Decimal("1500.00"),
+            stock=10
+        )
+        delete_extra_url = reverse("product_delete", kwargs={"pk": p_extra.pk})
+        self.client.post(delete_extra_url)
+
+        search_response = self.client.get(reverse("product_list"), {"q": "Wireless"})
+        self.assertEqual(search_response.status_code, 200)
+        self.assertContains(search_response, "Wireless Mouse")
+        self.assertNotContains(search_response, "Wireless Headphones")
+
+
+
 
 
 

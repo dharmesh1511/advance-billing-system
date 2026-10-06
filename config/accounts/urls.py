@@ -20,6 +20,9 @@ urlpatterns = [
     path("distributor/products/add/", billing_views.add_product, name="add_product"),
     path("distributor/products/<int:pk>/edit/", billing_views.edit_product, name="product_edit"),
     path("distributor/products/<int:pk>/edit/", billing_views.edit_product, name="edit_product"),
+    path("distributor/products/<int:pk>/delete/", billing_views.delete_product, name="product_delete"),
+    path("distributor/products/<int:pk>/delete/", billing_views.delete_product, name="delete_product"),
+
     path("logout/", views.logout_view, name="logout"),
     path("forgot-password/", views.forgot_password, name="forgot_password"),
     path("verify-otp/", views.verify_otp, name="verify_otp"),

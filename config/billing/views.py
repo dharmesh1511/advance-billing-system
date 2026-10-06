@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Q
+from django.db.models import Q, ProtectedError, RestrictedError
 from django.core.paginator import Paginator
 from .forms import CustomerForm, ProductForm
 from .models import Customer, Product
@@ -229,4 +229,25 @@ def edit_product(request, pk):
             "error": error
         }
     )
+
+
+@login_required(login_url="/distributor/login/")
+def delete_product(request, pk):
+    if not is_distributor(request.user):
+        return redirect("distributor_login")
+
+    product = get_object_or_404(Product, pk=pk, distributor=request.user)
+
+    if request.method == "POST":
+        product_name = product.name
+        try:
+            product.delete()
+            messages.success(request, f'"{product_name}" deleted successfully.')
+        except (ProtectedError, RestrictedError):
+            messages.error(request, f'"{product_name}" cannot be deleted because it is used in existing billing records.')
+        except Exception:
+            messages.error(request, f'Unable to delete "{product_name}" right now. Please try again.')
+        return redirect("product_list")
+
+    return redirect("product_list")
 
