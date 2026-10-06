@@ -434,9 +434,29 @@ class InvoiceForm(forms.ModelForm):
 
 
 class InvoiceItemForm(forms.ModelForm):
+    discount_percent = forms.DecimalField(
+        required=False,
+        initial=Decimal("0.00"),
+        min_value=Decimal("0.00"),
+        max_value=Decimal("100.00"),
+        widget=forms.NumberInput(attrs={
+            "class": "form-input discount-input",
+            "min": "0",
+            "max": "100",
+            "step": "0.01",
+            "value": "0",
+            "placeholder": "0"
+        }),
+        error_messages={
+            "invalid": "Discount must be between 0% and 100%.",
+            "min_value": "Discount must be between 0% and 100%.",
+            "max_value": "Discount must be between 0% and 100%."
+        }
+    )
+
     class Meta:
         model = InvoiceItem
-        fields = ["product", "quantity"]
+        fields = ["product", "quantity", "discount_percent"]
         widgets = {
             "product": forms.Select(attrs={
                 "class": "form-input product-select",
@@ -458,6 +478,8 @@ class InvoiceItemForm(forms.ModelForm):
         else:
             self.fields["product"].queryset = Product.objects.none()
         self.fields["product"].empty_label = "Select Product"
+        if not self.initial.get("discount_percent"):
+            self.initial["discount_percent"] = Decimal("0.00")
 
     def clean_product(self):
         product = self.cleaned_data.get("product")
@@ -470,6 +492,14 @@ class InvoiceItemForm(forms.ModelForm):
         if quantity is None or quantity < 1:
             raise forms.ValidationError("Quantity must be at least 1.")
         return quantity
+
+    def clean_discount_percent(self):
+        discount = self.cleaned_data.get("discount_percent")
+        if discount is None:
+            return Decimal("0.00")
+        if discount < Decimal("0.00") or discount > Decimal("100.00"):
+            raise forms.ValidationError("Discount must be between 0% and 100%.")
+        return discount
 
 
 BaseInvoiceItemFormSet = forms.inlineformset_factory(

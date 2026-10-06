@@ -1365,6 +1365,189 @@ class CreateInvoiceViewTests(TestCase):
         res_other = self.client.get(url_other)
         self.assertEqual(res_other.status_code, 404)
 
+    def test_invoice_calculation_with_discount(self):
+        """Test Case 1: Price=500, Qty=2, Discount=10%, GST=18% -> Total 1062.00."""
+        p_mouse = Product.objects.create(
+            distributor=self.distributor1,
+            name="Mouse",
+            price=Decimal("500.00"),
+            stock=50,
+            gst_rate=Decimal("18.00")
+        )
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "customer": self.c1.id,
+            "invoice_date": "2026-10-06",
+            "items-TOTAL_FORMS": "1",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "1",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-product": p_mouse.id,
+            "items-0-quantity": "2",
+            "items-0-discount_percent": "10.00",
+        }
+        response = self.client.post(self.create_url, payload)
+        self.assertEqual(response.status_code, 302)
+
+        invoice = Invoice.objects.filter(distributor=self.distributor1, customer=self.c1).order_by("-id").first()
+        item = invoice.items.first()
+
+        self.assertEqual(item.quantity, 2)
+        self.assertEqual(item.unit_price, Decimal("500.00"))
+        self.assertEqual(item.discount_percent, Decimal("10.00"))
+        self.assertEqual(item.gst_rate, Decimal("18.00"))
+        self.assertEqual(item.taxable_amount, Decimal("900.00"))  # Gross 1000 - Disc 100
+        self.assertEqual(item.gst_amount, Decimal("162.00"))      # 900 * 0.18
+        self.assertEqual(item.line_total, Decimal("1062.00"))     # 900 + 162
+
+        self.assertEqual(invoice.subtotal, Decimal("900.00"))
+        self.assertEqual(invoice.total_gst, Decimal("162.00"))
+        self.assertEqual(invoice.grand_total, Decimal("1062.00"))
+
+    def test_invoice_calculation_zero_discount(self):
+        """Test Case 2: Price=1000, Qty=3, Discount=0%, GST=18% -> Total 3540.00."""
+        p_keyboard = Product.objects.create(
+            distributor=self.distributor1,
+            name="Keyboard",
+            price=Decimal("1000.00"),
+            stock=10,
+            gst_rate=Decimal("18.00")
+        )
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "customer": self.c1.id,
+            "invoice_date": "2026-10-06",
+            "items-TOTAL_FORMS": "1",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "1",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-product": p_keyboard.id,
+            "items-0-quantity": "3",
+            "items-0-discount_percent": "0.00",
+        }
+        response = self.client.post(self.create_url, payload)
+        self.assertEqual(response.status_code, 302)
+
+        invoice = Invoice.objects.filter(distributor=self.distributor1, customer=self.c1).order_by("-id").first()
+        item = invoice.items.first()
+
+        self.assertEqual(item.taxable_amount, Decimal("3000.00"))
+        self.assertEqual(item.gst_amount, Decimal("540.00"))
+        self.assertEqual(item.line_total, Decimal("3540.00"))
+
+    def test_invoice_calculation_100_percent_discount(self):
+        """Test Case 3: Price=1000, Qty=1, Discount=100%, GST=18% -> Total 0.00."""
+        p_promo = Product.objects.create(
+            distributor=self.distributor1,
+            name="Free Sample",
+            price=Decimal("1000.00"),
+            stock=10,
+            gst_rate=Decimal("18.00")
+        )
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "customer": self.c1.id,
+            "invoice_date": "2026-10-06",
+            "items-TOTAL_FORMS": "1",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "1",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-product": p_promo.id,
+            "items-0-quantity": "1",
+            "items-0-discount_percent": "100.00",
+        }
+        response = self.client.post(self.create_url, payload)
+        self.assertEqual(response.status_code, 302)
+
+        invoice = Invoice.objects.filter(distributor=self.distributor1, customer=self.c1).order_by("-id").first()
+        item = invoice.items.first()
+
+        self.assertEqual(item.taxable_amount, Decimal("0.00"))
+        self.assertEqual(item.gst_amount, Decimal("0.00"))
+        self.assertEqual(item.line_total, Decimal("0.00"))
+
+    def test_multiple_item_invoice_totals(self):
+        """Multiple items calculation test."""
+        p_mouse = Product.objects.create(
+            distributor=self.distributor1,
+            name="Mouse",
+            price=Decimal("500.00"),
+            stock=50,
+            gst_rate=Decimal("18.00")
+        )
+        p_kbd = Product.objects.create(
+            distributor=self.distributor1,
+            name="Keyboard",
+            price=Decimal("1000.00"),
+            stock=50,
+            gst_rate=Decimal("18.00")
+        )
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "customer": self.c1.id,
+            "invoice_date": "2026-10-06",
+            "items-TOTAL_FORMS": "2",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "1",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-product": p_mouse.id,
+            "items-0-quantity": "2",
+            "items-0-discount_percent": "10.00", # Taxable 900, GST 162
+            "items-1-product": p_kbd.id,
+            "items-1-quantity": "1",
+            "items-1-discount_percent": "0.00",  # Taxable 1000, GST 180
+        }
+        response = self.client.post(self.create_url, payload)
+        self.assertEqual(response.status_code, 302)
+
+        invoice = Invoice.objects.filter(distributor=self.distributor1, customer=self.c1).order_by("-id").first()
+        self.assertEqual(invoice.items.count(), 2)
+        self.assertEqual(invoice.subtotal, Decimal("1900.00"))
+        self.assertEqual(invoice.total_gst, Decimal("342.00"))
+        self.assertEqual(invoice.grand_total, Decimal("2242.00"))
+
+    def test_stock_validation_backend(self):
+        """Quantity exceeding stock should be rejected on backend."""
+        p_limited = Product.objects.create(
+            distributor=self.distributor1,
+            name="Limited Product",
+            price=Decimal("100.00"),
+            stock=5,
+            gst_rate=Decimal("18.00")
+        )
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "customer": self.c1.id,
+            "invoice_date": "2026-10-06",
+            "items-TOTAL_FORMS": "1",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "1",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-product": p_limited.id,
+            "items-0-quantity": "10",
+        }
+        response = self.client.post(self.create_url, payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Only 5 units are available")
+
+    def test_discount_range_validation_backend(self):
+        """Discount outside 0 to 100 should be rejected on backend."""
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "customer": self.c1.id,
+            "invoice_date": "2026-10-06",
+            "items-TOTAL_FORMS": "1",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "1",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-product": self.p1.id,
+            "items-0-quantity": "1",
+            "items-0-discount_percent": "150.00",
+        }
+        response = self.client.post(self.create_url, payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Discount must be between 0% and 100%")
+
 
 
 

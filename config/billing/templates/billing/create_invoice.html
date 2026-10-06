@@ -632,13 +632,14 @@
                         <table class="items-table" id="itemsTable">
                             <thead>
                                 <tr>
-                                    <th style="width: 35%;">Product *</th>
-                                    <th style="width: 15%;">Unit Price</th>
-                                    <th style="width: 12%;">GST Rate</th>
-                                    <th style="width: 13%;">Available Stock</th>
-                                    <th style="width: 12%;">Qty *</th>
-                                    <th style="width: 13%;">Line Total</th>
-                                    <th style="width: 50px;"></th>
+                                    <th style="width: 26%;">Product *</th>
+                                    <th style="width: 12%;">Unit Price</th>
+                                    <th style="width: 9%;">GST Rate</th>
+                                    <th style="width: 11%;">Stock</th>
+                                    <th style="width: 11%;">Qty *</th>
+                                    <th style="width: 13%;">Discount (%)</th>
+                                    <th style="width: 14%;">Line Total</th>
+                                    <th style="width: 40px;"></th>
                                 </tr>
                             </thead>
                             <tbody id="itemRowsContainer">
@@ -652,6 +653,7 @@
                                             {% if item_form.product.errors %}
                                                 <div style="color: #dc2626; font-size: 12px; margin-top: 4px;">{{ item_form.product.errors.0 }}</div>
                                             {% endif %}
+                                            <div class="product-error" style="color: #dc2626; font-size: 11px; margin-top: 2px; display: none;"></div>
                                         </td>
                                         <td>
                                             <span class="item-price-text" style="font-weight: 600;">₹0.00</span>
@@ -668,9 +670,18 @@
                                                 <div style="color: #dc2626; font-size: 12px; margin-top: 4px;">{{ item_form.quantity.errors.0 }}</div>
                                             {% endif %}
                                             <div class="stock-warning" style="color: #b45309; font-size: 11px; margin-top: 2px; display: none;"></div>
+                                            <div class="qty-error" style="color: #dc2626; font-size: 11px; margin-top: 2px; display: none;"></div>
+                                        </td>
+                                        <td>
+                                            {{ item_form.discount_percent }}
+                                            {% if item_form.discount_percent.errors %}
+                                                <div style="color: #dc2626; font-size: 12px; margin-top: 4px;">{{ item_form.discount_percent.errors.0 }}</div>
+                                            {% endif %}
+                                            <div class="discount-error" style="color: #dc2626; font-size: 11px; margin-top: 2px; display: none;"></div>
                                         </td>
                                         <td>
                                             <span class="item-line-total-text" style="font-weight: 700; color: #111827;">₹0.00</span>
+                                            <div class="item-breakdown-text" style="font-size: 11px; color: #6b7280; margin-top: 2px;">Taxable: ₹0.00 | GST: ₹0.00</div>
                                         </td>
                                         <td>
                                             <button type="button" class="remove-row-btn" title="Remove item">
@@ -694,8 +705,16 @@
 
                     <div class="summary-card">
                         <div class="summary-row">
-                            <span>Subtotal</span>
+                            <span>Subtotal (Gross)</span>
                             <span id="summarySubtotal">₹0.00</span>
+                        </div>
+                        <div class="summary-row" style="color: #059669;">
+                            <span>Total Discount</span>
+                            <span id="summaryDiscount">-₹0.00</span>
+                        </div>
+                        <div class="summary-row" style="font-weight: 600;">
+                            <span>Taxable Amount</span>
+                            <span id="summaryTaxable">₹0.00</span>
                         </div>
                         <div class="summary-row">
                             <span>Total GST</span>
@@ -722,104 +741,274 @@
         const productsData = JSON.parse(document.getElementById('products-data').textContent || '{}');
         const container = document.getElementById('itemRowsContainer');
         const totalFormsInput = document.getElementById('id_items-TOTAL_FORMS');
+        const invoiceForm = document.getElementById('invoiceForm');
+
+        function formatCurrency(val) {
+            if (isNaN(val) || !isFinite(val) || val < 0) {
+                val = 0;
+            }
+            return '₹' + val.toLocaleString('en-IN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
 
         function updateRowCalculations(row) {
             const productSelect = row.querySelector('.product-select');
             const qtyInput = row.querySelector('.quantity-input');
+            const discountInput = row.querySelector('.discount-input');
             const priceText = row.querySelector('.item-price-text');
             const gstText = row.querySelector('.item-gst-text');
             const stockBadge = row.querySelector('.item-stock-badge');
             const lineTotalText = row.querySelector('.item-line-total-text');
-            const warningEl = row.querySelector('.stock-warning');
+            const breakdownText = row.querySelector('.item-breakdown-text');
+            const stockWarningEl = row.querySelector('.stock-warning');
+            const qtyErrorEl = row.querySelector('.qty-error');
+            const discountErrorEl = row.querySelector('.discount-error');
+            const productErrorEl = row.querySelector('.product-error');
 
             const productId = productSelect ? productSelect.value : null;
-            const product = productId && productsData[productId] ? productsData[productId] : null;
 
-            if (product) {
-                const price = parseFloat(product.price) || 0;
-                const gstRate = parseFloat(product.gst_rate) || 0;
-                const stock = parseInt(product.stock) || 0;
-                const qty = parseInt(qtyInput.value) || 0;
-
-                priceText.textContent = '₹' + price.toFixed(2);
-                gstText.textContent = gstRate.toFixed(2) + '%';
-
-                if (stock === 0) {
-                    stockBadge.className = 'item-stock-badge badge badge-danger';
-                    stockBadge.textContent = 'Out of Stock (0)';
-                } else if (stock <= 5) {
-                    stockBadge.className = 'item-stock-badge badge badge-warning';
-                    stockBadge.textContent = 'Low Stock (' + stock + ')';
-                } else {
-                    stockBadge.className = 'item-stock-badge badge badge-success';
-                    stockBadge.textContent = stock;
-                }
-
-                if (qty > stock) {
-                    warningEl.style.display = 'block';
-                    warningEl.textContent = 'Warning: Only ' + stock + ' units available.';
-                } else {
-                    warningEl.style.display = 'none';
-                }
-
-                const taxable = price * qty;
-                const gst = taxable * (gstRate / 100);
-                const lineTotal = taxable + gst;
-
-                lineTotalText.textContent = '₹' + lineTotal.toFixed(2);
-            } else {
+            if (!productId) {
                 priceText.textContent = '₹0.00';
                 gstText.textContent = '0%';
                 stockBadge.className = 'item-stock-badge badge badge-success';
                 stockBadge.textContent = '-';
                 lineTotalText.textContent = '₹0.00';
-                warningEl.style.display = 'none';
+                if (breakdownText) breakdownText.textContent = 'Taxable: ₹0.00 | GST: ₹0.00';
+                if (stockWarningEl) stockWarningEl.style.display = 'none';
+                if (qtyErrorEl) qtyErrorEl.style.display = 'none';
+                if (discountErrorEl) discountErrorEl.style.display = 'none';
+                if (productErrorEl) productErrorEl.style.display = 'none';
+                updateGlobalSummary();
+                return;
+            }
+
+            const product = productsData[productId];
+
+            if (product) {
+                processProductCalculations(row, product);
+            } else {
+                // Fallback to fetch API if product is not in rendered JSON dictionary
+                fetch('/billing/products/' + productId + '/details/')
+                    .then(res => {
+                        if (!res.ok) throw new Error('Failed to load product');
+                        return res.json();
+                    })
+                    .then(data => {
+                        productsData[productId] = {
+                            id: data.id,
+                            name: data.name,
+                            price: parseFloat(data.price),
+                            gst_rate: parseFloat(data.gst_rate),
+                            stock: parseInt(data.stock),
+                            sku: data.sku
+                        };
+                        processProductCalculations(row, productsData[productId]);
+                    })
+                    .catch(() => {
+                        if (productErrorEl) {
+                            productErrorEl.style.display = 'block';
+                            productErrorEl.textContent = 'Unable to load product details.';
+                        }
+                        priceText.textContent = '₹0.00';
+                        gstText.textContent = '0%';
+                        stockBadge.className = 'item-stock-badge badge badge-danger';
+                        stockBadge.textContent = 'Error';
+                        lineTotalText.textContent = '₹0.00';
+                        if (breakdownText) breakdownText.textContent = 'Taxable: ₹0.00 | GST: ₹0.00';
+                        updateGlobalSummary();
+                    });
+            }
+        }
+
+        function processProductCalculations(row, product) {
+            const qtyInput = row.querySelector('.quantity-input');
+            const discountInput = row.querySelector('.discount-input');
+            const priceText = row.querySelector('.item-price-text');
+            const gstText = row.querySelector('.item-gst-text');
+            const stockBadge = row.querySelector('.item-stock-badge');
+            const lineTotalText = row.querySelector('.item-line-total-text');
+            const breakdownText = row.querySelector('.item-breakdown-text');
+            const stockWarningEl = row.querySelector('.stock-warning');
+            const qtyErrorEl = row.querySelector('.qty-error');
+            const discountErrorEl = row.querySelector('.discount-error');
+            const productErrorEl = row.querySelector('.product-error');
+
+            if (productErrorEl) productErrorEl.style.display = 'none';
+
+            const price = parseFloat(product.price) || 0;
+            const gstRate = parseFloat(product.gst_rate) || 0;
+            const stock = parseInt(product.stock) || 0;
+
+            priceText.textContent = formatCurrency(price);
+            gstText.textContent = gstRate.toFixed(2) + '%';
+
+            if (stock === 0) {
+                stockBadge.className = 'item-stock-badge badge badge-danger';
+                stockBadge.textContent = 'Out of Stock (0)';
+            } else if (stock <= 5) {
+                stockBadge.className = 'item-stock-badge badge badge-warning';
+                stockBadge.textContent = 'Low Stock (' + stock + ')';
+            } else {
+                stockBadge.className = 'item-stock-badge badge badge-success';
+                stockBadge.textContent = stock;
+            }
+
+            // Qty validation
+            const rawQty = qtyInput ? qtyInput.value.trim() : '1';
+            const qty = parseInt(rawQty, 10);
+            let isQtyValid = true;
+
+            if (rawQty === '' || isNaN(qty) || qty < 1) {
+                isQtyValid = false;
+                if (qtyErrorEl) {
+                    qtyErrorEl.style.display = 'block';
+                    qtyErrorEl.textContent = 'Quantity must be at least 1.';
+                }
+                if (stockWarningEl) stockWarningEl.style.display = 'none';
+            } else if (qty > stock) {
+                isQtyValid = false;
+                if (qtyErrorEl) qtyErrorEl.style.display = 'none';
+                if (stockWarningEl) {
+                    stockWarningEl.style.display = 'block';
+                    stockWarningEl.textContent = 'Only ' + stock + ' units are available.';
+                }
+            } else {
+                if (qtyErrorEl) qtyErrorEl.style.display = 'none';
+                if (stockWarningEl) stockWarningEl.style.display = 'none';
+            }
+
+            // Discount validation
+            const rawDisc = discountInput ? discountInput.value.trim() : '0';
+            let disc = parseFloat(rawDisc);
+            if (rawDisc === '' || isNaN(disc)) disc = 0;
+            let isDiscValid = true;
+
+            if (disc < 0 || disc > 100) {
+                isDiscValid = false;
+                if (discountErrorEl) {
+                    discountErrorEl.style.display = 'block';
+                    discountErrorEl.textContent = 'Discount must be between 0% and 100%.';
+                }
+            } else {
+                if (discountErrorEl) discountErrorEl.style.display = 'none';
+            }
+
+            const calcQty = isQtyValid ? qty : 0;
+            const calcDisc = isDiscValid ? disc : 0;
+
+            const grossAmount = price * calcQty;
+            const discountAmount = grossAmount * (calcDisc / 100);
+            const taxableAmount = grossAmount - discountAmount;
+            const gstAmount = taxableAmount * (gstRate / 100);
+            const lineTotal = taxableAmount + gstAmount;
+
+            lineTotalText.textContent = formatCurrency(lineTotal);
+            if (breakdownText) {
+                breakdownText.textContent = 'Taxable: ' + formatCurrency(taxableAmount) + ' | GST: ' + formatCurrency(gstAmount);
             }
 
             updateGlobalSummary();
         }
 
         function updateGlobalSummary() {
-            let totalSubtotal = 0;
+            let totalSubtotalGross = 0;
+            let totalDiscount = 0;
+            let totalTaxable = 0;
             let totalGST = 0;
 
             const rows = container.querySelectorAll('.item-row');
             rows.forEach(row => {
                 const productSelect = row.querySelector('.product-select');
                 const qtyInput = row.querySelector('.quantity-input');
+                const discountInput = row.querySelector('.discount-input');
+
                 const productId = productSelect ? productSelect.value : null;
                 const product = productId && productsData[productId] ? productsData[productId] : null;
 
                 if (product) {
                     const price = parseFloat(product.price) || 0;
                     const gstRate = parseFloat(product.gst_rate) || 0;
-                    const qty = parseInt(qtyInput.value) || 0;
+                    const stock = parseInt(product.stock) || 0;
 
-                    const taxable = price * qty;
-                    const gst = taxable * (gstRate / 100);
+                    const rawQty = qtyInput ? qtyInput.value.trim() : '0';
+                    const qty = parseInt(rawQty, 10);
+                    const rawDisc = discountInput ? discountInput.value.trim() : '0';
+                    let disc = parseFloat(rawDisc);
+                    if (rawDisc === '' || isNaN(disc)) disc = 0;
 
-                    totalSubtotal += taxable;
-                    totalGST += gst;
+                    if (!isNaN(qty) && qty >= 1 && qty <= stock && disc >= 0 && disc <= 100) {
+                        const gross = price * qty;
+                        const discAmt = gross * (disc / 100);
+                        const taxable = gross - discAmt;
+                        const gst = taxable * (gstRate / 100);
+
+                        totalSubtotalGross += gross;
+                        totalDiscount += discAmt;
+                        totalTaxable += taxable;
+                        totalGST += gst;
+                    }
                 }
             });
 
-            const grandTotal = totalSubtotal + totalGST;
+            const grandTotal = totalTaxable + totalGST;
 
-            document.getElementById('summarySubtotal').textContent = '₹' + totalSubtotal.toFixed(2);
-            document.getElementById('summaryGST').textContent = '₹' + totalGST.toFixed(2);
-            document.getElementById('summaryGrandTotal').textContent = '₹' + grandTotal.toFixed(2);
+            document.getElementById('summarySubtotal').textContent = formatCurrency(totalSubtotalGross);
+            document.getElementById('summaryDiscount').textContent = '-' + formatCurrency(totalDiscount);
+            document.getElementById('summaryTaxable').textContent = formatCurrency(totalTaxable);
+            document.getElementById('summaryGST').textContent = formatCurrency(totalGST);
+            document.getElementById('summaryGrandTotal').textContent = formatCurrency(grandTotal);
+        }
+
+        function checkDuplicateProducts() {
+            const rows = container.querySelectorAll('.item-row');
+            const selectedProductIds = new Map();
+
+            rows.forEach((row, index) => {
+                const productSelect = row.querySelector('.product-select');
+                const productErrorEl = row.querySelector('.product-error');
+                const pid = productSelect ? productSelect.value : null;
+
+                if (pid) {
+                    if (selectedProductIds.has(pid)) {
+                        if (productErrorEl) {
+                            productErrorEl.style.display = 'block';
+                            productErrorEl.textContent = 'This product is already selected in row ' + selectedProductIds.get(pid) + '.';
+                        }
+                    } else {
+                        selectedProductIds.set(pid, index + 1);
+                        if (productErrorEl && productErrorEl.textContent.includes('already selected')) {
+                            productErrorEl.style.display = 'none';
+                        }
+                    }
+                } else {
+                    if (productErrorEl && productErrorEl.textContent.includes('already selected')) {
+                        productErrorEl.style.display = 'none';
+                    }
+                }
+            });
         }
 
         function attachRowEvents(row) {
             const productSelect = row.querySelector('.product-select');
             const qtyInput = row.querySelector('.quantity-input');
+            const discountInput = row.querySelector('.discount-input');
             const removeBtn = row.querySelector('.remove-row-btn');
 
             if (productSelect) {
-                productSelect.addEventListener('change', () => updateRowCalculations(row));
+                productSelect.addEventListener('change', () => {
+                    updateRowCalculations(row);
+                    checkDuplicateProducts();
+                });
             }
             if (qtyInput) {
                 qtyInput.addEventListener('input', () => updateRowCalculations(row));
+                qtyInput.addEventListener('change', () => updateRowCalculations(row));
+            }
+            if (discountInput) {
+                discountInput.addEventListener('input', () => updateRowCalculations(row));
+                discountInput.addEventListener('change', () => updateRowCalculations(row));
             }
             if (removeBtn) {
                 removeBtn.addEventListener('click', () => {
@@ -827,7 +1016,13 @@
                     if (rows.length > 1) {
                         row.remove();
                         updateManagementForm();
+                        checkDuplicateProducts();
                         updateGlobalSummary();
+                    } else {
+                        if (productSelect) productSelect.value = '';
+                        if (qtyInput) qtyInput.value = '1';
+                        if (discountInput) discountInput.value = '0';
+                        updateRowCalculations(row);
                     }
                 });
             }
@@ -857,8 +1052,13 @@
             const newRow = lastRow.cloneNode(true);
 
             newRow.querySelectorAll('input').forEach(input => {
-                if (input.type === 'number') input.value = 1;
-                else if (input.type === 'hidden' && input.name.includes('-id')) input.value = '';
+                if (input.classList.contains('quantity-input')) {
+                    input.value = '1';
+                } else if (input.classList.contains('discount-input')) {
+                    input.value = '0';
+                } else if (input.type === 'hidden' && input.name.includes('-id')) {
+                    input.value = '';
+                }
             });
 
             newRow.querySelectorAll('select').forEach(select => {
@@ -868,6 +1068,51 @@
             container.appendChild(newRow);
             updateManagementForm();
             attachRowEvents(newRow);
+        });
+
+        // Form Submit Validation
+        invoiceForm.addEventListener('submit', (e) => {
+            let isValid = true;
+
+            const customerSelect = document.getElementById('id_customer');
+            if (customerSelect && !customerSelect.value) {
+                isValid = false;
+            }
+
+            const rows = container.querySelectorAll('.item-row');
+            let hasValidRow = false;
+
+            rows.forEach(row => {
+                const productSelect = row.querySelector('.product-select');
+                const qtyInput = row.querySelector('.quantity-input');
+                const discountInput = row.querySelector('.discount-input');
+
+                const pid = productSelect ? productSelect.value : null;
+                const product = pid && productsData[pid] ? productsData[pid] : null;
+
+                if (product) {
+                    hasValidRow = true;
+                    const stock = parseInt(product.stock) || 0;
+                    const qty = parseInt(qtyInput ? qtyInput.value : '0', 10);
+                    let disc = parseFloat(discountInput ? discountInput.value : '0');
+                    if (isNaN(disc)) disc = 0;
+
+                    if (isNaN(qty) || qty < 1 || qty > stock || disc < 0 || disc > 100) {
+                        isValid = false;
+                    }
+                } else if (pid) {
+                    isValid = false;
+                }
+            });
+
+            if (!hasValidRow) {
+                isValid = false;
+            }
+
+            if (!isValid) {
+                e.preventDefault();
+                alert('Please ensure customer is selected, product choices are valid, quantity is within stock, and discount is between 0% and 100%.');
+            }
         });
 
         // Initialize existing rows

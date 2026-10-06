@@ -313,6 +313,10 @@ def create_invoice(request):
                         if item_form.cleaned_data and not item_form.cleaned_data.get("DELETE", False):
                             product = item_form.cleaned_data.get("product")
                             quantity = item_form.cleaned_data.get("quantity")
+                            discount_percent = item_form.cleaned_data.get("discount_percent")
+
+                            if discount_percent is None:
+                                discount_percent = Decimal("0.00")
 
                             if not product or product.distributor != request.user:
                                 raise ValueError("Invalid product selection.")
@@ -320,12 +324,20 @@ def create_invoice(request):
                             if not quantity or quantity < 1:
                                 raise ValueError("Quantity must be at least 1.")
 
+                            if quantity > product.stock:
+                                raise ValueError(f'Only {product.stock} units are available for "{product.name}".')
+
+                            if discount_percent < Decimal("0.00") or discount_percent > Decimal("100.00"):
+                                raise ValueError("Discount percentage must be between 0% and 100%.")
+
                             # Authoritative snapshot from DB product
                             unit_price = product.price
                             gst_rate = product.gst_rate
                             product_name = product.name
 
-                            taxable_amount = Decimal(quantity) * unit_price
+                            gross_amount = Decimal(quantity) * unit_price
+                            discount_amount = gross_amount * (discount_percent / Decimal("100.00"))
+                            taxable_amount = gross_amount - discount_amount
                             gst_amount = taxable_amount * (gst_rate / Decimal("100.00"))
                             line_total = taxable_amount + gst_amount
 
@@ -336,6 +348,7 @@ def create_invoice(request):
                                 quantity=quantity,
                                 unit_price=unit_price,
                                 gst_rate=gst_rate,
+                                discount_percent=discount_percent,
                                 taxable_amount=taxable_amount,
                                 gst_amount=gst_amount,
                                 line_total=line_total

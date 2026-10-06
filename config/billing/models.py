@@ -290,12 +290,23 @@ class InvoiceItem(models.Model):
         help_text="Snapshot of GST rate percentage at invoice creation time"
     )
 
+    discount_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[
+            MinValueValidator(Decimal('0.00')),
+            MaxValueValidator(Decimal('100.00'))
+        ],
+        help_text="Snapshot of discount percentage at invoice creation time"
+    )
+
     taxable_amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         default=Decimal('0.00'),
         validators=[MinValueValidator(Decimal('0.00'))],
-        help_text="Taxable amount (quantity * unit_price)"
+        help_text="Taxable amount (gross_amount - discount_amount)"
     )
 
     gst_amount = models.DecimalField(
@@ -333,6 +344,8 @@ class InvoiceItem(models.Model):
             raise ValidationError({'unit_price': 'Unit price cannot be negative.'})
         if self.gst_rate is not None and (self.gst_rate < Decimal('0.00') or self.gst_rate > Decimal('100.00')):
             raise ValidationError({'gst_rate': 'GST rate must be between 0 and 100.'})
+        if self.discount_percent is not None and (self.discount_percent < Decimal('0.00') or self.discount_percent > Decimal('100.00')):
+            raise ValidationError({'discount_percent': 'Discount percentage must be between 0 and 100.'})
         if self.taxable_amount is not None and self.taxable_amount < Decimal('0.00'):
             raise ValidationError({'taxable_amount': 'Taxable amount cannot be negative.'})
         if self.gst_amount is not None and self.gst_amount < Decimal('0.00'):
