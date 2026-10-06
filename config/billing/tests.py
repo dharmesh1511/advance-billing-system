@@ -3,7 +3,9 @@ from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth.models import User, Group
 from django.core.exceptions import ValidationError
-from billing.models import Customer, Product
+from django.db.models import ProtectedError
+from billing.models import Customer, Product, Invoice, InvoiceItem
+
 
 
 
@@ -1107,6 +1109,127 @@ class ProductDeleteViewTests(TestCase):
         self.assertEqual(search_response.status_code, 200)
         self.assertContains(search_response, "Wireless Mouse")
         self.assertNotContains(search_response, "Wireless Headphones")
+
+
+class InvoiceModelTests(TestCase):
+
+    def setUp(self):
+        self.distributor1 = User.objects.create_user(
+            username="distributor_a",
+            password="password123"
+        )
+        self.distributor2 = User.objects.create_user(
+            username="distributor_b",
+            password="password123"
+        )
+        self.customer1 = Customer.objects.create(
+            distributor=self.distributor1,
+            name="Rahul Sharma",
+            phone="9876543210"
+        )
+        self.product1 = Product.objects.create(
+            distributor=self.distributor1,
+            name="Wireless Mouse",
+            price=Decimal("599.00"),
+            stock=50,
+            gst_rate=Decimal("18.00")
+        )
+
+    def test_invoice_creation(self):
+        """Verify invoice creation and field values."""
+        invoice = Invoice.objects.create(
+            distributor=self.distributor1,
+            customer=self.customer1,
+            invoice_number="INV-001",
+            invoice_date="2026-10-06",
+            subtotal=Decimal("1198.00"),
+            total_gst=Decimal("215.64"),
+            grand_total=Decimal("1413.64")
+        )
+        self.assertIsNotNone(invoice.pk)
+        self.assertEqual(invoice.invoice_number, "INV-001")
+        self.assertEqual(invoice.distributor, self.distributor1)
+        self.assertEqual(invoice.customer, self.customer1)
+        self.assertEqual(invoice.subtotal, Decimal("1198.00"))
+        self.assertEqual(invoice.total_gst, Decimal("215.64"))
+        self.assertEqual(invoice.grand_total, Decimal("1413.64"))
+
+    def test_invoice_item_creation_and_snapshot(self):
+        """Verify InvoiceItem creation and historical snapshot fields."""
+        invoice = Invoice.objects.create(
+            distributor=self.distributor1,
+            customer=self.customer1,
+            invoice_number="INV-002",
+            invoice_date="2026-10-06",
+            subtotal=Decimal("1198.00"),
+            total_gst=Decimal("215.64"),
+            grand_total=Decimal("1413.64")
+        )
+        item = InvoiceItem.objects.create(
+            invoice=invoice,
+            product=self.product1,
+            product_name=self.product1.name,
+            quantity=2,
+            unit_price=self.product1.price,
+            gst_rate=self.product1.gst_rate,
+            taxable_amount=Decimal("1198.00"),
+            gst_amount=Decimal("215.64"),
+            line_total=Decimal("1413.64")
+        )
+        self.assertEqual(item.product_name, "Wireless Mouse")
+        self.assertEqual(item.quantity, 2)
+        self.assertEqual(item.unit_price, Decimal("599.00"))
+        self.assertEqual(item.gst_rate, Decimal("18.00"))
+
+        # Update product current price
+        self.product1.price = Decimal("799.00")
+        self.product1.gst_rate = Decimal("12.00")
+        self.product1.save()
+
+        # InvoiceItem snapshot remains unchanged
+        item.refresh_from_db()
+        self.assertEqual(item.unit_price, Decimal("599.00"))
+        self.assertEqual(item.gst_rate, Decimal("18.00"))
+
+    def test_product_delete_protected_when_referenced_in_invoice(self):
+        """Attempting to delete a product referenced in an InvoiceItem should raise ProtectedError."""
+        invoice = Invoice.objects.create(
+            distributor=self.distributor1,
+            customer=self.customer1,
+            invoice_number="INV-003",
+            invoice_date="2026-10-06",
+            subtotal=Decimal("599.00"),
+            total_gst=Decimal("107.82"),
+            grand_total=Decimal("706.82")
+        )
+        InvoiceItem.objects.create(
+            invoice=invoice,
+            product=self.product1,
+            product_name=self.product1.name,
+            quantity=1,
+            unit_price=self.product1.price,
+            gst_rate=self.product1.gst_rate,
+            taxable_amount=Decimal("599.00"),
+            gst_amount=Decimal("107.82"),
+            line_total=Decimal("706.82")
+        )
+        with self.assertRaises(ProtectedError):
+            self.product1.delete()
+
+    def test_customer_delete_protected_when_referenced_in_invoice(self):
+        """Attempting to delete a customer referenced in an Invoice should raise ProtectedError."""
+        Invoice.objects.create(
+            distributor=self.distributor1,
+            customer=self.customer1,
+            invoice_number="INV-004",
+            invoice_date="2026-10-06",
+            subtotal=Decimal("599.00"),
+            total_gst=Decimal("107.82"),
+            grand_total=Decimal("706.82")
+        )
+        with self.assertRaises(ProtectedError):
+            self.customer1.delete()
+
 
 
 

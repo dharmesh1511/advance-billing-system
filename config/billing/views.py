@@ -122,14 +122,18 @@ def delete_customer(request, pk):
     customer = get_object_or_404(Customer, pk=pk, distributor=request.user)
 
     if request.method == "POST":
+        customer_name = customer.name
         try:
             customer.delete()
-            messages.success(request, "Customer deleted successfully.")
+            messages.success(request, f'"{customer_name}" deleted successfully.')
+        except (ProtectedError, RestrictedError):
+            messages.error(request, f'"{customer_name}" cannot be deleted because it is used in existing billing records.')
         except Exception as e:
-            messages.error(request, "Unable to delete customer right now. Please try again.")
+            messages.error(request, f'Unable to delete "{customer_name}" right now. Please try again.')
         return redirect("customer_list")
 
     return redirect("customer_list")
+
 
 
 @login_required(login_url="/distributor/login/")
