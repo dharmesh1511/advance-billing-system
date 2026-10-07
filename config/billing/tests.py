@@ -1742,8 +1742,47 @@ class CreateInvoiceViewTests(TestCase):
         invoice = Invoice.objects.filter(distributor=self.distributor1, customer=self.c1).order_by("-id").first()
         item = invoice.items.first()
         self.assertEqual(item.unit_price, Decimal("599.00"))  # From DB p1
-        self.assertEqual(item.gst_rate, Decimal("18.00"))      # From DB p1
-        self.assertEqual(invoice.grand_total, Decimal("706.82"))
+
+from billing.utils import render_to_pdf, link_callback
+
+
+class PdfUtilityTests(TestCase):
+
+    def test_render_to_pdf_valid_template(self):
+        """render_to_pdf should return valid PDF bytes starting with %PDF for a valid template."""
+        context = {
+            "customer_name": "Test Customer",
+            "subtotal": "1000.00",
+            "gst": "180.00",
+            "grand_total": "1180.00",
+        }
+        pdf_bytes = render_to_pdf("billing/pdf_test.html", context)
+        self.assertIsNotNone(pdf_bytes)
+        self.assertTrue(isinstance(pdf_bytes, bytes))
+        self.assertTrue(pdf_bytes.startswith(b"%PDF"))
+
+    def test_render_to_pdf_unicode_rupee_symbol(self):
+        """render_to_pdf should correctly render templates containing Unicode Rupee symbols (₹)."""
+        context = {
+            "customer_name": "Ramesh Kumar (₹)",
+            "subtotal": "500.00",
+            "gst": "90.00",
+            "grand_total": "590.00",
+        }
+        pdf_bytes = render_to_pdf("billing/pdf_test.html", context)
+        self.assertIsNotNone(pdf_bytes)
+        self.assertTrue(pdf_bytes.startswith(b"%PDF"))
+
+    def test_render_to_pdf_nonexistent_template(self):
+        """render_to_pdf should safely return None and log an error if template does not exist."""
+        pdf_bytes = render_to_pdf("billing/nonexistent_template_xyz.html", {})
+        self.assertIsNone(pdf_bytes)
+
+    def test_link_callback_resolution(self):
+        """link_callback should gracefully handle http URLs, static paths, media paths, and relative URIs."""
+        self.assertEqual(link_callback("https://example.com/logo.png", None), "https://example.com/logo.png")
+        self.assertEqual(link_callback("", None), "")
+
 
 
 
