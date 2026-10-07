@@ -1548,6 +1548,99 @@ class CreateInvoiceViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Discount must be between 0% and 100%")
 
+    def test_duplicate_product_selection_rejected_backend(self):
+        """Selecting the same product in multiple rows should be rejected by backend."""
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "customer": self.c1.id,
+            "invoice_date": "2026-10-06",
+            "items-TOTAL_FORMS": "2",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "1",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-product": self.p1.id,
+            "items-0-quantity": "1",
+            "items-0-discount_percent": "0.00",
+            "items-1-product": self.p1.id,
+            "items-1-quantity": "2",
+            "items-1-discount_percent": "5.00",
+        }
+        response = self.client.post(self.create_url, payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "has been selected multiple times")
+
+    def test_dynamic_multi_product_invoice_creation(self):
+        """Test Scenario 48: 3 products (Mouse, Keyboard, Monitor) in a single invoice."""
+        p_mouse = Product.objects.create(
+            distributor=self.distributor1,
+            name="Mouse",
+            price=Decimal("500.00"),
+            stock=50,
+            gst_rate=Decimal("18.00")
+        )
+        p_kbd = Product.objects.create(
+            distributor=self.distributor1,
+            name="Keyboard",
+            price=Decimal("1000.00"),
+            stock=50,
+            gst_rate=Decimal("18.00")
+        )
+        p_mon = Product.objects.create(
+            distributor=self.distributor1,
+            name="Monitor",
+            price=Decimal("10000.00"),
+            stock=10,
+            gst_rate=Decimal("18.00")
+        )
+
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "customer": self.c1.id,
+            "invoice_date": "2026-10-06",
+            "items-TOTAL_FORMS": "3",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "1",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-product": p_mouse.id,
+            "items-0-quantity": "2",
+            "items-0-discount_percent": "10.00",
+            "items-1-product": p_kbd.id,
+            "items-1-quantity": "1",
+            "items-1-discount_percent": "0.00",
+            "items-2-product": p_mon.id,
+            "items-2-quantity": "1",
+            "items-2-discount_percent": "5.00",
+        }
+        response = self.client.post(self.create_url, payload)
+        self.assertEqual(response.status_code, 302)
+
+        invoice = Invoice.objects.filter(distributor=self.distributor1, customer=self.c1).order_by("-id").first()
+        self.assertIsNotNone(invoice)
+        self.assertEqual(invoice.items.count(), 3)
+
+        # Item 1: Mouse -> Gross 1000, Disc 100, Taxable 900, GST 162, Total 1062
+        item1 = invoice.items.get(product=p_mouse)
+        self.assertEqual(item1.taxable_amount, Decimal("900.00"))
+        self.assertEqual(item1.gst_amount, Decimal("162.00"))
+        self.assertEqual(item1.line_total, Decimal("1062.00"))
+
+        # Item 2: Keyboard -> Gross 1000, Disc 0, Taxable 1000, GST 180, Total 1180
+        item2 = invoice.items.get(product=p_kbd)
+        self.assertEqual(item2.taxable_amount, Decimal("1000.00"))
+        self.assertEqual(item2.gst_amount, Decimal("180.00"))
+        self.assertEqual(item2.line_total, Decimal("1180.00"))
+
+        # Item 3: Monitor -> Gross 10000, Disc 500, Taxable 9500, GST 1710, Total 11210
+        item3 = invoice.items.get(product=p_mon)
+        self.assertEqual(item3.taxable_amount, Decimal("9500.00"))
+        self.assertEqual(item3.gst_amount, Decimal("1710.00"))
+        self.assertEqual(item3.line_total, Decimal("11210.00"))
+
+        # Invoice totals: Subtotal (Taxable) = 11400, Total GST = 2052, Grand Total = 13452
+        self.assertEqual(invoice.subtotal, Decimal("11400.00"))
+        self.assertEqual(invoice.total_gst, Decimal("2052.00"))
+        self.assertEqual(invoice.grand_total, Decimal("13452.00"))
+
 
 
 

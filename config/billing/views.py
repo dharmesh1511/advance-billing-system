@@ -307,7 +307,7 @@ def create_invoice(request):
                     subtotal = Decimal("0.00")
                     total_gst = Decimal("0.00")
 
-                    valid_item_count = 0
+                    seen_product_ids = set()
 
                     for item_form in formset:
                         if item_form.cleaned_data and not item_form.cleaned_data.get("DELETE", False):
@@ -315,11 +315,15 @@ def create_invoice(request):
                             quantity = item_form.cleaned_data.get("quantity")
                             discount_percent = item_form.cleaned_data.get("discount_percent")
 
-                            if discount_percent is None:
-                                discount_percent = Decimal("0.00")
-
                             if not product or product.distributor != request.user:
                                 raise ValueError("Invalid product selection.")
+
+                            if product.id in seen_product_ids:
+                                raise ValueError(f'Product "{product.name}" has been selected multiple times. Please update quantity in existing row.')
+                            seen_product_ids.add(product.id)
+
+                            if discount_percent is None:
+                                discount_percent = Decimal("0.00")
 
                             if not quantity or quantity < 1:
                                 raise ValueError("Quantity must be at least 1.")
