@@ -296,6 +296,10 @@ def create_invoice(request):
         if form.is_valid() and formset.is_valid():
             try:
                 with transaction.atomic():
+                    customer = form.cleaned_data.get("customer")
+                    if not customer or customer.distributor != request.user:
+                        raise ValueError("Selected customer does not belong to your account.")
+
                     invoice = form.save(commit=False)
                     invoice.distributor = request.user
                     invoice.invoice_number = generate_unique_invoice_number(request.user)
@@ -306,16 +310,24 @@ def create_invoice(request):
 
                     subtotal = Decimal("0.00")
                     total_gst = Decimal("0.00")
-
+                    valid_item_count = 0
                     seen_product_ids = set()
 
                     for item_form in formset:
                         if item_form.cleaned_data and not item_form.cleaned_data.get("DELETE", False):
-                            product = item_form.cleaned_data.get("product")
+                            form_product = item_form.cleaned_data.get("product")
                             quantity = item_form.cleaned_data.get("quantity")
                             discount_percent = item_form.cleaned_data.get("discount_percent")
 
-                            if not product or product.distributor != request.user:
+                            if not form_product:
+                                continue
+
+                            try:
+                                product = Product.objects.select_for_update().get(
+                                    id=form_product.id,
+                                    distributor=request.user
+                                )
+                            except Product.DoesNotExist:
                                 raise ValueError("Invalid product selection.")
 
                             if product.id in seen_product_ids:
@@ -340,9 +352,9 @@ def create_invoice(request):
                             product_name = product.name
 
                             gross_amount = Decimal(quantity) * unit_price
-                            discount_amount = gross_amount * (discount_percent / Decimal("100.00"))
+                            discount_amount = (gross_amount * (discount_percent / Decimal("100.00"))).quantize(Decimal("0.01"))
                             taxable_amount = gross_amount - discount_amount
-                            gst_amount = taxable_amount * (gst_rate / Decimal("100.00"))
+                            gst_amount = (taxable_amount * (gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
                             line_total = taxable_amount + gst_amount
 
                             InvoiceItem.objects.create(
@@ -357,6 +369,9 @@ def create_invoice(request):
                                 gst_amount=gst_amount,
                                 line_total=line_total
                             )
+
+                            product.stock -= quantity
+                            product.save(update_fields=["stock"])
 
                             subtotal += taxable_amount
                             total_gst += gst_amount

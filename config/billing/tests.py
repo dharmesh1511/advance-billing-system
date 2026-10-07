@@ -1641,6 +1641,111 @@ class CreateInvoiceViewTests(TestCase):
         self.assertEqual(invoice.total_gst, Decimal("2052.00"))
         self.assertEqual(invoice.grand_total, Decimal("13452.00"))
 
+    def test_stock_deduction_on_successful_invoice_creation(self):
+        """Product stock must be reduced by the exact quantity sold."""
+        initial_stock = self.p1.stock  # 50
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "customer": self.c1.id,
+            "invoice_date": "2026-10-06",
+            "items-TOTAL_FORMS": "1",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "1",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-product": self.p1.id,
+            "items-0-quantity": "5",
+        }
+        response = self.client.post(self.create_url, payload)
+        self.assertEqual(response.status_code, 302)
+
+        self.p1.refresh_from_db()
+        self.assertEqual(self.p1.stock, initial_stock - 5)
+
+    def test_transaction_atomic_rollback_on_failure(self):
+        """If one item fails (e.g., exceeds stock), no invoice or items are saved and stock is unchanged."""
+        p_ok = Product.objects.create(
+            distributor=self.distributor1,
+            name="Available Product",
+            price=Decimal("100.00"),
+            stock=10,
+            gst_rate=Decimal("18.00")
+        )
+        p_exceed = Product.objects.create(
+            distributor=self.distributor1,
+            name="Low Stock Product",
+            price=Decimal("200.00"),
+            stock=2,
+            gst_rate=Decimal("18.00")
+        )
+
+        initial_invoice_count = Invoice.objects.count()
+        self.client.login(username="dist1", password="password123")
+
+        payload = {
+            "customer": self.c1.id,
+            "invoice_date": "2026-10-06",
+            "items-TOTAL_FORMS": "2",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "1",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-product": p_ok.id,
+            "items-0-quantity": "5",
+            "items-1-product": p_exceed.id,
+            "items-1-quantity": "10",  # Exceeds stock (2 available)
+        }
+        response = self.client.post(self.create_url, payload)
+        self.assertEqual(response.status_code, 200)
+
+        # Nothing saved, stock unchanged
+        self.assertEqual(Invoice.objects.count(), initial_invoice_count)
+        p_ok.refresh_from_db()
+        p_exceed.refresh_from_db()
+        self.assertEqual(p_ok.stock, 10)
+        self.assertEqual(p_exceed.stock, 2)
+
+    def test_at_least_one_item_required(self):
+        """Submitting formset with no items must be rejected."""
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "customer": self.c1.id,
+            "invoice_date": "2026-10-06",
+            "items-TOTAL_FORMS": "1",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "1",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-product": "",
+            "items-0-quantity": "1",
+        }
+        response = self.client.post(self.create_url, payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Invoice.objects.count(), 0)
+
+    def test_do_not_trust_frontend_price_or_gst(self):
+        """Frontend submitted price or GST in POST payload is ignored; DB values are used."""
+        self.client.login(username="dist1", password="password123")
+        payload = {
+            "customer": self.c1.id,
+            "invoice_date": "2026-10-06",
+            "items-TOTAL_FORMS": "1",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "1",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-product": self.p1.id,
+            "items-0-quantity": "1",
+            "unit_price": "1.00",      # Client attempt to tamper
+            "gst_rate": "0.00",        # Client attempt to tamper
+            "grand_total": "1.00",     # Client attempt to tamper
+        }
+        response = self.client.post(self.create_url, payload)
+        self.assertEqual(response.status_code, 302)
+
+        invoice = Invoice.objects.filter(distributor=self.distributor1, customer=self.c1).order_by("-id").first()
+        item = invoice.items.first()
+        self.assertEqual(item.unit_price, Decimal("599.00"))  # From DB p1
+        self.assertEqual(item.gst_rate, Decimal("18.00"))      # From DB p1
+        self.assertEqual(invoice.grand_total, Decimal("706.82"))
+
+
 
 
 
