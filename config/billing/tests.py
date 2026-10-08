@@ -159,7 +159,7 @@ class CustomerListViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["total_count"], 0)
         self.assertContains(response, "No Customers Yet")
-        self.assertContains(response, "You haven&#x27;t added any customers yet.")
+        self.assertContains(response, "You haven't added any customers yet.")
 
     def test_pagination(self):
         """Pagination should limit items to 10 per page and preserve query parameter."""
@@ -1782,6 +1782,258 @@ class PdfUtilityTests(TestCase):
         """link_callback should gracefully handle http URLs, static paths, media paths, and relative URIs."""
         self.assertEqual(link_callback("https://example.com/logo.png", None), "https://example.com/logo.png")
         self.assertEqual(link_callback("", None), "")
+
+
+from accounts.models import DistributorProfile
+
+class InvoicePdfViewAndTemplateTests(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.distributor_group = Group.objects.create(name="Distributor")
+
+        self.distributor1 = User.objects.create_user(
+            username="dist1_pdf",
+            email="dist1@example.com",
+            password="password123",
+            first_name="Ramesh",
+            last_name="Shah"
+        )
+        self.distributor1.groups.add(self.distributor_group)
+        self.profile1 = DistributorProfile.objects.create(
+            user=self.distributor1,
+            full_name="Ramesh Enterprise",
+            email="dist1@example.com",
+            phone="9876543210"
+        )
+
+        self.distributor2 = User.objects.create_user(
+            username="dist2_pdf",
+            email="dist2@example.com",
+            password="password123"
+        )
+        self.distributor2.groups.add(self.distributor_group)
+
+        self.customer1 = Customer.objects.create(
+            distributor=self.distributor1,
+            name="Rajesh Patel",
+            email="rajesh@example.com",
+            phone="9988776655",
+            address="Flat 402, Super Diamond Towers, Near City Center, Ring Road",
+            city="Ahmedabad",
+            state="Gujarat",
+            pincode="380015"
+        )
+
+        self.product1 = Product.objects.create(
+            distributor=self.distributor1,
+            name="Wireless Mouse Pro",
+            price=Decimal("500.00"),
+            stock=100,
+            gst_rate=Decimal("18.00"),
+            sku="WM-PRO-01"
+        )
+
+        self.product2 = Product.objects.create(
+            distributor=self.distributor1,
+            name="Ultra Ergonomic Mechanical Keyboard with RGB Backlight and Mechanical Switches",
+            price=Decimal("2500.00"),
+            stock=50,
+            gst_rate=Decimal("18.00"),
+            sku="KB-MECH-02"
+        )
+
+    def test_one_product_invoice_pdf(self):
+        """Verify PDF generation for a 1-product invoice."""
+        inv = Invoice.objects.create(
+            distributor=self.distributor1,
+            customer=self.customer1,
+            invoice_number="INV-PDF-001",
+            invoice_date="2026-10-08",
+            subtotal=Decimal("500.00"),
+            total_gst=Decimal("90.00"),
+            grand_total=Decimal("590.00")
+        )
+        InvoiceItem.objects.create(
+            invoice=inv,
+            product=self.product1,
+            product_name=self.product1.name,
+            quantity=1,
+            unit_price=Decimal("500.00"),
+            gst_rate=Decimal("18.00"),
+            discount_percent=Decimal("0.00"),
+            taxable_amount=Decimal("500.00"),
+            gst_amount=Decimal("90.00"),
+            line_total=Decimal("590.00")
+        )
+
+        self.client.login(username="dist1_pdf", password="password123")
+        url = reverse("invoice_pdf", kwargs={"pk": inv.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_multiple_products_invoice_pdf(self):
+        """Verify PDF generation for multi-product invoice."""
+        inv = Invoice.objects.create(
+            distributor=self.distributor1,
+            customer=self.customer1,
+            invoice_number="INV-PDF-002",
+            invoice_date="2026-10-08",
+            subtotal=Decimal("3000.00"),
+            total_gst=Decimal("540.00"),
+            grand_total=Decimal("3540.00")
+        )
+        InvoiceItem.objects.create(
+            invoice=inv,
+            product=self.product1,
+            product_name=self.product1.name,
+            quantity=1,
+            unit_price=Decimal("500.00"),
+            gst_rate=Decimal("18.00"),
+            discount_percent=Decimal("0.00"),
+            taxable_amount=Decimal("500.00"),
+            gst_amount=Decimal("90.00"),
+            line_total=Decimal("590.00")
+        )
+        InvoiceItem.objects.create(
+            invoice=inv,
+            product=self.product2,
+            product_name=self.product2.name,
+            quantity=1,
+            unit_price=Decimal("2500.00"),
+            gst_rate=Decimal("18.00"),
+            discount_percent=Decimal("0.00"),
+            taxable_amount=Decimal("2500.00"),
+            gst_amount=Decimal("450.00"),
+            line_total=Decimal("2950.00")
+        )
+
+        self.client.login(username="dist1_pdf", password="password123")
+        url = reverse("invoice_pdf", kwargs={"pk": inv.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_long_customer_address_pdf(self):
+        """Verify PDF layout with long customer address."""
+        c_long = Customer.objects.create(
+            distributor=self.distributor1,
+            name="Super Heavy Enterprises India Private Limited",
+            email="contact@superheavy.co.in",
+            phone="9123456789",
+            address="Plot No. 1045, Sector 28-B, Industrial Development Area, Phase II, Near Express Highway Complex, Opposite Metro Station",
+            city="Gandhinagar",
+            state="Gujarat",
+            pincode="382028"
+        )
+        inv = Invoice.objects.create(
+            distributor=self.distributor1,
+            customer=c_long,
+            invoice_number="INV-PDF-003",
+            invoice_date="2026-10-08",
+            subtotal=Decimal("500.00"),
+            total_gst=Decimal("90.00"),
+            grand_total=Decimal("590.00")
+        )
+        InvoiceItem.objects.create(
+            invoice=inv,
+            product=self.product1,
+            product_name=self.product1.name,
+            quantity=1,
+            unit_price=Decimal("500.00"),
+            gst_rate=Decimal("18.00"),
+            discount_percent=Decimal("0.00"),
+            taxable_amount=Decimal("500.00"),
+            gst_amount=Decimal("90.00"),
+            line_total=Decimal("590.00")
+        )
+
+        self.client.login(username="dist1_pdf", password="password123")
+        url = reverse("invoice_pdf", kwargs={"pk": inv.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_invoice_with_20_plus_items_pdf(self):
+        """Verify multi-page PDF generation with 25 line items."""
+        inv = Invoice.objects.create(
+            distributor=self.distributor1,
+            customer=self.customer1,
+            invoice_number="INV-PDF-20ITEMS",
+            invoice_date="2026-10-08",
+            subtotal=Decimal("12500.00"),
+            total_gst=Decimal("2250.00"),
+            grand_total=Decimal("14750.00")
+        )
+        for i in range(25):
+            InvoiceItem.objects.create(
+                invoice=inv,
+                product=self.product1,
+                product_name=f"Bulk Product Item #{i+1} Special Heavy Edition",
+                quantity=1,
+                unit_price=Decimal("500.00"),
+                gst_rate=Decimal("18.00"),
+                discount_percent=Decimal("0.00"),
+                taxable_amount=Decimal("500.00"),
+                gst_amount=Decimal("90.00"),
+                line_total=Decimal("590.00")
+            )
+
+        self.client.login(username="dist1_pdf", password="password123")
+        url = reverse("invoice_pdf", kwargs={"pk": inv.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_discount_and_gst_calculations_pdf(self):
+        """Verify percentage discount and GST calculations in rendered PDF."""
+        inv = Invoice.objects.create(
+            distributor=self.distributor1,
+            customer=self.customer1,
+            invoice_number="INV-PDF-DISCOUNT",
+            invoice_date="2026-10-08",
+            subtotal=Decimal("900.00"),
+            total_gst=Decimal("162.00"),
+            grand_total=Decimal("1062.00")
+        )
+        InvoiceItem.objects.create(
+            invoice=inv,
+            product=self.product1,
+            product_name="Discounted Item",
+            quantity=2,
+            unit_price=Decimal("500.00"),
+            gst_rate=Decimal("18.00"),
+            discount_percent=Decimal("10.00"),
+            taxable_amount=Decimal("900.00"),
+            gst_amount=Decimal("162.00"),
+            line_total=Decimal("1062.00")
+        )
+
+        self.client.login(username="dist1_pdf", password="password123")
+        url = reverse("invoice_pdf", kwargs={"pk": inv.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_pdf_security_distributor_isolation(self):
+        """Distributor B cannot view or download Distributor A's invoice PDF."""
+        inv = Invoice.objects.create(
+            distributor=self.distributor1,
+            customer=self.customer1,
+            invoice_number="INV-SECRET-01",
+            invoice_date="2026-10-08",
+            subtotal=Decimal("500.00"),
+            total_gst=Decimal("90.00"),
+            grand_total=Decimal("590.00")
+        )
+
+        self.client.login(username="dist2_pdf", password="password123")
+        url = reverse("invoice_pdf", kwargs={"pk": inv.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
 
 
 

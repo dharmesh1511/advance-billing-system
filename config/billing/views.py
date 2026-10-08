@@ -4,10 +4,11 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q, ProtectedError, RestrictedError
 from django.db import transaction
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.core.paginator import Paginator
 from .forms import CustomerForm, ProductForm, InvoiceForm, InvoiceItemFormSet
 from .models import Customer, Product, Invoice, InvoiceItem
+from .utils import render_to_pdf
 
 
 
@@ -438,5 +439,48 @@ def product_details(request, pk):
         "gst_rate": str(product.gst_rate),
         "stock": product.stock,
     })
+
+
+@login_required(login_url="/distributor/login/")
+def invoice_pdf_view(request, pk):
+    if not is_distributor(request.user):
+        return redirect("distributor_login")
+
+    invoice = get_object_or_404(
+        Invoice.objects.select_related("customer", "distributor").prefetch_related("items", "items__product"),
+        pk=pk,
+        distributor=request.user
+    )
+
+    items = invoice.items.all()
+    gross_total = Decimal("0.00")
+    total_discount = Decimal("0.00")
+
+    for item in items:
+        line_gross = Decimal(item.quantity) * item.unit_price
+        gross_total += line_gross
+        total_discount += (line_gross - item.taxable_amount)
+
+    distributor_profile = getattr(request.user, "distributor_profile", None)
+
+    context = {
+        "invoice": invoice,
+        "items": items,
+        "customer": invoice.customer,
+        "distributor": request.user,
+        "profile": distributor_profile,
+        "gross_total": gross_total,
+        "total_discount": total_discount,
+    }
+
+    pdf_bytes = render_to_pdf("billing/invoice_pdf.html", context)
+    if not pdf_bytes:
+        messages.error(request, "Unable to generate PDF invoice at this time.")
+        return redirect("distributor_dashboard")
+
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="Invoice_{invoice.invoice_number}.pdf"'
+    return response
+
 
 

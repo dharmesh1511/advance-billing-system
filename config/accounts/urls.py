@@ -25,6 +25,8 @@ urlpatterns = [
     path("distributor/products/<int:pk>/details/", billing_views.product_details, name="product_details"),
     path("distributor/invoices/create/", billing_views.create_invoice, name="create_invoice"),
     path("distributor/invoices/create/", billing_views.create_invoice, name="invoice_create"),
+    path("distributor/invoices/<int:pk>/pdf/", billing_views.invoice_pdf_view, name="invoice_pdf"),
+    path("distributor/invoices/<int:pk>/pdf/", billing_views.invoice_pdf_view, name="invoice_pdf_view"),
 
 
 
