@@ -116,24 +116,35 @@ def render_to_pdf(template_name, context=None):
 def build_invoice_qr_payload(invoice):
     """
     Build structured payload dictionary for an invoice QR code.
-    Contains: invoice_number, customer_name, product_count (sum of line item quantities),
+    Contains: invoice_number, invoice_date, customer_name, product_count (sum of line item quantities),
     grand_total (string format 2 decimal places), currency ("INR").
     Does not include sensitive customer personal data.
     """
-    if hasattr(invoice, "total_item_qty") and invoice.total_item_qty is not None:
+    if hasattr(invoice, "total_quantity") and invoice.total_quantity is not None:
+        product_count = invoice.total_quantity
+    elif hasattr(invoice, "total_item_qty") and invoice.total_item_qty is not None:
         product_count = invoice.total_item_qty
     else:
         product_count = sum(item.quantity for item in invoice.items.all())
 
+    inv_date_str = ""
+    if invoice.invoice_date:
+        inv_date_str = invoice.invoice_date.strftime("%Y-%m-%d")
+
     customer_name = invoice.customer.name if invoice.customer else ""
 
-    return {
+    payload = {
         "invoice_number": invoice.invoice_number,
-        "customer_name": customer_name,
+        "invoice_date": inv_date_str,
         "product_count": product_count,
         "grand_total": f"{invoice.grand_total:.2f}",
         "currency": "INR"
     }
+
+    if customer_name:
+        payload["customer_name"] = customer_name
+
+    return payload
 
 
 def generate_invoice_qr(invoice):

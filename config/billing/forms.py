@@ -432,6 +432,12 @@ class InvoiceForm(forms.ModelForm):
             raise forms.ValidationError("Please select a valid invoice date.")
         return invoice_date
 
+    def clean(self):
+        cleaned_data = super().clean()
+        if not getattr(self.instance, "invoice_number", None):
+            self.instance.invoice_number = "PENDING"
+        return cleaned_data
+
 
 class InvoiceItemForm(forms.ModelForm):
     discount_percent = forms.DecimalField(
@@ -500,6 +506,25 @@ class InvoiceItemForm(forms.ModelForm):
         if discount < Decimal("0.00") or discount > Decimal("100.00"):
             raise forms.ValidationError("Discount must be between 0% and 100%.")
         return discount
+
+    def clean(self):
+        cleaned_data = super().clean()
+        product = cleaned_data.get("product")
+        if product:
+            self.instance.product_name = product.name
+            self.instance.unit_price = product.price
+            self.instance.gst_rate = product.gst_rate
+            self.instance.taxable_amount = Decimal("0.00")
+            self.instance.gst_amount = Decimal("0.00")
+            self.instance.line_total = Decimal("0.00")
+        else:
+            self.instance.product_name = "PENDING"
+            self.instance.unit_price = Decimal("0.00")
+            self.instance.gst_rate = Decimal("0.00")
+            self.instance.taxable_amount = Decimal("0.00")
+            self.instance.gst_amount = Decimal("0.00")
+            self.instance.line_total = Decimal("0.00")
+        return cleaned_data
 
 
 BaseInvoiceItemFormSet = forms.inlineformset_factory(

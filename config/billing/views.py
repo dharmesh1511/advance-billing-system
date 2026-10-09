@@ -2,7 +2,7 @@ from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Q, Sum, Value, IntegerField, ProtectedError, RestrictedError
+from django.db.models import Q, Count, Sum, Value, IntegerField, ProtectedError, RestrictedError
 from django.db.models.functions import Coalesce
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
@@ -307,12 +307,13 @@ def create_invoice(request):
                     if not customer or customer.distributor != request.user:
                         raise ValueError("Selected customer does not belong to your account.")
 
+                    form.instance.distributor = request.user
+                    form.instance.invoice_number = generate_unique_invoice_number(request.user)
+                    form.instance.subtotal = Decimal("0.00")
+                    form.instance.total_gst = Decimal("0.00")
+                    form.instance.grand_total = Decimal("0.00")
+
                     invoice = form.save(commit=False)
-                    invoice.distributor = request.user
-                    invoice.invoice_number = generate_unique_invoice_number(request.user)
-                    invoice.subtotal = Decimal("0.00")
-                    invoice.total_gst = Decimal("0.00")
-                    invoice.grand_total = Decimal("0.00")
                     invoice.save()
 
                     subtotal = Decimal("0.00")
@@ -495,6 +496,7 @@ def invoice_list(request):
     if not is_distributor(request.user):
         return redirect("distributor_login")
 
+    from django.db.models import Count
     queryset = Invoice.objects.filter(
         distributor=request.user
     ).select_related(
@@ -502,6 +504,8 @@ def invoice_list(request):
     ).prefetch_related(
         "items"
     ).annotate(
+        item_count=Count("items", distinct=True),
+        total_quantity=Coalesce(Sum("items__quantity"), Value(0), output_field=IntegerField()),
         total_item_qty=Coalesce(Sum("items__quantity"), Value(0), output_field=IntegerField())
     ).order_by("-created_at")
 

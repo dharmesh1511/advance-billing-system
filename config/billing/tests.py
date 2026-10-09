@@ -2114,6 +2114,7 @@ class QRCodeFeatureTests(TestCase):
         from billing.utils import build_invoice_qr_payload
         payload = build_invoice_qr_payload(self.invoice1)
         self.assertEqual(payload["invoice_number"], "INV-0001")
+        self.assertEqual(payload["invoice_date"], "2026-10-09")
         self.assertEqual(payload["customer_name"], "Rahul Shah")
         self.assertEqual(payload["product_count"], 4)
         self.assertEqual(payload["grand_total"], "1416.00")
@@ -2156,6 +2157,39 @@ class QRCodeFeatureTests(TestCase):
         url = reverse("invoice_qr", kwargs={"pk": self.invoice1.pk})
         response = self.client.get(url)
         self.assertEqual(response.status_code, 404)
+
+    def test_historical_invoice_price_immutability(self):
+        """Updating current product price does not alter historical invoice item price/total."""
+        self.product1.price = Decimal("999.00")
+        self.product1.save()
+
+        item = InvoiceItem.objects.get(invoice=self.invoice1, product=self.product1)
+        self.assertEqual(item.unit_price, Decimal("100.00"))
+        self.assertEqual(item.line_total, Decimal("236.00"))
+        self.invoice1.refresh_from_db()
+        self.assertEqual(self.invoice1.grand_total, Decimal("1416.00"))
+
+    def test_create_invoice_post_success(self):
+        """Creating an invoice via POST populates invoice_number and redirects to invoice_list."""
+        self.client.login(username="qr_dist1", password="password123")
+        post_data = {
+            "customer": self.customer1.id,
+            "invoice_date": "2026-10-09",
+            "items-TOTAL_FORMS": "1",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "1",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-product": self.product1.id,
+            "items-0-quantity": "3",
+            "items-0-discount_percent": "0.00",
+        }
+        url = reverse("create_invoice")
+        response = self.client.post(url, post_data)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("invoice_list"))
+        created_inv = Invoice.objects.filter(distributor=self.distributor1).order_by("-id").first()
+        self.assertIsNotNone(created_inv)
+        self.assertTrue(created_inv.invoice_number.startswith("INV-"))
 
 
 class InvoiceListViewTests(TestCase):

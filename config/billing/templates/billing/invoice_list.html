@@ -720,7 +720,8 @@
                                     <th>Invoice No.</th>
                                     <th>Customer</th>
                                     <th>Date</th>
-                                    <th>Products</th>
+                                    <th>Product Summary</th>
+                                    <th>Items / Qty</th>
                                     <th>Grand Total</th>
                                     <th>Actions</th>
                                 </tr>
@@ -737,9 +738,19 @@
                                         </td>
                                         <td>{{ invoice.invoice_date|date:"d M Y" }}</td>
                                         <td>
-                                            <span style="display: inline-flex; align-items: center; justify-content: center; background-color: #f3f4f6; color: #374151; font-weight: 600; padding: 2px 10px; border-radius: 12px; font-size: 13px;">
-                                                {{ invoice.total_item_qty }} item{% if invoice.total_item_qty != 1 %}s{% endif %}
-                                            </span>
+                                            <div style="max-width: 280px; font-size: 13px; line-height: 1.4;">
+                                                {% for item in invoice.items.all %}
+                                                    <span style="font-weight: 600; color: #374151;">{{ item.product_name }}</span> <span style="color: #6b7280;">× {{ item.quantity }}</span>{% if not forloop.last %}, {% endif %}
+                                                {% empty %}
+                                                    <span class="text-muted" style="color: #9ca3af; font-style: italic;">No items available</span>
+                                                {% endfor %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="font-size: 13px; color: #374151;">
+                                                <strong>{{ invoice.total_item_qty }}</strong> units
+                                                <div style="font-size: 11px; color: #6b7280;">{{ invoice.item_count|default:invoice.items.all|length }} line{% if invoice.item_count != 1 %}s{% endif %}</div>
+                                            </div>
                                         </td>
                                         <td class="grand-total">₹{{ invoice.grand_total }}</td>
                                         <td>
