@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customers | Advance Billing System</title>
+    <title>Invoices | Advance Billing System</title>
     <style>
         * {
             box-sizing: border-box;
@@ -154,7 +154,7 @@
             gap: 16px;
         }
 
-        .add-customer-btn {
+        .create-invoice-btn {
             display: inline-flex;
             align-items: center;
             gap: 8px;
@@ -169,7 +169,7 @@
             box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
         }
 
-        .add-customer-btn:hover {
+        .create-invoice-btn:hover {
             background-color: #15803d;
         }
 
@@ -235,7 +235,7 @@
             display: flex;
             gap: 10px;
             align-items: center;
-            max-width: 500px;
+            max-width: 520px;
             width: 100%;
         }
 
@@ -322,14 +322,14 @@
             border: 1px solid #e5e7eb;
         }
 
-        .customer-table {
+        .invoice-table {
             width: 100%;
             border-collapse: collapse;
             text-align: left;
             font-size: 14px;
         }
 
-        .customer-table th {
+        .invoice-table th {
             background-color: #f9fafb;
             color: #4b5563;
             font-weight: 600;
@@ -338,18 +338,18 @@
             white-space: nowrap;
         }
 
-        .customer-table td {
+        .invoice-table td {
             padding: 14px 16px;
             border-bottom: 1px solid #f3f4f6;
             color: #1f2937;
             vertical-align: middle;
         }
 
-        .customer-table tbody tr:last-child td {
+        .invoice-table tbody tr:last-child td {
             border-bottom: none;
         }
 
-        .customer-table tbody tr:hover {
+        .invoice-table tbody tr:hover {
             background-color: #f9fafb;
         }
 
@@ -358,9 +358,62 @@
             color: #6b7280;
         }
 
-        .text-muted {
-            color: #9ca3af;
-            font-style: italic;
+        .inv-number {
+            font-weight: 700;
+            color: #16a34a;
+            font-family: monospace, monospace;
+            font-size: 14px;
+        }
+
+        .grand-total {
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .pdf-action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background-color: #eff6ff;
+            color: #2563eb;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .pdf-action-btn:hover {
+            background-color: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .qr-action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background-color: #f0fdf4;
+            color: #16a34a;
+            border: 1px solid #bbf7d0;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .qr-action-btn:hover {
+            background-color: #dcfce7;
+            color: #15803d;
         }
 
         /* Empty State */
@@ -532,7 +585,7 @@
 </head>
 <body>
 
-    <!-- Sidebar -->
+    <!-- Sidebar Navigation -->
     <aside class="sidebar">
         <div class="sidebar-brand">
             <div class="brand-logo">AB</div>
@@ -547,18 +600,11 @@
                 <span>Dashboard</span>
             </a>
 
-            <a href="{% url 'customer_list' %}" class="nav-item active">
+            <a href="{% url 'customer_list' %}" class="nav-item">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
                 </svg>
                 <span>Customers</span>
-            </a>
-
-            <a href="{% url 'add_customer' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-                </svg>
-                <span>Add Customer</span>
             </a>
 
             <a href="{% url 'product_list' %}" class="nav-item">
@@ -568,11 +614,18 @@
                 <span>Products</span>
             </a>
 
-            <a href="{% url 'invoice_list' %}" class="nav-item">
+            <a href="{% url 'invoice_list' %}" class="nav-item active">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
                 <span>Invoices</span>
+            </a>
+
+            <a href="{% url 'create_invoice' %}" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                <span>Create Invoice</span>
             </a>
 
             <a href="{% url 'distributor_profile' %}" class="nav-item">
@@ -597,16 +650,16 @@
     <div class="main-wrapper">
         <header class="top-header">
             <div class="header-title">
-                <h1>Customers</h1>
-                <p>Manage and view your customers.</p>
+                <h1>Invoices</h1>
+                <p>View, search and manage saved customer invoices.</p>
             </div>
 
             <div class="header-actions">
-                <a href="{% url 'add_customer' %}" class="add-customer-btn">
+                <a href="{% url 'create_invoice' %}" class="create-invoice-btn">
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                     </svg>
-                    <span>+ Add Customer</span>
+                    <span>+ Create Invoice</span>
                 </a>
 
                 <a href="{% url 'distributor_profile' %}" class="user-profile-badge">
@@ -635,101 +688,73 @@
             <div class="page-card">
                 <!-- Search Controls -->
                 <div class="search-container">
-                    <form method="GET" action="{% url 'customer_list' %}" class="search-form">
+                    <form method="GET" action="{% url 'invoice_list' %}" class="search-form">
                         <div class="search-input-wrapper">
                             <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                             </svg>
-                            <input type="text" name="q" value="{{ query }}" placeholder="🔍 Search customers..." class="search-input" id="id_search_input" />
+                            <input type="text" name="q" value="{{ query }}" placeholder="Search by invoice number or customer..." class="search-input" id="id_search_input" />
                         </div>
                         <button type="submit" class="search-btn">Search</button>
                         {% if query %}
-                            <a href="{% url 'customer_list' %}" class="clear-search-link">Clear</a>
+                            <a href="{% url 'invoice_list' %}" class="clear-search-link">Clear</a>
                         {% endif %}
                     </form>
 
                     <div class="results-summary">
                         {% if query %}
-                            {{ filtered_count }} customer{% if filtered_count != 1 %}s{% endif %} found
+                            {{ filtered_count }} invoice{% if filtered_count != 1 %}s{% endif %} found
                         {% else %}
-                            {{ total_count }} customer{% if total_count != 1 %}s{% endif %}
+                            {{ total_count }} invoice{% if total_count != 1 %}s{% endif %}
                         {% endif %}
                     </div>
                 </div>
 
-                <!-- Customer Table or Empty States -->
+                <!-- Invoice Table or Empty States -->
                 {% if page_obj.object_list %}
                     <div class="table-responsive">
-                        <table class="customer-table">
+                        <table class="invoice-table">
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>Name</th>
-                                    <th>Email</th>
-                                    <th>Phone</th>
-                                    <th>Address</th>
-                                    <th>City</th>
-                                    <th>State</th>
-                                    <th>Pincode</th>
-                                    <th>Created At</th>
+                                    <th>Invoice No.</th>
+                                    <th>Customer</th>
+                                    <th>Date</th>
+                                    <th>Products</th>
+                                    <th>Grand Total</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for customer in page_obj.object_list %}
+                                {% for invoice in page_obj.object_list %}
                                     <tr>
                                         <td class="badge-cell">{{ page_obj.start_index|add:forloop.counter0 }}</td>
-                                        <td><strong>{{ customer.name }}</strong></td>
                                         <td>
-                                            {% if customer.email %}
-                                                {{ customer.email }}
-                                            {% else %}
-                                                <span class="text-muted">-</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>{{ customer.phone }}</td>
-                                        <td>
-                                            {% if customer.address %}
-                                                {{ customer.address }}
-                                            {% else %}
-                                                <span class="text-muted">-</span>
-                                            {% endif %}
+                                            <span class="inv-number">{{ invoice.invoice_number }}</span>
                                         </td>
                                         <td>
-                                            {% if customer.city %}
-                                                {{ customer.city }}
-                                            {% else %}
-                                                <span class="text-muted">-</span>
-                                            {% endif %}
+                                            <strong>{{ invoice.customer.name }}</strong>
                                         </td>
+                                        <td>{{ invoice.invoice_date|date:"d M Y" }}</td>
                                         <td>
-                                            {% if customer.state %}
-                                                {{ customer.state }}
-                                            {% else %}
-                                                <span class="text-muted">-</span>
-                                            {% endif %}
+                                            <span style="display: inline-flex; align-items: center; justify-content: center; background-color: #f3f4f6; color: #374151; font-weight: 600; padding: 2px 10px; border-radius: 12px; font-size: 13px;">
+                                                {{ invoice.total_item_qty }} item{% if invoice.total_item_qty != 1 %}s{% endif %}
+                                            </span>
                                         </td>
+                                        <td class="grand-total">₹{{ invoice.grand_total }}</td>
                                         <td>
-                                            {% if customer.pincode %}
-                                                {{ customer.pincode }}
-                                            {% else %}
-                                                <span class="text-muted">-</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>{{ customer.created_at|date:"M d, Y, h:i A" }}</td>
-                                        <td style="white-space: nowrap;">
-                                            <div style="display: flex; gap: 8px; align-items: center;">
-                                                <a href="{% url 'customer_edit' customer.pk %}" class="edit-action-btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background-color: #f3f4f6; color: #111827; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; transition: all 0.2s ease;">
+                                            <div class="action-btns">
+                                                <a href="{% url 'invoice_pdf' invoice.pk %}" target="_blank" class="pdf-action-btn" title="Download PDF">
                                                     <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                                     </svg>
-                                                    <span>Edit</span>
+                                                    <span>PDF</span>
                                                 </a>
-                                                <button type="button" onclick="openDeleteModal('{{ customer.pk }}', '{{ customer.name|escapejs }}')" class="delete-action-btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background-color: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
+                                                <button type="button" onclick="openQrModal('{{ invoice.pk }}', '{{ invoice.invoice_number|escapejs }}', '{{ invoice.customer.name|escapejs }}', '{{ invoice.total_item_qty }}', '{{ invoice.grand_total }}')" class="qr-action-btn" title="View Invoice QR Code">
                                                     <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
                                                     </svg>
-                                                    <span>Delete</span>
+                                                    <span>View QR</span>
                                                 </button>
                                             </div>
                                         </td>
@@ -743,7 +768,7 @@
                     {% if page_obj.has_other_pages %}
                         <div class="pagination-container">
                             <div class="pagination-info">
-                                Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} customers
+                                Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} invoices
                             </div>
                             <nav class="pagination-nav">
                                 {% if page_obj.has_previous %}
@@ -770,91 +795,113 @@
                     {% endif %}
 
                 {% elif query %}
-                    <!-- No Results State -->
+                    <!-- No Search Results State -->
                     <div class="empty-state">
                         <div class="empty-state-icon">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                             </svg>
                         </div>
-                        <h3>No customers found</h3>
-                        <p>We couldn't find any customers matching "<strong>{{ query }}</strong>".</p>
-                        <a href="{% url 'customer_list' %}" class="empty-btn-secondary">Clear Search</a>
+                        <h3>No invoices match your search</h3>
+                        <p>We couldn't find any invoices matching "<strong>{{ query }}</strong>".</p>
+                        <a href="{% url 'invoice_list' %}" class="empty-btn-secondary">Clear Search</a>
                     </div>
                 {% else %}
-                    <!-- No Customers State -->
+                    <!-- No Invoices State -->
                     <div class="empty-state">
                         <div class="empty-state-icon">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                             </svg>
                         </div>
-                        <h3>No Customers Yet</h3>
-                        <p>You haven't added any customers yet.</p>
-                        <a href="{% url 'add_customer' %}" class="empty-btn">+ Add Customer</a>
+                        <h3>No Invoices Found</h3>
+                        <p>Create your first invoice to get started.</p>
+                        <a href="{% url 'create_invoice' %}" class="empty-btn">+ Create Invoice</a>
                     </div>
                 {% endif %}
             </div>
         </main>
     </div>
 
-    <!-- Delete Confirmation Modal -->
-    <div id="deleteModal" style="display: none; position: fixed; inset: 0; background-color: rgba(17, 24, 39, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center; padding: 20px;">
-        <div style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 440px; padding: 28px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); border: 1px solid #e5e7eb; position: relative;">
-            <div style="width: 48px; height: 48px; background-color: #fee2e2; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; color: #dc2626;">
-                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                </svg>
-            </div>
+    <!-- QR Code Preview Modal -->
+    <div id="qrModal" style="display: none; position: fixed; inset: 0; background-color: rgba(17, 24, 39, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center; padding: 20px;">
+        <div style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 460px; padding: 28px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; position: relative;">
             
-            <h3 style="font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 8px;">Delete Customer?</h3>
-            <p style="font-size: 14px; color: #6b7280; line-height: 1.5; margin-bottom: 24px;">
-                Are you sure you want to delete <strong id="deleteCustomerName" style="color: #111827;"></strong>? This action cannot be undone.
-            </p>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; border-bottom: 1px solid #f3f4f6; padding-bottom: 14px;">
+                <div>
+                    <h3 id="qrModalTitle" style="font-size: 18px; font-weight: 700; color: #111827;">Invoice QR Code</h3>
+                    <p id="qrModalSubtitle" style="font-size: 13px; color: #6b7280; margin-top: 2px;"></p>
+                </div>
+                <button type="button" onclick="closeQrModal()" style="background: none; border: none; font-size: 24px; color: #9ca3af; cursor: pointer; line-height: 1;">&times;</button>
+            </div>
 
-            <form id="deleteCustomerForm" method="POST" action="">
-                {% csrf_token %}
-                <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                    <button type="button" onclick="closeDeleteModal()" style="padding: 10px 18px; background-color: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
-                        Cancel
-                    </button>
-                    <button type="submit" id="confirmDeleteSubmitBtn" onclick="onDeleteSubmit(this)" style="padding: 10px 18px; background-color: #dc2626; color: #ffffff; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background-color 0.2s ease;">
-                        Delete
+            <!-- Modal Content -->
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
+                <div style="background-color: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 2px 4px rgba(0,0,0,0.04);">
+                    <img id="qrModalImg" src="" alt="QR Code Preview" style="width: 200px; height: 200px; display: block;" />
+                </div>
+
+                <div style="width: 100%; background-color: #f9fafb; border-radius: 10px; padding: 14px; border: 1px solid #e5e7eb; font-size: 13px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="color: #6b7280;">Invoice Number:</span>
+                        <strong id="qrModalInvNo" style="color: #111827; font-family: monospace;"></strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="color: #6b7280;">Customer Name:</span>
+                        <strong id="qrModalCustomer" style="color: #111827;"></strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="color: #6b7280;">Product Quantity:</span>
+                        <strong id="qrModalItems" style="color: #111827;"></strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: #6b7280;">Grand Total:</span>
+                        <strong id="qrModalTotal" style="color: #16a34a; font-size: 14px;"></strong>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; width: 100%; margin-top: 6px;">
+                    <a id="qrDownloadLink" href="#" download="" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; background-color: #16a34a; color: #ffffff; border-radius: 10px; font-weight: 600; font-size: 14px; text-decoration: none; transition: background-color 0.2s ease;">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        <span>Download QR</span>
+                    </a>
+                    <button type="button" onclick="closeQrModal()" style="padding: 10px 18px; background-color: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer;">
+                        Close
                     </button>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 
     <script>
-        function openDeleteModal(customerId, customerName) {
-            const modal = document.getElementById('deleteModal');
-            const nameEl = document.getElementById('deleteCustomerName');
-            const form = document.getElementById('deleteCustomerForm');
-            
-            nameEl.textContent = '"' + customerName + '"';
-            form.action = '/distributor/customers/' + customerId + '/delete/';
-            modal.style.display = 'flex';
+        function openQrModal(invoiceId, invoiceNumber, customerName, productCount, grandTotal) {
+            document.getElementById('qrModalTitle').innerText = 'Invoice QR Code';
+            document.getElementById('qrModalSubtitle').innerText = 'Embedded Payload & Image';
+            document.getElementById('qrModalInvNo').innerText = invoiceNumber;
+            document.getElementById('qrModalCustomer').innerText = customerName;
+            document.getElementById('qrModalItems').innerText = productCount + ' items';
+            document.getElementById('qrModalTotal').innerText = '₹' + grandTotal;
+
+            const qrUrl = '/billing/distributor/invoices/' + invoiceId + '/qr/';
+            document.getElementById('qrModalImg').src = qrUrl;
+            document.getElementById('qrDownloadLink').href = qrUrl;
+            document.getElementById('qrDownloadLink').download = 'Invoice_' + invoiceNumber + '_QR.png';
+
+            document.getElementById('qrModal').style.display = 'flex';
         }
 
-        function closeDeleteModal() {
-            const modal = document.getElementById('deleteModal');
-            modal.style.display = 'none';
-        }
-
-        function onDeleteSubmit(btn) {
-            btn.disabled = true;
-            btn.textContent = 'Deleting...';
-            btn.form.submit();
+        function closeQrModal() {
+            document.getElementById('qrModal').style.display = 'none';
         }
 
         window.onclick = function(event) {
-            const modal = document.getElementById('deleteModal');
+            const modal = document.getElementById('qrModal');
             if (event.target === modal) {
-                closeDeleteModal();
+                closeQrModal();
             }
         };
     </script>
-
 </body>
 </html>

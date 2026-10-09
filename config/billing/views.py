@@ -2,13 +2,19 @@ from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Q, ProtectedError, RestrictedError
+from django.db.models import Q, Sum, Value, IntegerField, ProtectedError, RestrictedError
+from django.db.models.functions import Coalesce
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from django.core.paginator import Paginator
 from .forms import CustomerForm, ProductForm, InvoiceForm, InvoiceItemFormSet
 from .models import Customer, Product, Invoice, InvoiceItem
-from .utils import render_to_pdf
+from .utils import (
+    render_to_pdf,
+    build_invoice_qr_payload,
+    generate_invoice_qr_bytes,
+    generate_invoice_qr_base64
+)
 
 
 
@@ -386,8 +392,8 @@ def create_invoice(request):
                     invoice.grand_total = subtotal + total_gst
                     invoice.save()
 
-                    messages.success(request, f'Invoice "{invoice.invoice_number}" created successfully.')
-                    return redirect("distributor_dashboard")
+                    messages.success(request, f'Invoice "{invoice.invoice_number}" created successfully with QR code.')
+                    return redirect("invoice_list")
             except Exception as e:
                 error = str(e) if isinstance(e, ValueError) else "Unable to create invoice right now. Please check your input and try again."
         else:
@@ -471,6 +477,7 @@ def invoice_pdf_view(request, pk):
         "profile": distributor_profile,
         "gross_total": gross_total,
         "total_discount": total_discount,
+        "qr_code_url": generate_invoice_qr_base64(invoice),
     }
 
     pdf_bytes = render_to_pdf("billing/invoice_pdf.html", context)
@@ -480,6 +487,75 @@ def invoice_pdf_view(request, pk):
 
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = f'inline; filename="Invoice_{invoice.invoice_number}.pdf"'
+    return response
+
+
+@login_required(login_url="/distributor/login/")
+def invoice_list(request):
+    if not is_distributor(request.user):
+        return redirect("distributor_login")
+
+    queryset = Invoice.objects.filter(
+        distributor=request.user
+    ).select_related(
+        "customer"
+    ).prefetch_related(
+        "items"
+    ).annotate(
+        total_item_qty=Coalesce(Sum("items__quantity"), Value(0), output_field=IntegerField())
+    ).order_by("-created_at")
+
+    total_count = queryset.count()
+    query = request.GET.get("q", "").strip()
+
+    if query:
+        queryset = queryset.filter(
+            Q(invoice_number__icontains=query) |
+            Q(customer__name__icontains=query) |
+            Q(customer__email__icontains=query)
+        )
+
+    filtered_count = queryset.count()
+
+    paginator = Paginator(queryset, 10)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    return render(
+        request,
+        "billing/invoice_list.html",
+        {
+            "page_obj": page_obj,
+            "query": query,
+            "total_count": total_count,
+            "filtered_count": filtered_count,
+        }
+    )
+
+
+@login_required(login_url="/distributor/login/")
+def invoice_qr_view(request, pk):
+    if not is_distributor(request.user):
+        return redirect("distributor_login")
+
+    invoice = get_object_or_404(
+        Invoice.objects.select_related("customer").prefetch_related("items"),
+        pk=pk,
+        distributor=request.user
+    )
+
+    if request.GET.get("format") == "json":
+        payload = build_invoice_qr_payload(invoice)
+        base64_qr = generate_invoice_qr_base64(invoice)
+        return JsonResponse({
+            "success": True,
+            "payload": payload,
+            "qr_code": base64_qr
+        })
+
+    png_bytes = generate_invoice_qr_bytes(invoice)
+    response = HttpResponse(png_bytes, content_type="image/png")
+    response["Content-Disposition"] = f'inline; filename="Invoice_{invoice.invoice_number}_QR.png"'
     return response
 
 

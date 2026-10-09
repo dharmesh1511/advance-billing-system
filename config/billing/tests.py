@@ -2035,6 +2035,242 @@ class InvoicePdfViewAndTemplateTests(TestCase):
         self.assertEqual(response.status_code, 404)
 
 
+class QRCodeFeatureTests(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.distributor_group = Group.objects.create(name="Distributor")
+
+        self.distributor1 = User.objects.create_user(
+            username="qr_dist1",
+            password="password123",
+            first_name="Rahul",
+            last_name="Shah"
+        )
+        self.distributor1.groups.add(self.distributor_group)
+
+        self.distributor2 = User.objects.create_user(
+            username="qr_dist2",
+            password="password123"
+        )
+        self.distributor2.groups.add(self.distributor_group)
+
+        self.customer1 = Customer.objects.create(
+            distributor=self.distributor1,
+            name="Rahul Shah",
+            phone="9876543210"
+        )
+
+        self.product1 = Product.objects.create(
+            distributor=self.distributor1,
+            name="Widget A",
+            price=Decimal("100.00"),
+            stock=50,
+            gst_rate=Decimal("18.00")
+        )
+
+        self.product2 = Product.objects.create(
+            distributor=self.distributor1,
+            name="Widget B",
+            price=Decimal("500.00"),
+            stock=20,
+            gst_rate=Decimal("18.00")
+        )
+
+        self.invoice1 = Invoice.objects.create(
+            distributor=self.distributor1,
+            customer=self.customer1,
+            invoice_number="INV-0001",
+            invoice_date="2026-10-09",
+            subtotal=Decimal("1200.00"),
+            total_gst=Decimal("216.00"),
+            grand_total=Decimal("1416.00")
+        )
+
+        InvoiceItem.objects.create(
+            invoice=self.invoice1,
+            product=self.product1,
+            product_name=self.product1.name,
+            quantity=2,
+            unit_price=Decimal("100.00"),
+            taxable_amount=Decimal("200.00"),
+            gst_amount=Decimal("36.00"),
+            line_total=Decimal("236.00")
+        )
+
+        InvoiceItem.objects.create(
+            invoice=self.invoice1,
+            product=self.product2,
+            product_name=self.product2.name,
+            quantity=2,
+            unit_price=Decimal("500.00"),
+            taxable_amount=Decimal("1000.00"),
+            gst_amount=Decimal("180.00"),
+            line_total=Decimal("1180.00")
+        )
+
+    def test_qr_payload_structure(self):
+        """Test build_invoice_qr_payload returns accurate JSON dictionary."""
+        from billing.utils import build_invoice_qr_payload
+        payload = build_invoice_qr_payload(self.invoice1)
+        self.assertEqual(payload["invoice_number"], "INV-0001")
+        self.assertEqual(payload["customer_name"], "Rahul Shah")
+        self.assertEqual(payload["product_count"], 4)
+        self.assertEqual(payload["grand_total"], "1416.00")
+        self.assertEqual(payload["currency"], "INR")
+
+    def test_qr_bytes_generation(self):
+        """Test generate_invoice_qr_bytes produces valid PNG data."""
+        from billing.utils import generate_invoice_qr_bytes
+        png_bytes = generate_invoice_qr_bytes(self.invoice1)
+        self.assertTrue(png_bytes.startswith(b"\x89PNG\r\n\x1a\n"))
+
+    def test_qr_base64_generation(self):
+        """Test generate_invoice_qr_base64 produces valid data URI."""
+        from billing.utils import generate_invoice_qr_base64
+        base64_uri = generate_invoice_qr_base64(self.invoice1)
+        self.assertTrue(base64_uri.startswith("data:image/png;base64,"))
+
+    def test_invoice_qr_endpoint_success(self):
+        """Authenticated distributor can view their invoice QR image endpoint."""
+        self.client.login(username="qr_dist1", password="password123")
+        url = reverse("invoice_qr", kwargs={"pk": self.invoice1.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "image/png")
+
+    def test_invoice_qr_endpoint_json_format(self):
+        """Authenticated distributor can fetch QR json payload and base64."""
+        self.client.login(username="qr_dist1", password="password123")
+        url = reverse("invoice_qr", kwargs={"pk": self.invoice1.pk}) + "?format=json"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["payload"]["invoice_number"], "INV-0001")
+        self.assertTrue(data["qr_code"].startswith("data:image/png;base64,"))
+
+    def test_invoice_qr_endpoint_security_isolation(self):
+        """Distributor B cannot view Distributor A's QR endpoint."""
+        self.client.login(username="qr_dist2", password="password123")
+        url = reverse("invoice_qr", kwargs={"pk": self.invoice1.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+
+class InvoiceListViewTests(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.distributor_group = Group.objects.create(name="Distributor")
+
+        self.distributor1 = User.objects.create_user(
+            username="list_dist1",
+            password="password123"
+        )
+        self.distributor1.groups.add(self.distributor_group)
+
+        self.distributor2 = User.objects.create_user(
+            username="list_dist2",
+            password="password123"
+        )
+        self.distributor2.groups.add(self.distributor_group)
+
+        self.customer1 = Customer.objects.create(
+            distributor=self.distributor1,
+            name="Rahul Shah",
+            email="rahul@example.com"
+        )
+        self.customer2 = Customer.objects.create(
+            distributor=self.distributor1,
+            name="Amit Patel",
+            email="amit@example.com"
+        )
+        self.customer3 = Customer.objects.create(
+            distributor=self.distributor2,
+            name="Other Customer",
+            email="other@example.com"
+        )
+
+        self.invoices_d1 = []
+        for i in range(1, 16):
+            inv = Invoice.objects.create(
+                distributor=self.distributor1,
+                customer=self.customer1 if i % 2 == 1 else self.customer2,
+                invoice_number=f"INV-{i:04d}",
+                invoice_date="2026-10-09",
+                subtotal=Decimal("1000.00"),
+                total_gst=Decimal("180.00"),
+                grand_total=Decimal("1180.00")
+            )
+            self.invoices_d1.append(inv)
+
+        self.invoice_d2 = Invoice.objects.create(
+            distributor=self.distributor2,
+            customer=self.customer3,
+            invoice_number="INV-9999",
+            invoice_date="2026-10-09",
+            subtotal=Decimal("500.00"),
+            total_gst=Decimal("90.00"),
+            grand_total=Decimal("590.00")
+        )
+
+        self.url = reverse("invoice_list")
+
+    def test_invoice_list_requires_login(self):
+        """Unauthenticated user should be redirected to login page."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/distributor/login/", response.url)
+
+    def test_invoice_list_ownership_isolation(self):
+        """Distributor 1 only sees Distributor 1's invoices."""
+        self.client.login(username="list_dist1", password="password123")
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        page_invoices = list(response.context["page_obj"])
+        self.assertNotIn(self.invoice_d2, page_invoices)
+
+    def test_invoice_list_pagination(self):
+        """Distributor 1 gets 10 invoices on page 1 and 5 on page 2."""
+        self.client.login(username="list_dist1", password="password123")
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        page_obj = response.context["page_obj"]
+        self.assertEqual(len(page_obj.object_list), 10)
+        self.assertTrue(page_obj.has_next())
+
+        response2 = self.client.get(self.url + "?page=2")
+        self.assertEqual(response2.status_code, 200)
+        page_obj2 = response2.context["page_obj"]
+        self.assertEqual(len(page_obj2.object_list), 5)
+
+    def test_invoice_list_search_by_number(self):
+        """Searching by invoice number filters results correctly."""
+        self.client.login(username="list_dist1", password="password123")
+        response = self.client.get(self.url + "?q=INV-0005")
+        self.assertEqual(response.status_code, 200)
+        page_obj = response.context["page_obj"]
+        self.assertEqual(len(page_obj.object_list), 1)
+        self.assertEqual(page_obj.object_list[0].invoice_number, "INV-0005")
+
+    def test_invoice_list_search_by_customer_name(self):
+        """Searching by customer name filters results correctly."""
+        self.client.login(username="list_dist1", password="password123")
+        response = self.client.get(self.url + "?q=Amit")
+        self.assertEqual(response.status_code, 200)
+        page_obj = response.context["page_obj"]
+        for inv in page_obj.object_list:
+            self.assertEqual(inv.customer.name, "Amit Patel")
+
+    def test_invoice_list_empty_search_results(self):
+        """Searching for non-existent query returns empty page with message."""
+        self.client.login(username="list_dist1", password="password123")
+        response = self.client.get(self.url + "?q=NonExistentInvoice")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["page_obj"].object_list), 0)
+
+
 
 
 

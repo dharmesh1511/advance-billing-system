@@ -1,5 +1,7 @@
 import os
 import logging
+import json
+import base64
 from io import BytesIO
 from django.conf import settings
 from django.contrib.staticfiles import finders
@@ -109,3 +111,95 @@ def render_to_pdf(template_name, context=None):
     except Exception as e:
         logger.error(f"Exception during PDF generation for '{template_name}': {e}")
         return None
+
+
+def build_invoice_qr_payload(invoice):
+    """
+    Build structured payload dictionary for an invoice QR code.
+    Contains: invoice_number, customer_name, product_count (sum of line item quantities),
+    grand_total (string format 2 decimal places), currency ("INR").
+    Does not include sensitive customer personal data.
+    """
+    if hasattr(invoice, "total_item_qty") and invoice.total_item_qty is not None:
+        product_count = invoice.total_item_qty
+    else:
+        product_count = sum(item.quantity for item in invoice.items.all())
+
+    customer_name = invoice.customer.name if invoice.customer else ""
+
+    return {
+        "invoice_number": invoice.invoice_number,
+        "customer_name": customer_name,
+        "product_count": product_count,
+        "grand_total": f"{invoice.grand_total:.2f}",
+        "currency": "INR"
+    }
+
+
+def generate_invoice_qr(invoice):
+    """
+    Generates a PIL Image of the QR code for a given invoice.
+    Uses 'qrcode' library if available; falls back to reportlab+Pillow if not.
+    """
+    payload = build_invoice_qr_payload(invoice)
+    payload_str = json.dumps(payload, ensure_ascii=False)
+
+    try:
+        import qrcode
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
+            box_size=6,
+            border=2,
+        )
+        qr.add_data(payload_str)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        return img
+    except ImportError:
+        from reportlab.graphics.barcode.qr import QrCodeWidget
+        from PIL import Image, ImageDraw
+
+        widget = QrCodeWidget(payload_str)
+        qr = widget.qr
+        qr.make()
+        mod_count = qr.getModuleCount()
+        border = 2
+        box_size = 6
+        img_size = (mod_count + 2 * border) * box_size
+
+        img = Image.new("RGB", (img_size, img_size), "white")
+        draw = ImageDraw.Draw(img)
+
+        for r in range(mod_count):
+            for c in range(mod_count):
+                if qr.isDark(r, c):
+                    x0 = (c + border) * box_size
+                    y0 = (r + border) * box_size
+                    x1 = x0 + box_size
+                    y1 = y0 + box_size
+                    draw.rectangle([x0, y0, x1, y1], fill="black")
+        return img
+
+
+def generate_invoice_qr_bytes(invoice):
+    """
+    Returns PNG bytes of the generated invoice QR code.
+    """
+    img = generate_invoice_qr(invoice)
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def generate_invoice_qr_base64(invoice):
+    """
+    Returns base64 data URI string of the invoice QR code (data:image/png;base64,...).
+    """
+    try:
+        png_bytes = generate_invoice_qr_bytes(invoice)
+        encoded = base64.b64encode(png_bytes).decode("ascii")
+        return f"data:image/png;base64,{encoded}"
+    except Exception as e:
+        logger.error(f"Error generating base64 QR code for invoice {getattr(invoice, 'invoice_number', '')}: {e}")
+        return ""
