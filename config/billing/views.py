@@ -1,3 +1,4 @@
+import re
 from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -487,11 +488,109 @@ def invoice_pdf_view(request, pk):
     pdf_bytes = render_to_pdf("billing/invoice_pdf.html", context)
     if not pdf_bytes:
         messages.error(request, "Unable to generate PDF invoice at this time.")
-        return redirect("distributor_dashboard")
+        return redirect("invoice_detail", pk=pk)
+
+    safe_inv_num = re.sub(r'[^A-Za-z0-9_\-]', '', invoice.invoice_number)
+    disposition_type = "attachment" if request.GET.get("download") == "1" else "inline"
 
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
-    response["Content-Disposition"] = f'inline; filename="Invoice_{invoice.invoice_number}.pdf"'
+    response["Content-Disposition"] = f'{disposition_type}; filename="Invoice-{safe_inv_num}.pdf"'
     return response
+
+
+@login_required(login_url="/distributor/login/")
+def invoice_pdf_download(request, pk):
+    """
+    Dedicated view for downloading the Invoice PDF with Content-Disposition: attachment.
+    """
+    if not is_distributor(request.user):
+        return redirect("distributor_login")
+
+    invoice = get_object_or_404(
+        Invoice.objects.select_related("customer", "distributor").prefetch_related("items", "items__product"),
+        pk=pk,
+        distributor=request.user
+    )
+
+    items = invoice.items.all()
+    gross_total = Decimal("0.00")
+    total_discount = Decimal("0.00")
+
+    for item in items:
+        line_gross = Decimal(item.quantity) * item.unit_price
+        gross_total += line_gross
+        total_discount += (line_gross - item.taxable_amount)
+
+    distributor_profile = getattr(request.user, "distributor_profile", None)
+    qr_uri = generate_invoice_qr_base64(invoice)
+
+    context = {
+        "invoice": invoice,
+        "items": items,
+        "customer": invoice.customer,
+        "distributor": request.user,
+        "profile": distributor_profile,
+        "gross_total": gross_total,
+        "total_discount": total_discount,
+        "qr_code": qr_uri,
+        "qr_code_url": qr_uri,
+    }
+
+    pdf_bytes = render_to_pdf("billing/invoice_pdf.html", context)
+    if not pdf_bytes:
+        messages.error(request, "Unable to generate PDF invoice at this time.")
+        return redirect("invoice_detail", pk=pk)
+
+    safe_inv_num = re.sub(r'[^A-Za-z0-9_\-]', '', invoice.invoice_number)
+
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="Invoice-{safe_inv_num}.pdf"'
+    return response
+
+
+@login_required(login_url="/distributor/login/")
+def invoice_detail(request, pk):
+    """
+    Invoice Detail / View page displaying full invoice details, items, customer info,
+    and a prominent 'Download PDF' button.
+    """
+    if not is_distributor(request.user):
+        return redirect("distributor_login")
+
+    invoice = get_object_or_404(
+        Invoice.objects.select_related("customer", "distributor").prefetch_related("items", "items__product"),
+        pk=pk,
+        distributor=request.user
+    )
+
+    items = invoice.items.all()
+    gross_total = Decimal("0.00")
+    total_discount = Decimal("0.00")
+
+    for item in items:
+        line_gross = Decimal(item.quantity) * item.unit_price
+        gross_total += line_gross
+        total_discount += (line_gross - item.taxable_amount)
+
+    distributor_profile = getattr(request.user, "distributor_profile", None)
+    qr_code_url = generate_invoice_qr_base64(invoice)
+    qr_payload = build_invoice_qr_payload(invoice)
+
+    return render(
+        request,
+        "billing/invoice_detail.html",
+        {
+            "invoice": invoice,
+            "items": items,
+            "customer": invoice.customer,
+            "distributor": request.user,
+            "profile": distributor_profile,
+            "gross_total": gross_total,
+            "total_discount": total_discount,
+            "qr_code_url": qr_code_url,
+            "qr_payload": qr_payload,
+        }
+    )
 
 
 @login_required(login_url="/distributor/login/")

@@ -13,6 +13,12 @@ urlpatterns = [
     path("distributor/products/<int:pk>/details/", views.product_details, name="billing_product_details"),
     path("distributor/invoices/", views.invoice_list, name="billing_invoice_list"),
     path("distributor/invoices/create/", views.create_invoice, name="billing_create_invoice"),
+    path("distributor/invoices/<int:pk>/", views.invoice_detail, name="billing_invoice_detail"),
+    path("distributor/invoices/<int:pk>/", views.invoice_detail, name="invoice_detail"),
+    path("distributor/invoices/<int:pk>/details/", views.invoice_detail, name="billing_invoice_details"),
+    path("distributor/invoices/<int:pk>/details/", views.invoice_detail, name="invoice_details"),
     path("distributor/invoices/<int:pk>/pdf/", views.invoice_pdf_view, name="billing_invoice_pdf"),
+    path("distributor/invoices/<int:pk>/download-pdf/", views.invoice_pdf_download, name="billing_invoice_pdf_download"),
+    path("distributor/invoices/<int:pk>/download-pdf/", views.invoice_pdf_download, name="invoice_pdf_download"),
     path("distributor/invoices/<int:pk>/qr/", views.invoice_qr_view, name="billing_invoice_qr"),
 ]

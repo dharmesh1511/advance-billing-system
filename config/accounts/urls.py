@@ -28,6 +28,10 @@ urlpatterns = [
     path("distributor/invoices/create/", billing_views.create_invoice, name="invoice_create"),
     path("distributor/invoices/<int:pk>/pdf/", billing_views.invoice_pdf_view, name="invoice_pdf"),
     path("distributor/invoices/<int:pk>/pdf/", billing_views.invoice_pdf_view, name="invoice_pdf_view"),
+    path("distributor/invoices/<int:pk>/download-pdf/", billing_views.invoice_pdf_download, name="invoice_pdf_download"),
+    path("distributor/invoices/<int:pk>/download-pdf/", billing_views.invoice_pdf_download, name="invoice_pdf_download_view"),
+    path("distributor/invoices/<int:pk>/", billing_views.invoice_detail, name="invoice_detail"),
+    path("distributor/invoices/<int:pk>/details/", billing_views.invoice_detail, name="invoice_details"),
     path("distributor/invoices/<int:pk>/qr/", billing_views.invoice_qr_view, name="invoice_qr"),
     path("distributor/invoices/<int:pk>/qr/", billing_views.invoice_qr_view, name="invoice_qr_view"),
 
