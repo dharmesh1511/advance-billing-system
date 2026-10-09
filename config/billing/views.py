@@ -470,6 +470,8 @@ def invoice_pdf_view(request, pk):
 
     distributor_profile = getattr(request.user, "distributor_profile", None)
 
+    qr_uri = generate_invoice_qr_base64(invoice)
+
     context = {
         "invoice": invoice,
         "items": items,
@@ -478,7 +480,8 @@ def invoice_pdf_view(request, pk):
         "profile": distributor_profile,
         "gross_total": gross_total,
         "total_discount": total_discount,
-        "qr_code_url": generate_invoice_qr_base64(invoice),
+        "qr_code": qr_uri,
+        "qr_code_url": qr_uri,
     }
 
     pdf_bytes = render_to_pdf("billing/invoice_pdf.html", context)

@@ -488,9 +488,10 @@
             <tr>
                 <!-- Left: Terms / Thank You / QR Code -->
                 <td style="width: 60%; vertical-align: bottom;">
-                    {% if invoice.qr_code or qr_code_url %}
-                        <div style="margin-bottom: 10px;">
-                            <img src="{{ invoice.qr_code|default:qr_code_url }}" style="max-width: 80px; max-height: 80px;" alt="QR Code">
+                    {% if qr_code_url or qr_code %}
+                        <div style="margin-bottom: 12px;">
+                            <img src="{{ qr_code_url|default:qr_code }}" width="95" height="95" style="width: 95px; height: 95px; border: 1px solid #CBD5E1; padding: 4px; background-color: #FFFFFF; border-radius: 4px;" alt="Invoice QR Code">
+                            <div style="font-size: 7.5pt; color: #64748B; font-weight: bold; margin-top: 3px; letter-spacing: 0.3px;">Scan for Invoice Details</div>
                         </div>
                     {% endif %}
 

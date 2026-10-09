@@ -2169,6 +2169,16 @@ class QRCodeFeatureTests(TestCase):
         self.invoice1.refresh_from_db()
         self.assertEqual(self.invoice1.grand_total, Decimal("1416.00"))
 
+    def test_pdf_export_with_embedded_qr(self):
+        """Invoice PDF endpoint exports valid PDF containing embedded QR code."""
+        self.client.login(username="qr_dist1", password="password123")
+        url = reverse("invoice_pdf", kwargs={"pk": self.invoice1.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertTrue(response.content.startswith(b"%PDF"))
+        self.assertIn("Invoice_INV-0001.pdf", response["Content-Disposition"])
+
     def test_create_invoice_post_success(self):
         """Creating an invoice via POST populates invoice_number and redirects to invoice_list."""
         self.client.login(username="qr_dist1", password="password123")
