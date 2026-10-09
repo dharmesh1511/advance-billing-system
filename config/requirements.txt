@@ -3,3 +3,4 @@ xhtml2pdf>=0.2.21
 Pillow>=12.3.0
 reportlab>=5.0.1
 qrcode[pil]>=7.4.2
+djangorestframework>=3.18.3

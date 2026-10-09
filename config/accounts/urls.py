@@ -1,8 +1,10 @@
 from django.urls import path
 from . import views
+from . import api_views
 from billing import views as billing_views
 
 urlpatterns = [
+    path("api/admin/register/", api_views.AdminRegistrationAPIView.as_view(), name="api_admin_register"),
     path("admin/login/", views.admin_login, name="admin_login"),
     path("distributor/login/", views.distributor_login, name="distributor_login"),
     path("distributor/register/", views.distributor_register, name="distributor_register"),
