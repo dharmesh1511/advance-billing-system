@@ -208,6 +208,26 @@ def admin_dashboard(request):
 
 
 # =========================
+# ADMIN REGISTRATION FRONTEND
+# =========================
+
+@login_required(login_url="/admin/login/")
+def admin_register_view(request):
+    """
+    Renders the Admin Registration Frontend page.
+    Protected view accessible only by authenticated staff/admin users.
+    """
+    if not request.user.is_staff:
+        return redirect("admin_login")
+
+    return render(
+        request,
+        "adminpanel/admin_register.html"
+    )
+
+
+
+# =========================
 # DISTRIBUTOR DASHBOARD
 # =========================
 

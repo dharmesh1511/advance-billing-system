@@ -198,3 +198,105 @@ class AdminRegistrationAPITests(APITestCase):
 
         dist_reg_res = self.client.get(reverse("distributor_register"))
         self.assertEqual(dist_reg_res.status_code, 200)
+
+
+class AdminRegistrationFrontendTests(APITestCase):
+
+    def setUp(self):
+        self.register_url = reverse("admin_register")
+        self.dashboard_url = reverse("admin_dashboard")
+        self.api_url = reverse("api_admin_register")
+
+        # Superuser
+        self.superuser = User.objects.create_superuser(
+            username="superadmin_fe",
+            email="superadmin_fe@example.com",
+            password="SuperPassword@123"
+        )
+
+        # Staff Admin (non-superuser)
+        self.staff_admin = User.objects.create_user(
+            username="staffadmin_fe",
+            email="staffadmin_fe@example.com",
+            password="StaffPassword@123",
+            is_staff=True,
+            is_superuser=False
+        )
+
+        # Distributor User
+        self.distributor_group = Group.objects.create(name="Distributor")
+        self.distributor = User.objects.create_user(
+            username="distributor_fe",
+            email="distributor_fe@example.com",
+            password="DistPassword@123"
+        )
+        self.distributor.groups.add(self.distributor_group)
+
+    def test_admin_registration_page_requires_login(self):
+        """Unauthenticated user accessing registration page is redirected to login."""
+        response = self.client.get(self.register_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/admin/login/", response.url)
+
+    def test_admin_registration_page_accessible_by_superuser(self):
+        """Superuser can render the registration frontend page."""
+        self.client.force_login(self.superuser)
+        response = self.client.get(self.register_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "adminpanel/admin_register.html")
+        self.assertTemplateUsed(response, "adminpanel/base_admin.html")
+
+        # Check required form input fields exist in HTML response
+        content = response.content.decode('utf-8')
+        self.assertIn('id="first_name"', content)
+        self.assertIn('id="last_name"', content)
+        self.assertIn('id="username"', content)
+        self.assertIn('id="email"', content)
+        self.assertIn('id="password"', content)
+        self.assertIn('id="confirm_password"', content)
+        self.assertIn('Create Admin Account', content)
+        self.assertIn('toggle-password-btn', content)
+        self.assertIn('toggle-confirm-password-btn', content)
+
+    def test_admin_registration_page_accessible_by_staff(self):
+        """Staff admin user can access the registration page."""
+        self.client.force_login(self.staff_admin)
+        response = self.client.get(self.register_url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_admin_registration_page_denied_for_distributor(self):
+        """Distributor user accessing admin registration page is redirected."""
+        self.client.force_login(self.distributor)
+        response = self.client.get(self.register_url)
+        self.assertEqual(response.status_code, 302)
+
+    def test_admin_dashboard_renders_register_link(self):
+        """Admin dashboard displays the Register Admin navigation link."""
+        self.client.force_login(self.superuser)
+        response = self.client.get(self.dashboard_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "dashboard/admin_dashboard.html")
+        content = response.content.decode('utf-8')
+        self.assertIn(self.register_url, content)
+        self.assertIn('Register Admin', content)
+
+    def test_session_authenticated_post_creates_admin(self):
+        """Superuser using session authentication can post to the API and create an Admin."""
+        self.client.force_login(self.superuser)
+        payload = {
+            "first_name": "Suresh",
+            "last_name": "Kumar",
+            "username": "suresh_admin",
+            "email": "suresh@example.com",
+            "password": "StrongPassword@123",
+            "confirm_password": "StrongPassword@123"
+        }
+        response = self.client.post(self.api_url, payload, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["message"], "Admin user registered successfully.")
+
+        created_user = User.objects.get(username="suresh_admin")
+        self.assertTrue(created_user.is_staff)
+        self.assertFalse(created_user.is_superuser)
+        self.assertTrue(created_user.check_password("StrongPassword@123"))
+

@@ -1,17 +1,80 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Admin Dashboard</title>
-</head>
-<body>
+{% extends 'adminpanel/base_admin.html' %}
 
-    <h1>Admin Dashboard</h1>
+{% block title %}Admin Dashboard | Advance Billing System{% endblock %}
 
-    <p>Welcome, {{ request.user.username }}</p>
+{% block page_heading %}Admin Dashboard{% endblock %}
+{% block page_subheading %}Welcome back, {{ request.user.first_name|default:request.user.username }}! Management overview & quick controls.{% endblock %}
 
-    <a href="{% url 'logout' %}">
-        Logout
-    </a>
+{% block content %}
+<div class="row g-4">
+    <!-- Welcome Banner Card -->
+    <div class="col-12">
+        <div class="admin-card max-w-none shadow-sm" style="max-width: none;">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                <div>
+                    <h2 class="admin-card-title mb-1">
+                        <i class="bi bi-speedometer2 text-primary me-2"></i>
+                        <span>System Administration Dashboard</span>
+                    </h2>
+                    <p class="admin-card-subtitle mb-0">
+                        Manage admin access, monitor platform activity, and oversee system operations.
+                    </p>
+                </div>
+                {% if request.user.is_superuser or request.user.is_staff %}
+                <div>
+                    <a href="{% url 'admin_register' %}" class="btn-primary-blue text-decoration-none">
+                        <i class="bi bi-person-plus-fill me-1"></i>
+                        <span>Register New Admin</span>
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 
-</body>
-</html>
+    <!-- Overview Stat Cards -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm rounded-4 h-100 p-3" style="background: #ffffff;">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="p-3 bg-primary bg-opacity-10 text-primary rounded-3 fs-3">
+                    <i class="bi bi-shield-check"></i>
+                </div>
+                <div>
+                    <span class="text-muted fw-semibold small d-block">Account Status</span>
+                    <h4 class="fw-bold mb-0 text-dark">
+                        {% if request.user.is_superuser %}Superuser{% else %}Staff Admin{% endif %}
+                    </h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm rounded-4 h-100 p-3" style="background: #ffffff;">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="p-3 bg-success bg-opacity-10 text-success rounded-3 fs-3">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+                <div>
+                    <span class="text-muted fw-semibold small d-block">Admin Management</span>
+                    <h4 class="fw-bold mb-0 text-dark">Active</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm rounded-4 h-100 p-3" style="background: #ffffff;">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="p-3 bg-info bg-opacity-10 text-info rounded-3 fs-3">
+                    <i class="bi bi-lock-fill"></i>
+                </div>
+                <div>
+                    <span class="text-muted fw-semibold small d-block">Session Authentication</span>
+                    <h4 class="fw-bold mb-0 text-dark">CSRF Protected</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

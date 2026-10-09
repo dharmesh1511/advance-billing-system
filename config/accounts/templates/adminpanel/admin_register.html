@@ -1,0 +1,189 @@
+{% extends 'adminpanel/base_admin.html' %}
+{% load static %}
+
+{% block title %}Register Admin Account | Admin Panel{% endblock %}
+
+{% block page_heading %}Register Admin Account{% endblock %}
+{% block page_subheading %}Create a new administrator account with staff access privileges.{% endblock %}
+
+{% block content %}
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">
+            <i class="bi bi-person-plus-fill text-primary"></i>
+            <span>Create New Admin Account</span>
+        </h2>
+        <p class="admin-card-subtitle">
+            Fill in the administrator details below. Only authorized Superusers can create new Admin staff accounts.
+        </p>
+    </div>
+
+    <!-- Dynamic Success Alert -->
+    <div id="form-success-alert" class="alert-box alert-box-success d-none" role="alert">
+        <i class="bi bi-check-circle-fill fs-5"></i>
+        <div>
+            <strong id="success-title">Success!</strong>
+            <p id="success-text" class="mb-2">Admin account created successfully.</p>
+            <div class="mt-2">
+                <a href="{% url 'admin_dashboard' %}" class="btn btn-sm btn-success text-white fw-semibold me-2">
+                    <i class="bi bi-arrow-left me-1"></i> Go to Admin Dashboard
+                </a>
+                <button type="button" onclick="location.reload()" class="btn btn-sm btn-outline-success fw-semibold">
+                    <i class="bi bi-plus-lg me-1"></i> Register Another Admin
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dynamic Error Alert -->
+    <div id="form-error-alert" class="alert-box alert-box-error d-none" role="alert">
+        <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+        <div>
+            <strong>Error!</strong>
+            <p id="error-text" class="mb-0">Failed to create admin account. Please check the form errors below.</p>
+        </div>
+    </div>
+
+    {% if not request.user.is_superuser %}
+        <!-- Warning for non-superuser staff -->
+        <div class="alert alert-warning d-flex align-items-center gap-2 mb-4" role="alert">
+            <i class="bi bi-shield-exclamation fs-5"></i>
+            <div>
+                <strong>Permission Notice:</strong> According to backend security policy, only Superusers have authorization to create new Admin staff accounts.
+            </div>
+        </div>
+    {% endif %}
+
+    <form id="admin-register-form" method="POST" action="{% url 'api_admin_register' %}" novalidate>
+        {% csrf_token %}
+
+        <div class="form-grid">
+            <!-- Row 1: Name fields (2-col desktop) -->
+            <div class="form-row-2col">
+                <div class="form-group">
+                    <label for="first_name" class="form-label">First Name</label>
+                    <input 
+                        type="text" 
+                        id="first_name" 
+                        name="first_name" 
+                        class="form-control-custom" 
+                        placeholder="e.g. Rahul" 
+                        autocomplete="given-name" 
+                    />
+                    <div id="error-first_name" class="field-error-message"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="last_name" class="form-label">Last Name</label>
+                    <input 
+                        type="text" 
+                        id="last_name" 
+                        name="last_name" 
+                        class="form-control-custom" 
+                        placeholder="e.g. Patel" 
+                        autocomplete="family-name" 
+                    />
+                    <div id="error-last_name" class="field-error-message"></div>
+                </div>
+            </div>
+
+            <!-- Row 2: Account credentials (2-col desktop) -->
+            <div class="form-row-2col">
+                <div class="form-group">
+                    <label for="username" class="form-label">
+                        Username <span class="required-star">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        name="username" 
+                        class="form-control-custom" 
+                        placeholder="e.g. admin2" 
+                        autocomplete="username" 
+                        required 
+                    />
+                    <div id="error-username" class="field-error-message"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="email" class="form-label">
+                        Email Address <span class="required-star">*</span>
+                    </label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        class="form-control-custom" 
+                        placeholder="e.g. admin2@example.com" 
+                        autocomplete="email" 
+                        required 
+                    />
+                    <div id="error-email" class="field-error-message"></div>
+                </div>
+            </div>
+
+            <!-- Row 3: Passwords (2-col desktop) -->
+            <div class="form-row-2col">
+                <div class="form-group">
+                    <label for="password" class="form-label">
+                        Password <span class="required-star">*</span>
+                    </label>
+                    <div class="password-input-wrapper">
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password" 
+                            class="form-control-custom" 
+                            placeholder="Minimum 8 characters" 
+                            autocomplete="new-password" 
+                            required 
+                        />
+                        <button type="button" id="toggle-password-btn" class="password-toggle-btn" title="Toggle password visibility">
+                            <i class="bi bi-eye-fill"></i>
+                        </button>
+                    </div>
+                    <div id="error-password" class="field-error-message"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm_password" class="form-label">
+                        Confirm Password <span class="required-star">*</span>
+                    </label>
+                    <div class="password-input-wrapper">
+                        <input 
+                            type="password" 
+                            id="confirm_password" 
+                            name="confirm_password" 
+                            class="form-control-custom" 
+                            placeholder="Re-enter password" 
+                            autocomplete="new-password" 
+                            required 
+                        />
+                        <button type="button" id="toggle-confirm-password-btn" class="password-toggle-btn" title="Toggle confirm password visibility">
+                            <i class="bi bi-eye-fill"></i>
+                        </button>
+                    </div>
+                    <div id="error-confirm_password" class="field-error-message"></div>
+                </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="form-actions mt-3">
+                <button type="submit" id="submit-btn" class="btn-primary-blue">
+                    <span id="btn-spinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    <i class="bi bi-person-check-fill"></i>
+                    <span id="btn-text">Create Admin Account</span>
+                </button>
+                <a href="{% url 'admin_dashboard' %}" class="btn-secondary-link">
+                    <i class="bi bi-x-lg"></i>
+                    <span>Cancel</span>
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/admin_register.js' %}"></script>
+{% endblock %}

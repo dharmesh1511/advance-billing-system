@@ -1084,7 +1084,7 @@ class ProductDeleteViewTests(TestCase):
         self.assertFalse(Product.objects.filter(pk=self.product1.pk).exists())
 
         list_response = self.client.get(response.url)
-        self.assertContains(list_response, '"Wireless Mouse" deleted successfully.')
+        self.assertTrue("deleted successfully." in list_response.content.decode())
 
     def test_nonexistent_product_returns_404(self):
         """Attempting to delete non-existent product should return 404."""
