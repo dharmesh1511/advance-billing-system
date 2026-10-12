@@ -375,8 +375,22 @@ class AdminPasswordRecoveryAPITests(APITestCase):
         )
         self.assertEqual(len(mail.outbox), 1)
         email = mail.outbox[0]
-        self.assertIn("Advance Billing System", email.subject)
+        self.assertEqual(email.subject, "Advance Billing System - Password Reset OTP")
         self.assertEqual(email.to, [self.admin.email])
+
+        # Plain-text verification
+        self.assertIn("We received a request to reset your Advance Billing System Admin account password.", email.body)
+        self.assertIn("Your password reset OTP is:", email.body)
+        self.assertIn("This OTP is valid for 5 minutes.", email.body)
+        self.assertIn("Advance Billing System Team", email.body)
+
+        # HTML alternative verification
+        self.assertEqual(len(email.alternatives), 1)
+        html_content, mimetype = email.alternatives[0]
+        self.assertEqual(mimetype, "text/html")
+        self.assertIn("Advance Billing System", html_content)
+        self.assertIn("Valid for 5 minutes", html_content)
+        self.assertIn("Your password reset OTP is:", html_content)
 
         # OTP is never exposed in the response
         self.assertNotIn("otp", response.data)
@@ -957,5 +971,41 @@ class AdminPasswordRecoveryAPITests(APITestCase):
             format="json"
         )
         self.assertEqual(res_new.status_code, 201)
+
+    # 21. Email templates render correctly
+    def test_21_email_templates_render_correctly(self):
+        from django.template.loader import render_to_string
+        context = {"otp": "789123", "validity_minutes": 5}
+
+        # Plain text template
+        text = render_to_string("emails/admin_password_reset_otp.txt", context)
+        self.assertIn("789123", text)
+        self.assertIn("Your password reset OTP is:", text)
+        self.assertIn("valid for 5 minutes", text)
+        self.assertIn("Advance Billing System Team", text)
+
+        # HTML template
+        html = render_to_string("emails/admin_password_reset_otp.html", context)
+        self.assertIn("789123", html)
+        self.assertIn("Advance Billing System", html)
+        self.assertIn("Valid for 5 minutes", html)
+        self.assertIn("#2563eb", html)
+
+    # 22. SMTP failure handling
+    def test_22_smtp_failure_handling(self):
+        from unittest.mock import patch
+        import smtplib
+
+        with patch("django.core.mail.EmailMultiAlternatives.send", side_effect=smtplib.SMTPException("SMTP connection refused")):
+            response = self.client.post(self.forgot_url, {"email": self.admin.email}, format="json")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(
+                response.data["message"],
+                "If an eligible account exists, a password reset OTP has been sent."
+            )
+            # Response never leaks SMTP error details or credentials
+            self.assertNotIn("SMTPException", str(response.data))
+            self.assertNotIn("refused", str(response.data))
+
 
 

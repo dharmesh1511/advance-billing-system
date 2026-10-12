@@ -6,7 +6,8 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password, check_password
 from django.contrib.sessions.models import Session
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
 from django.utils import timezone
 from .models import OTPVerification, AdminPasswordResetToken, UserSecurityStatus
 
@@ -76,46 +77,29 @@ def lookup_eligible_admin_by_email(email: str):
 
 def send_admin_recovery_email(email: str, otp: str) -> bool:
     """
-    Send professional Admin Password Recovery email with OTP.
+    Send professional Admin Password Recovery email with OTP
+    using HTML and plain-text templates rendered via EmailMultiAlternatives.
     Logs delivery errors safely without revealing credentials or OTPs.
     """
-    subject = "Advance Billing System - Admin Password Recovery OTP"
-    message = (
-        "Advance Billing System - Secure Admin Portal\n\n"
-        "Hello,\n\n"
-        "We received a request to reset the password for your Admin account.\n\n"
-        f"Your verification code (OTP) is: {otp}\n\n"
-        f"This OTP is valid for {OTP_EXPIRY_MINUTES} minutes only.\n\n"
-        "SECURITY WARNING: Never share this OTP with anyone. Our support team will never ask for your OTP.\n\n"
-        "If you did not request a password reset, please ignore this email and your account will remain secure.\n\n"
-        "— Advance Billing System Security Team"
-    )
-    html_message = (
-        "<div style='font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;'>"
-        "<h2 style='color: #1e293b; margin-bottom: 8px;'>Advance Billing System</h2>"
-        "<p style='color: #64748b; font-size: 14px; margin-top: 0;'>Secure Admin Password Recovery</p>"
-        "<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;'/>"
-        "<p style='color: #334155;'>Hello,</p>"
-        "<p style='color: #334155;'>We received a request to reset the password for your Admin account. Use the verification code below to proceed:</p>"
-        f"<div style='background: #f1f5f9; padding: 16px; text-align: center; font-size: 28px; font-weight: bold; letter-spacing: 6px; color: #0f172a; border-radius: 6px; margin: 20px 0;'>{otp}</div>"
-        f"<p style='color: #e11d48; font-weight: 500;'>This code is valid for {OTP_EXPIRY_MINUTES} minutes.</p>"
-        "<p style='color: #475569; font-size: 13px;'><strong>Security Warning:</strong> Do not share this code with anyone. Advance Billing System administrators will never ask for your OTP.</p>"
-        "<p style='color: #64748b; font-size: 13px;'>If you did not request a password reset, you can safely ignore this email.</p>"
-        "<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;'/>"
-        "<p style='color: #94a3b8; font-size: 12px; margin-bottom: 0;'>Advance Billing System &bull; Automated Security Notification</p>"
-        "</div>"
-    )
+    subject = "Advance Billing System - Password Reset OTP"
+    context = {
+        "otp": otp,
+        "validity_minutes": OTP_EXPIRY_MINUTES,
+    }
 
     try:
+        text_content = render_to_string("emails/admin_password_reset_otp.txt", context)
+        html_content = render_to_string("emails/admin_password_reset_otp.html", context)
+
         from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or getattr(settings, "EMAIL_HOST_USER", None)
-        send_mail(
+        msg = EmailMultiAlternatives(
             subject=subject,
-            message=message,
-            html_message=html_message,
+            body=text_content,
             from_email=from_email,
-            recipient_list=[email],
-            fail_silently=False,
+            to=[email],
         )
+        msg.attach_alternative(html_content, "text/html")
+        msg.send(fail_silently=False)
         return True
     except Exception:
         logger.error("Admin recovery email delivery failed for recipient.")
