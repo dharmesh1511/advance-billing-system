@@ -14,10 +14,14 @@ class AdminRecoveryEmailRateThrottle(SimpleRateThrottle):
     rate = "5/minute"
 
     def get_cache_key(self, request, view):
-        email = request.data.get("email")
-        if not email:
+        if not hasattr(request, "data") or not isinstance(request.data, dict):
             return None
-        email_normalized = str(email).strip().lower()
+        email = request.data.get("email")
+        if not email or not isinstance(email, str):
+            return None
+        email_normalized = email.strip().lower()
+        if not email_normalized:
+            return None
         ident = hashlib.sha256(email_normalized.encode("utf-8")).hexdigest()
         return self.cache_format % {
             "scope": self.scope,

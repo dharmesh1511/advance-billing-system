@@ -191,6 +191,75 @@ class AdminRegistrationAPITests(APITestCase):
         self.assertTrue(user.is_staff)
         self.assertFalse(user.is_superuser)
 
+    def test_superuser_with_valid_jwt_access_token_registers_admin(self):
+        """Superuser with valid JWT access token can register an Admin (201 Created)."""
+        token_res = self.client.post(
+            reverse("token_obtain_pair"),
+            {"username": self.superuser.username, "password": "SuperPassword@123"},
+            format="json"
+        )
+        self.assertEqual(token_res.status_code, 200)
+        access_token = token_res.data["access"]
+
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
+        payload = {
+            "username": "admin_jwt_reg",
+            "email": "jwt_reg@example.com",
+            "first_name": "JWT",
+            "last_name": "Admin",
+            "password": "ExampleStrong@2026X",
+            "confirm_password": "ExampleStrong@2026X"
+        }
+        response = self.client.post(self.url, payload, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["message"], "Admin user registered successfully.")
+        self.assertEqual(response.data["admin"]["username"], "admin_jwt_reg")
+
+        new_user = User.objects.get(username="admin_jwt_reg")
+        self.assertTrue(new_user.is_staff)
+        self.assertFalse(new_user.is_superuser)
+        self.assertTrue(new_user.check_password("ExampleStrong@2026X"))
+
+    def test_invalid_email_format_rejected(self):
+        """Invalid email address format is rejected with 400 Bad Request."""
+        self.client.force_authenticate(user=self.superuser)
+        payload = {
+            "username": "admin_bad_email",
+            "email": "not-a-valid-email",
+            "password": "StrongPassword@123",
+            "confirm_password": "StrongPassword@123"
+        }
+        response = self.client.post(self.url, payload, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("email", response.data)
+
+    def test_required_fields_validated(self):
+        """Missing required fields return 400 Bad Request with field errors."""
+        self.client.force_authenticate(user=self.superuser)
+        # Empty payload
+        response = self.client.post(self.url, {}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("username", response.data)
+        self.assertIn("email", response.data)
+        self.assertIn("password", response.data)
+        self.assertIn("confirm_password", response.data)
+
+    def test_registration_response_does_not_expose_password(self):
+        """Admin registration response does not expose the password or its hash."""
+        self.client.force_authenticate(user=self.superuser)
+        payload = {
+            "username": "admin_no_expose",
+            "email": "no_expose@example.com",
+            "password": "ExampleStrong@2026X",
+            "confirm_password": "ExampleStrong@2026X"
+        }
+        response = self.client.post(self.url, payload, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertNotIn("password", response.data)
+        self.assertNotIn("confirm_password", response.data)
+        self.assertNotIn("password", response.data.get("admin", {}))
+        self.assertNotIn("confirm_password", response.data.get("admin", {}))
+
     def test_existing_login_and_distributor_registration(self):
         """Verify standard distributor login and admin login endpoints continue functioning."""
         admin_login_res = self.client.get(reverse("admin_login"))
@@ -1006,6 +1075,494 @@ class AdminPasswordRecoveryAPITests(APITestCase):
             # Response never leaks SMTP error details or credentials
             self.assertNotIn("SMTPException", str(response.data))
             self.assertNotIn("refused", str(response.data))
+
+    # 23. Invalid email format on forgot-password
+    def test_23_invalid_email_format(self):
+        response = self.client.post(self.forgot_url, {"email": "not-an-email-address"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("email", response.data)
+        self.assertEqual(len(mail.outbox), 0)
+
+    # 24. Non-dict payload handled gracefully without 500 error
+    def test_24_non_dict_payload_handled_gracefully(self):
+        response = self.client.post(self.forgot_url, ["not", "a", "dict"], format="json")
+        self.assertEqual(response.status_code, 400)
+
+    # 25. Five-minute OTP expiry duration
+    def test_25_otp_expiry_duration_five_minutes(self):
+        self.client.post(self.forgot_url, {"email": self.admin.email}, format="json")
+        otp_rec = OTPVerification.objects.filter(email=self.admin.email, purpose=ADMIN_RECOVERY_PURPOSE).first()
+        self.assertIsNotNone(otp_rec)
+        diff = (otp_rec.expires_at - otp_rec.created_at).total_seconds()
+        self.assertAlmostEqual(diff, 300, delta=5)
+
+    # 26. OTP verification with incorrect email
+    def test_26_otp_with_incorrect_email(self):
+        raw_otp = "123456"
+        OTPVerification.objects.create(
+            user=self.admin,
+            email=self.admin.email,
+            otp_code="",
+            otp_hash=hash_otp(raw_otp),
+            purpose=ADMIN_RECOVERY_PURPOSE,
+            expires_at=timezone.now() + timedelta(minutes=5),
+            is_verified=False,
+            attempts=0
+        )
+        # Attempt to verify with a different email
+        response = self.client.post(
+            self.verify_url,
+            {"email": "different_admin@example.com", "otp": raw_otp},
+            format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("detail", response.data)
+        self.assertNotIn("reset_token", response.data)
+
+    # 27. Ten-minute reset token expiry duration
+    def test_27_reset_token_expiry_duration_ten_minutes(self):
+        raw_otp = "234567"
+        OTPVerification.objects.create(
+            user=self.admin,
+            email=self.admin.email,
+            otp_code="",
+            otp_hash=hash_otp(raw_otp),
+            purpose=ADMIN_RECOVERY_PURPOSE,
+            expires_at=timezone.now() + timedelta(minutes=5),
+            is_verified=False,
+            attempts=0
+        )
+        response = self.client.post(
+            self.verify_url,
+            {"email": self.admin.email, "otp": raw_otp},
+            format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        reset_token = response.data["reset_token"]
+        token_rec = AdminPasswordResetToken.objects.get(token_hash=hash_reset_token(reset_token))
+        diff = (token_rec.expires_at - token_rec.created_at).total_seconds()
+        self.assertAlmostEqual(diff, 600, delta=5)
+
+    # 28. No reset token issued for failed verification
+    def test_28_no_reset_token_issued_for_failed_verification(self):
+        response = self.client.post(
+            self.verify_url,
+            {"email": self.admin.email, "otp": "000000"},
+            format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertNotIn("reset_token", response.data)
+
+    # 29. Resend OTP with unknown email returns generic response
+    def test_29_resend_unknown_email_generic_response(self):
+        response = self.client.post(self.resend_url, {"email": "unknown_admin@example.com"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["message"],
+            "If an eligible account exists, a new password reset OTP has been sent."
+        )
+        self.assertEqual(len(mail.outbox), 0)
+
+    # 30. Invalid reset token is rejected
+    def test_30_invalid_reset_token_rejected(self):
+        response = self.client.post(
+            self.reset_url,
+            {
+                "reset_token": "completely_fake_and_invalid_token",
+                "new_password": "BrandNewSecureAdmin@2026",
+                "confirm_password": "BrandNewSecureAdmin@2026"
+            },
+            format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("detail", response.data)
+        self.assertIn("Invalid or expired reset token.", response.data["detail"])
+
+    # 31. Old password fails and new password works via JWT authentication
+    def test_31_old_password_fails_and_new_password_works_jwt(self):
+        raw_token = "secure_reset_token_auth_31"
+        AdminPasswordResetToken.objects.create(
+            user=self.admin,
+            token_hash=hash_reset_token(raw_token),
+            expires_at=timezone.now() + timedelta(minutes=10),
+            is_used=False
+        )
+
+        old_pass = "InitialStrongPassword@2026"
+        new_pass = "UpdatedSecurePassword@2026"
+
+        # Reset password
+        reset_res = self.client.post(
+            self.reset_url,
+            {
+                "reset_token": raw_token,
+                "new_password": new_pass,
+                "confirm_password": new_pass
+            },
+            format="json"
+        )
+        self.assertEqual(reset_res.status_code, 200)
+
+        # Old password must fail
+        token_url = reverse("token_obtain_pair")
+        fail_res = self.client.post(
+            token_url,
+            {"username": self.admin.username, "password": old_pass},
+            format="json"
+        )
+        self.assertEqual(fail_res.status_code, 401)
+
+        # New password must succeed
+        success_res = self.client.post(
+            token_url,
+            {"username": self.admin.username, "password": new_pass},
+            format="json"
+        )
+        self.assertEqual(success_res.status_code, 200)
+        self.assertIn("access", success_res.data)
+        self.assertIn("refresh", success_res.data)
+
+    # 32. No automatic login or token issuance after password reset
+    def test_32_no_automatic_login_after_reset(self):
+        raw_token = "secure_reset_token_nologin_32"
+        AdminPasswordResetToken.objects.create(
+            user=self.admin,
+            token_hash=hash_reset_token(raw_token),
+            expires_at=timezone.now() + timedelta(minutes=10),
+            is_used=False
+        )
+        new_pass = "NoAutoLoginPassword@2026"
+        response = self.client.post(
+            self.reset_url,
+            {
+                "reset_token": raw_token,
+                "new_password": new_pass,
+                "confirm_password": new_pass
+            },
+            format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("access", response.data)
+        self.assertNotIn("refresh", response.data)
+        self.assertNotIn("token", response.data)
+        self.assertNotIn("sessionid", self.client.cookies)
+
+
+class JWTAuthenticationAPITests(APITestCase):
+    """
+    Dedicated test suite for JWT authentication endpoints:
+    - POST /api/token/
+    - POST /api/token/refresh/
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.token_url = reverse("token_obtain_pair")
+        self.refresh_url = reverse("token_refresh")
+        self.admin_register_url = reverse("api_admin_register")
+
+        # Superuser
+        self.superuser = User.objects.create_superuser(
+            username="jwt_superadmin",
+            email="jwt_superadmin@example.com",
+            password="SuperPassword@2026"
+        )
+
+        # Inactive User
+        self.inactive_user = User.objects.create_user(
+            username="jwt_inactive",
+            email="jwt_inactive@example.com",
+            password="InactivePassword@2026",
+            is_active=False
+        )
+
+    def test_valid_credentials_generate_tokens(self):
+        """Valid credentials return access and refresh JWT tokens (200 OK)."""
+        response = self.client.post(
+            self.token_url,
+            {"username": self.superuser.username, "password": "SuperPassword@2026"},
+            format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
+        self.assertTrue(len(response.data["access"]) > 20)
+        self.assertTrue(len(response.data["refresh"]) > 20)
+
+    def test_incorrect_credentials_rejected(self):
+        """Incorrect credentials are rejected (401 Unauthorized)."""
+        response = self.client.post(
+            self.token_url,
+            {"username": self.superuser.username, "password": "WrongPassword@2026"},
+            format="json"
+        )
+        self.assertEqual(response.status_code, 401)
+        self.assertNotIn("access", response.data)
+
+    def test_inactive_users_cannot_authenticate(self):
+        """Inactive users cannot obtain JWT tokens (401 Unauthorized)."""
+        response = self.client.post(
+            self.token_url,
+            {"username": self.inactive_user.username, "password": "InactivePassword@2026"},
+            format="json"
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_valid_access_token_authenticates_admin_registration(self):
+        """Valid access token authenticates requests to protected Admin Registration endpoint."""
+        token_res = self.client.post(
+            self.token_url,
+            {"username": self.superuser.username, "password": "SuperPassword@2026"},
+            format="json"
+        )
+        access_token = token_res.data["access"]
+
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
+        reg_payload = {
+            "username": "jwt_registered_admin",
+            "email": "jwt_registered@example.com",
+            "password": "ExampleStrong@2026X",
+            "confirm_password": "ExampleStrong@2026X"
+        }
+        response = self.client.post(self.admin_register_url, reg_payload, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["admin"]["username"], "jwt_registered_admin")
+
+    def test_expired_or_invalid_tokens_rejected(self):
+        """Expired or malformed tokens are rejected with 401 Unauthorized."""
+        # 1. Malformed token
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer invalid.token.payload")
+        response = self.client.post(
+            self.admin_register_url,
+            {"username": "test_invalid"},
+            format="json"
+        )
+        self.assertEqual(response.status_code, 401)
+
+        # 2. Expired token
+        from rest_framework_simplejwt.tokens import AccessToken
+        token = AccessToken.for_user(self.superuser)
+        # Manually backdate token expiration
+        token.set_exp(lifetime=-timedelta(minutes=10))
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {str(token)}")
+        response_exp = self.client.post(
+            self.admin_register_url,
+            {"username": "test_expired"},
+            format="json"
+        )
+        self.assertEqual(response_exp.status_code, 401)
+
+    def test_refresh_token_flow(self):
+        """Refresh token flow returns a new valid access token."""
+        token_res = self.client.post(
+            self.token_url,
+            {"username": self.superuser.username, "password": "SuperPassword@2026"},
+            format="json"
+        )
+        refresh_token = token_res.data["refresh"]
+
+        # Call /api/token/refresh/
+        refresh_res = self.client.post(
+            self.refresh_url,
+            {"refresh": refresh_token},
+            format="json"
+        )
+        self.assertEqual(refresh_res.status_code, 200)
+        self.assertIn("access", refresh_res.data)
+        new_access = refresh_res.data["access"]
+
+        # Use new access token
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {new_access}")
+        reg_res = self.client.post(
+            self.admin_register_url,
+            {
+                "username": "refreshed_admin_user",
+                "email": "refreshed_admin@example.com",
+                "password": "ExampleStrong@2026X",
+                "confirm_password": "ExampleStrong@2026X"
+            },
+            format="json"
+        )
+        self.assertEqual(reg_res.status_code, 201)
+
+    def test_invalid_refresh_token_rejected(self):
+        """Invalid refresh token returns 401 Unauthorized."""
+        response = self.client.post(
+            self.refresh_url,
+            {"refresh": "invalid_refresh_token_payload"},
+            format="json"
+        )
+        self.assertEqual(response.status_code, 401)
+
+
+class AdminWorkflowEndToEndIntegrationTests(APITestCase):
+    """
+    Complete end-to-end integration test of the Admin Registration
+    and Password Recovery functionalities as specified in Section 8:
+    1. Create a superuser in the isolated test database.
+    2. Obtain JWT access token.
+    3. Register a new staff Admin through the registration API.
+    4. Request password recovery for the new Admin.
+    5. Capture the OTP through Django's in-memory test email backend.
+    6. Verify the OTP.
+    7. Receive the password reset token.
+    8. Reset the Admin password.
+    9. Confirm old password authentication fails.
+    10. Confirm new password authentication succeeds.
+    11. Confirm Admin permissions remain unchanged.
+    12. Confirm used OTP and reset token cannot be reused.
+    """
+
+    def setUp(self):
+        cache.clear()
+        mail.outbox.clear()
+        self.client = APIClient()
+
+    def tearDown(self):
+        cache.clear()
+        mail.outbox.clear()
+
+    def test_complete_admin_registration_and_password_recovery_lifecycle(self):
+        # Step 1: Create a superuser in isolated test DB
+        superadmin = User.objects.create_superuser(
+            username="e2e_superadmin",
+            email="e2e_superadmin@example.com",
+            password="SuperE2EPassword@2026"
+        )
+
+        # Step 2: Obtain JWT access token
+        token_url = reverse("token_obtain_pair")
+        token_res = self.client.post(
+            token_url,
+            {"username": "e2e_superadmin", "password": "SuperE2EPassword@2026"},
+            format="json"
+        )
+        self.assertEqual(token_res.status_code, 200)
+        super_access = token_res.data["access"]
+
+        # Step 3: Register a new staff Admin through registration API
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {super_access}")
+        register_url = reverse("api_admin_register")
+        initial_admin_password = "InitialAdminSecret@2026"
+        reg_payload = {
+            "username": "e2e_new_admin",
+            "email": "e2e_new_admin@example.com",
+            "first_name": "Vikram",
+            "last_name": "Sharma",
+            "password": initial_admin_password,
+            "confirm_password": initial_admin_password
+        }
+        reg_res = self.client.post(register_url, reg_payload, format="json")
+        self.assertEqual(reg_res.status_code, 201)
+        self.assertEqual(reg_res.data["message"], "Admin user registered successfully.")
+        new_admin = User.objects.get(username="e2e_new_admin")
+        self.assertTrue(new_admin.is_staff)
+        self.assertFalse(new_admin.is_superuser)
+        self.assertTrue(new_admin.check_password(initial_admin_password))
+
+        # Clear authentication credentials for anonymous recovery workflow
+        self.client.credentials()
+
+        # Step 4: Request password recovery for the new Admin
+        forgot_url = reverse("api_admin_forgot_password")
+        forgot_res = self.client.post(
+            forgot_url,
+            {"email": "e2e_new_admin@example.com"},
+            format="json"
+        )
+        self.assertEqual(forgot_res.status_code, 200)
+        self.assertEqual(
+            forgot_res.data["message"],
+            "If an eligible account exists, a password reset OTP has been sent."
+        )
+
+        # Step 5: Capture OTP through in-memory test email backend
+        self.assertEqual(len(mail.outbox), 1)
+        sent_email = mail.outbox[0]
+        self.assertEqual(sent_email.to, ["e2e_new_admin@example.com"])
+        otp_match = re.search(r"\b(\d{6})\b", sent_email.body)
+        self.assertIsNotNone(otp_match, "OTP not found in email body")
+        captured_otp = otp_match.group(1)
+
+        # Step 6: Verify the OTP
+        verify_url = reverse("api_admin_verify_reset_otp")
+        verify_res = self.client.post(
+            verify_url,
+            {"email": "e2e_new_admin@example.com", "otp": captured_otp},
+            format="json"
+        )
+        self.assertEqual(verify_res.status_code, 200)
+        self.assertEqual(verify_res.data["message"], "OTP verified successfully.")
+
+        # Step 7: Receive the password reset token
+        self.assertIn("reset_token", verify_res.data)
+        reset_token = verify_res.data["reset_token"]
+        self.assertTrue(len(reset_token) > 20)
+
+        # Step 8: Reset the Admin password
+        reset_url = reverse("api_admin_reset_password")
+        new_admin_password = "BrandNewAdminSecret@2026X"
+        reset_res = self.client.post(
+            reset_url,
+            {
+                "reset_token": reset_token,
+                "new_password": new_admin_password,
+                "confirm_password": new_admin_password
+            },
+            format="json"
+        )
+        self.assertEqual(reset_res.status_code, 200)
+        self.assertEqual(
+            reset_res.data["message"],
+            "Password reset successfully. Please login with your new password."
+        )
+
+        # Step 9: Confirm old password authentication fails
+        old_auth_res = self.client.post(
+            token_url,
+            {"username": "e2e_new_admin", "password": initial_admin_password},
+            format="json"
+        )
+        self.assertEqual(old_auth_res.status_code, 401)
+
+        # Step 10: Confirm new password authentication succeeds
+        new_auth_res = self.client.post(
+            token_url,
+            {"username": "e2e_new_admin", "password": new_admin_password},
+            format="json"
+        )
+        self.assertEqual(new_auth_res.status_code, 200)
+        self.assertIn("access", new_auth_res.data)
+        self.assertIn("refresh", new_auth_res.data)
+
+        # Step 11: Confirm Admin permissions remain unchanged
+        new_admin.refresh_from_db()
+        self.assertTrue(new_admin.is_staff)
+        self.assertFalse(new_admin.is_superuser)
+        self.assertTrue(new_admin.is_active)
+        self.assertTrue(new_admin.check_password(new_admin_password))
+
+        # Step 12: Confirm used OTP and reset token cannot be reused
+        # 12a. Attempting to verify used OTP fails
+        reuse_otp_res = self.client.post(
+            verify_url,
+            {"email": "e2e_new_admin@example.com", "otp": captured_otp},
+            format="json"
+        )
+        self.assertEqual(reuse_otp_res.status_code, 400)
+
+        # 12b. Attempting to reset password with used reset token fails
+        reuse_token_res = self.client.post(
+            reset_url,
+            {
+                "reset_token": reset_token,
+                "new_password": "YetAnotherPassword@2026",
+                "confirm_password": "YetAnotherPassword@2026"
+            },
+            format="json"
+        )
+        self.assertEqual(reuse_token_res.status_code, 400)
+        self.assertIn("Invalid or expired reset token.", reuse_token_res.data["detail"])
 
 
 

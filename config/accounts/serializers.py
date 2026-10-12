@@ -45,6 +45,9 @@ class AdminRegistrationSerializer(serializers.ModelSerializer):
         password = attrs.get('password')
         confirm_password = attrs.get('confirm_password')
 
+        if not password:
+            raise serializers.ValidationError({"password": "Password is required."})
+
         if password != confirm_password:
             raise serializers.ValidationError({"confirm_password": "Passwords do not match."})
 
@@ -171,11 +174,19 @@ class SecureTokenRefreshSerializer(BaseTokenRefreshSerializer):
             refresh_token = RefreshToken(attrs["refresh"])
             user_id = refresh_token.payload.get("user_id")
             token_iat = refresh_token.payload.get("iat")
-            if user_id and token_iat:
-                security_status = UserSecurityStatus.objects.filter(user_id=user_id).first()
-                if security_status and security_status.jwt_revoked_before:
-                    if token_iat < security_status.jwt_revoked_before.timestamp():
+            token_pwd_hash = refresh_token.payload.get("pwd_hash")
+            if user_id:
+                user = User.objects.filter(id=user_id).first()
+                if user and token_pwd_hash:
+                    current_pwd_hash = hashlib.sha256(user.password.encode("utf-8")).hexdigest()[:16]
+                    if token_pwd_hash != current_pwd_hash:
                         raise InvalidToken("Token has been revoked due to password reset.")
+
+                if token_iat:
+                    security_status = UserSecurityStatus.objects.filter(user_id=user_id).first()
+                    if security_status and security_status.jwt_revoked_before:
+                        if token_iat < security_status.jwt_revoked_before.timestamp():
+                            raise InvalidToken("Token has been revoked due to password reset.")
         except Exception as e:
             if isinstance(e, InvalidToken):
                 raise e
