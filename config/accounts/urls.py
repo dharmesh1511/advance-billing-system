@@ -2,10 +2,30 @@ from django.urls import path
 from . import views
 from . import api_views
 from billing import views as billing_views
-
 urlpatterns = [
     path("api/admin/register/", api_views.AdminRegistrationAPIView.as_view(), name="api_admin_register"),
+    path(
+        "api/admin/forgot-password/",
+        api_views.AdminForgotPasswordAPIView.as_view(),
+        name="api_admin_forgot_password"
+    ),
+    path(
+        "api/admin/verify-reset-otp/",
+        api_views.AdminVerifyResetOTPAPIView.as_view(),
+        name="api_admin_verify_reset_otp"
+    ),
+    path(
+        "api/admin/reset-password/",
+        api_views.AdminResetPasswordAPIView.as_view(),
+        name="api_admin_reset_password"
+    ),
+    path(
+        "api/admin/resend-reset-otp/",
+        api_views.AdminResendResetOTPAPIView.as_view(),
+        name="api_admin_resend_reset_otp"
+    ),
     path("adminpanel/register/", views.admin_register_view, name="admin_register"),
+
     path("admin/register/", views.admin_register_view, name="admin_register_alias"),
     path("admin/login/", views.admin_login, name="admin_login"),
     path("distributor/login/", views.distributor_login, name="distributor_login"),

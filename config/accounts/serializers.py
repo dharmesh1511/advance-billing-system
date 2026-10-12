@@ -81,3 +81,103 @@ class AdminRegistrationSerializer(serializers.ModelSerializer):
             is_superuser=False
         )
         return user
+
+
+class AdminForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+    def validate_email(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Email is required.")
+        return value.strip().lower()
+
+
+class AdminVerifyResetOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    otp = serializers.CharField(required=True, min_length=6, max_length=6)
+
+    def validate_email(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Email is required.")
+        return value.strip().lower()
+
+    def validate_otp(self, value):
+        value = value.strip()
+        if len(value) != 6 or not value.isdigit():
+            raise serializers.ValidationError("OTP must be a 6-digit numeric code.")
+        return value
+
+
+class AdminResetPasswordSerializer(serializers.Serializer):
+    reset_token = serializers.CharField(required=True, trim_whitespace=True)
+    new_password = serializers.CharField(
+        required=True,
+        write_only=True,
+        style={'input_type': 'password'}
+    )
+    confirm_password = serializers.CharField(
+        required=True,
+        write_only=True,
+        style={'input_type': 'password'}
+    )
+
+    def validate_reset_token(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Reset token is required.")
+        return value.strip()
+
+    def validate(self, attrs):
+        new_password = attrs.get('new_password')
+        confirm_password = attrs.get('confirm_password')
+
+        if new_password != confirm_password:
+            raise serializers.ValidationError({"confirm_password": "Passwords do not match."})
+
+        return attrs
+
+
+class AdminResendResetOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+    def validate_email(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Email is required.")
+        return value.strip().lower()
+
+from rest_framework_simplejwt.serializers import (
+    TokenObtainPairSerializer as BaseTokenObtainPairSerializer,
+    TokenRefreshSerializer as BaseTokenRefreshSerializer,
+)
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import InvalidToken
+from .models import UserSecurityStatus
+import hashlib
+
+
+class SecureTokenObtainPairSerializer(BaseTokenObtainPairSerializer):
+    """
+    JWT obtain pair serializer that embeds a password hash fingerprint
+    in the access token for immediate revocation upon password changes.
+    """
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token["pwd_hash"] = hashlib.sha256(user.password.encode("utf-8")).hexdigest()[:16]
+        return token
+class SecureTokenRefreshSerializer(BaseTokenRefreshSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        try:
+            refresh_token = RefreshToken(attrs["refresh"])
+            user_id = refresh_token.payload.get("user_id")
+            token_iat = refresh_token.payload.get("iat")
+            if user_id and token_iat:
+                security_status = UserSecurityStatus.objects.filter(user_id=user_id).first()
+                if security_status and security_status.jwt_revoked_before:
+                    if token_iat < security_status.jwt_revoked_before.timestamp():
+                        raise InvalidToken("Token has been revoked due to password reset.")
+        except Exception as e:
+            if isinstance(e, InvalidToken):
+                raise e
+        return data
+
