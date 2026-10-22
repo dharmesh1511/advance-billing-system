@@ -128,6 +128,18 @@ class Product(models.Model):
         help_text="Stock keeping unit / product code"
     )
 
+    unit = models.CharField(
+        max_length=50,
+        blank=True,
+        default="piece",
+        help_text="Unit of measurement (e.g. piece, kg, litre, box)"
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Designates whether this product is active for billing"
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True
     )
@@ -141,6 +153,14 @@ class Product(models.Model):
         verbose_name = "Product"
         verbose_name_plural = "Products"
 
+    @property
+    def stock_quantity(self):
+        return self.stock
+
+    @stock_quantity.setter
+    def stock_quantity(self, value):
+        self.stock = value
+
     def clean(self):
         super().clean()
         if not self.name or not self.name.strip():
@@ -151,6 +171,15 @@ class Product(models.Model):
             raise ValidationError({'stock': 'Stock cannot be negative.'})
         if self.gst_rate is not None and (self.gst_rate < Decimal('0.00') or self.gst_rate > Decimal('100.00')):
             raise ValidationError({'gst_rate': 'GST rate must be between 0 and 100.'})
+        if self.sku and self.sku.strip() and getattr(self, 'distributor_id', None):
+            existing_sku = Product.objects.filter(
+                distributor_id=self.distributor_id,
+                sku__iexact=self.sku.strip()
+            )
+            if self.pk:
+                existing_sku = existing_sku.exclude(pk=self.pk)
+            if existing_sku.exists():
+                raise ValidationError({'sku': 'A product with this SKU already exists for this distributor.'})
 
     def save(self, *args, **kwargs):
         self.full_clean()

@@ -139,7 +139,9 @@ class ProductForm(forms.ModelForm):
             "sku",
             "price",
             "stock",
+            "unit",
             "gst_rate",
+            "is_active",
             "description",
         ]
         widgets = {
@@ -175,6 +177,11 @@ class ProductForm(forms.ModelForm):
                 "step": "1",
                 "required": True
             }),
+            "unit": forms.TextInput(attrs={
+                "placeholder": "Enter unit (e.g. piece, kg, box)",
+                "id": "id_unit",
+                "class": "form-input"
+            }),
             "gst_rate": forms.NumberInput(attrs={
                 "placeholder": "Enter GST rate % (0 to 100)",
                 "id": "id_gst_rate",
@@ -182,6 +189,10 @@ class ProductForm(forms.ModelForm):
                 "step": "0.01",
                 "min": "0",
                 "max": "100"
+            }),
+            "is_active": forms.CheckboxInput(attrs={
+                "id": "id_is_active",
+                "class": "form-checkbox"
             }),
             "description": forms.Textarea(attrs={
                 "placeholder": "Enter detailed product description (optional)",

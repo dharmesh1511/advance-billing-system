@@ -465,6 +465,11 @@ def product_details(request, pk):
         "price": str(product.price),
         "gst_rate": str(product.gst_rate),
         "stock": product.stock,
+        "stock_quantity": product.stock,
+        "unit": product.unit or "piece",
+        "is_active": product.is_active,
+        "description": product.description or "",
+        "created_at": product.created_at.strftime("%b %d, %Y, %I:%M %p") if product.created_at else "",
     })
 
 

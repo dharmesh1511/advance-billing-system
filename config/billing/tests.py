@@ -2434,6 +2434,328 @@ class InvoiceDetailAndDownloadPDFTests(TestCase):
         self.assertIn("/distributor/login/", response.url)
 
 
+from rest_framework.test import APITestCase, APIClient
+from datetime import date
+
+
+class ProductCRUDAPITests(APITestCase):
+    """
+    Complete automated test suite for Product CRUD API:
+    - Create valid product (POST /api/products/)
+    - Reject invalid prices & negative stock
+    - List products & data isolation between distributors
+    - Retrieve product by ID
+    - Update product (PUT/PATCH) & prevent distributor spoofing
+    - Delete product safely & protect invoice references
+    - Duplicate SKU enforcement per distributor
+    - Unauthenticated (401) & unauthorized (403) access control
+    - Admin/Superuser access
+    - Frontend view rendering unit and status
+    """
+
+    def setUp(self):
+        self.api_client = APIClient()
+        self.list_url = reverse("api_product_list_create")
+
+        # Distributor Group
+        self.distributor_group, _ = Group.objects.get_or_create(name="Distributor")
+
+        # Distributor 1
+        self.distributor1 = User.objects.create_user(
+            username="dist1_crud",
+            email="dist1_crud@example.com",
+            password="DistPassword@123"
+        )
+        self.distributor1.groups.add(self.distributor_group)
+
+        # Distributor 2
+        self.distributor2 = User.objects.create_user(
+            username="dist2_crud",
+            email="dist2_crud@example.com",
+            password="DistPassword@123"
+        )
+        self.distributor2.groups.add(self.distributor_group)
+
+        # Regular Non-Distributor User
+        self.regular_user = User.objects.create_user(
+            username="regular_crud",
+            email="regular_crud@example.com",
+            password="RegularPassword@123"
+        )
+
+        # Admin / Superuser
+        self.admin_user = User.objects.create_superuser(
+            username="admin_crud",
+            email="admin_crud@example.com",
+            password="AdminPassword@123"
+        )
+
+        # Customer for distributor 1
+        self.customer1 = Customer.objects.create(
+            distributor=self.distributor1,
+            name="John Doe",
+            phone="9876543210"
+        )
+
+        # Pre-created products for tests
+        self.product1 = Product.objects.create(
+            distributor=self.distributor1,
+            name="Mechanical Keyboard",
+            sku="KB-001",
+            category="Peripherals",
+            price=Decimal("2499.00"),
+            stock=25,
+            unit="piece",
+            gst_rate=Decimal("18.00"),
+            is_active=True,
+            description="RGB mechanical keyboard"
+        )
+
+        self.product2 = Product.objects.create(
+            distributor=self.distributor2,
+            name="Gaming Mousepad",
+            sku="MP-002",
+            category="Accessories",
+            price=Decimal("499.00"),
+            stock=100,
+            unit="piece",
+            gst_rate=Decimal("18.00"),
+            is_active=True
+        )
+
+    # 1. Create a valid product
+    def test_01_create_valid_product(self):
+        """Authenticated distributor creates product via POST /api/products/."""
+        self.api_client.force_authenticate(user=self.distributor1)
+        payload = {
+            "name": "Wireless Headset",
+            "sku": "HS-101",
+            "category": "Audio",
+            "price": "1999.00",
+            "stock_quantity": 30,
+            "unit": "box",
+            "gst_rate": "18.00",
+            "is_active": True,
+            "description": "Noise-cancelling wireless headset"
+        }
+        response = self.api_client.post(self.list_url, payload, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["name"], "Wireless Headset")
+        self.assertEqual(response.data["sku"], "HS-101")
+        self.assertEqual(response.data["stock"], 30)
+        self.assertEqual(response.data["stock_quantity"], 30)
+        self.assertEqual(response.data["unit"], "box")
+        self.assertTrue(response.data["is_active"])
+
+        # Check DB ownership
+        created_p = Product.objects.get(id=response.data["id"])
+        self.assertEqual(created_p.distributor, self.distributor1)
+
+    # 2. Reject invalid price and negative stock
+    def test_02_reject_invalid_price(self):
+        """Negative price must be rejected with HTTP 400."""
+        self.api_client.force_authenticate(user=self.distributor1)
+        payload = {
+            "name": "Invalid Price Product",
+            "price": "-10.00",
+            "stock": 5
+        }
+        response = self.api_client.post(self.list_url, payload, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("price", response.data)
+
+    def test_03_reject_negative_stock(self):
+        """Negative stock must be rejected with HTTP 400."""
+        self.api_client.force_authenticate(user=self.distributor1)
+        payload = {
+            "name": "Negative Stock Product",
+            "price": "100.00",
+            "stock": -5
+        }
+        response = self.api_client.post(self.list_url, payload, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("stock", response.data)
+
+    # 3. List products & distributor isolation
+    def test_04_list_products_and_distributor_isolation(self):
+        """Distributor 1 only sees their own products; Distributor 2 only sees theirs."""
+        self.api_client.force_authenticate(user=self.distributor1)
+        res1 = self.api_client.get(self.list_url)
+        self.assertEqual(res1.status_code, 200)
+        names1 = [p["name"] for p in res1.data["results"]]
+        self.assertIn("Mechanical Keyboard", names1)
+        self.assertNotIn("Gaming Mousepad", names1)
+
+        self.api_client.force_authenticate(user=self.distributor2)
+        res2 = self.api_client.get(self.list_url)
+        self.assertEqual(res2.status_code, 200)
+        names2 = [p["name"] for p in res2.data["results"]]
+        self.assertIn("Gaming Mousepad", names2)
+        self.assertNotIn("Mechanical Keyboard", names2)
+
+    # 4. Search and pagination
+    def test_05_search_products(self):
+        """Search query filters products by name or SKU."""
+        self.api_client.force_authenticate(user=self.distributor1)
+        res = self.api_client.get(self.list_url + "?search=KB-001")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["count"], 1)
+        self.assertEqual(res.data["results"][0]["sku"], "KB-001")
+
+    # 5. Retrieve product by ID
+    def test_06_retrieve_product_by_id(self):
+        """Retrieve existing product by ID."""
+        self.api_client.force_authenticate(user=self.distributor1)
+        url = reverse("api_product_detail", kwargs={"pk": self.product1.pk})
+        response = self.api_client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["id"], self.product1.pk)
+        self.assertEqual(response.data["name"], "Mechanical Keyboard")
+        self.assertEqual(response.data["unit"], "piece")
+
+    def test_07_retrieve_other_distributor_product_404(self):
+        """Distributor 1 cannot access Distributor 2's product."""
+        self.api_client.force_authenticate(user=self.distributor1)
+        url = reverse("api_product_detail", kwargs={"pk": self.product2.pk})
+        response = self.api_client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+    def test_08_retrieve_nonexistent_product_404(self):
+        """Non-existent product ID returns 404."""
+        self.api_client.force_authenticate(user=self.distributor1)
+        url = reverse("api_product_detail", kwargs={"pk": 999999})
+        response = self.api_client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+    # 6. Update product (PUT and PATCH)
+    def test_09_update_product_put_and_patch(self):
+        """Update product fields and verify client cannot tamper with distributor ownership."""
+        self.api_client.force_authenticate(user=self.distributor1)
+        url = reverse("api_product_detail", kwargs={"pk": self.product1.pk})
+
+        # PATCH update price and unit
+        patch_res = self.api_client.patch(url, {"price": "2699.00", "unit": "set"}, format="json")
+        self.assertEqual(patch_res.status_code, 200)
+        self.assertEqual(patch_res.data["price"], "2699.00")
+        self.assertEqual(patch_res.data["unit"], "set")
+
+        # PUT update with attempted spoofing of distributor
+        put_payload = {
+            "name": "Mechanical Keyboard Pro",
+            "sku": "KB-001",
+            "price": "2899.00",
+            "stock": 40,
+            "unit": "box",
+            "distributor_id": self.distributor2.id
+        }
+        put_res = self.api_client.put(url, put_payload, format="json")
+        self.assertEqual(put_res.status_code, 200)
+        self.product1.refresh_from_db()
+        self.assertEqual(self.product1.name, "Mechanical Keyboard Pro")
+        self.assertEqual(self.product1.distributor, self.distributor1)
+
+    # 7. Delete product safely
+    def test_10_delete_unreferenced_product(self):
+        """Unreferenced product can be deleted successfully."""
+        self.api_client.force_authenticate(user=self.distributor1)
+        url = reverse("api_product_detail", kwargs={"pk": self.product1.pk})
+        response = self.api_client.delete(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Product.objects.filter(pk=self.product1.pk).exists())
+
+    # 8. Preserve invoice history when product is referenced
+    def test_11_preserve_invoice_history_on_delete(self):
+        """Product referenced by an invoice cannot be deleted; historical billing data is protected."""
+        invoice = Invoice.objects.create(
+            distributor=self.distributor1,
+            customer=self.customer1,
+            invoice_number="INV-SAFE-01",
+            invoice_date=date.today(),
+            subtotal=Decimal("2499.00"),
+            total_gst=Decimal("449.82"),
+            grand_total=Decimal("2948.82")
+        )
+        InvoiceItem.objects.create(
+            invoice=invoice,
+            product=self.product1,
+            product_name=self.product1.name,
+            quantity=1,
+            unit_price=self.product1.price,
+            gst_rate=self.product1.gst_rate,
+            taxable_amount=Decimal("2499.00"),
+            gst_amount=Decimal("449.82"),
+            line_total=Decimal("2948.82")
+        )
+
+        self.api_client.force_authenticate(user=self.distributor1)
+        url = reverse("api_product_detail", kwargs={"pk": self.product1.pk})
+        response = self.api_client.delete(url)
+
+        # Must reject deletion
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("cannot be deleted because it is referenced", response.data["detail"])
+        self.assertTrue(Product.objects.filter(pk=self.product1.pk).exists())
+        self.assertTrue(InvoiceItem.objects.filter(invoice=invoice).exists())
+
+    # 9. Duplicate SKU validation
+    def test_12_duplicate_sku_rejected_for_same_distributor(self):
+        """Duplicate SKU under the same distributor is rejected with HTTP 400."""
+        self.api_client.force_authenticate(user=self.distributor1)
+        payload = {
+            "name": "Another Keyboard",
+            "sku": "KB-001",  # Same as self.product1
+            "price": "999.00",
+            "stock": 10
+        }
+        response = self.api_client.post(self.list_url, payload, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("sku", response.data)
+
+    def test_13_same_sku_allowed_for_different_distributor(self):
+        """Different distributors can use the same SKU in their own respective inventories."""
+        self.api_client.force_authenticate(user=self.distributor2)
+        payload = {
+            "name": "Distributor 2 Product",
+            "sku": "KB-001",  # Same SKU as dist1, but for dist2
+            "price": "1299.00",
+            "stock": 15
+        }
+        response = self.api_client.post(self.list_url, payload, format="json")
+        self.assertEqual(response.status_code, 201)
+
+    # 10. Access control
+    def test_14_unauthenticated_request_rejected(self):
+        """Unauthenticated requests are rejected with 401."""
+        response = self.api_client.get(self.list_url)
+        self.assertEqual(response.status_code, 401)
+
+    def test_15_unauthorized_user_rejected_with_403(self):
+        """Regular user without Distributor or Admin role is rejected with 403."""
+        self.api_client.force_authenticate(user=self.regular_user)
+        response = self.api_client.get(self.list_url)
+        self.assertEqual(response.status_code, 403)
+
+    def test_16_admin_access_allowed(self):
+        """Admin can list products across all distributors."""
+        self.api_client.force_authenticate(user=self.admin_user)
+        response = self.api_client.get(self.list_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertGreaterEqual(response.data["count"], 2)
+
+    # 11. Frontend product list displays unit, status, and view modal
+    def test_17_frontend_product_list_elements(self):
+        """Frontend product list renders unit, active badge, and view details."""
+        self.client.login(username="dist1_crud", password="DistPassword@123")
+        response = self.client.get(reverse("product_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Mechanical Keyboard")
+        self.assertContains(response, "KB-001")
+        self.assertContains(response, "piece")
+        self.assertContains(response, "Active")
+        self.assertContains(response, "viewProductDetails")
+
+
+
 
 
 
