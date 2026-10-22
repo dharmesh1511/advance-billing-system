@@ -24,6 +24,11 @@ urlpatterns = [
         api_views.AdminResendResetOTPAPIView.as_view(),
         name="api_admin_resend_reset_otp"
     ),
+    path(
+        "api/distributor/customers/register/",
+        api_views.CustomerRegistrationAPIView.as_view(),
+        name="api_distributor_customer_register"
+    ),
     path("adminpanel/register/", views.admin_register_view, name="admin_register"),
 
     path("admin/register/", views.admin_register_view, name="admin_register_alias"),

@@ -192,3 +192,145 @@ class SecureTokenRefreshSerializer(BaseTokenRefreshSerializer):
                 raise e
         return data
 
+
+import re
+from billing.models import Customer
+
+
+class CustomerRegistrationSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Customer registration by authenticated Distributors.
+    Distributor ownership is strictly assigned server-side.
+    """
+    name = serializers.CharField(
+        max_length=150,
+        required=True,
+        error_messages={
+            "required": "Customer name is required.",
+            "blank": "Please enter a valid customer name."
+        }
+    )
+    email = serializers.EmailField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        default=None,
+        error_messages={
+            "invalid": "Please enter a valid email address."
+        }
+    )
+    phone = serializers.CharField(
+        max_length=20,
+        required=True,
+        error_messages={
+            "required": "Phone number is required.",
+            "blank": "Please enter a valid 10-digit phone number."
+        }
+    )
+    address = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        default=None
+    )
+    city = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        default=None
+    )
+    state = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        default=None
+    )
+    pincode = serializers.CharField(
+        max_length=10,
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        default=None
+    )
+
+    class Meta:
+        model = Customer
+        fields = [
+            "id",
+            "name",
+            "email",
+            "phone",
+            "address",
+            "city",
+            "state",
+            "pincode",
+        ]
+        read_only_fields = ["id"]
+
+    def validate_name(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Please enter a valid customer name.")
+        value = value.strip()
+        if len(value) < 2 or len(value) > 150:
+            raise serializers.ValidationError("Please enter a valid customer name.")
+        if value.isdigit():
+            raise serializers.ValidationError("Please enter a valid customer name.")
+        return value
+
+    def validate_email(self, value):
+        if value:
+            value = value.strip().lower()
+            if not value:
+                return None
+            return value
+        return None
+
+    def validate_phone(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Please enter a valid 10-digit phone number.")
+        value = value.strip()
+        if not re.match(r"^[6-9]\d{9}$", value):
+            raise serializers.ValidationError("Please enter a valid 10-digit phone number.")
+        return value
+
+    def validate_address(self, value):
+        if value:
+            value = value.strip()
+            if not value:
+                return None
+            return value
+        return None
+
+    def validate_city(self, value):
+        if value:
+            value = value.strip()
+            if not value:
+                return None
+            if len(value) > 100 or re.search(r"\d", value):
+                raise serializers.ValidationError("Please enter a valid city.")
+            return value
+        return None
+
+    def validate_state(self, value):
+        if value:
+            value = value.strip()
+            if not value:
+                return None
+            if len(value) > 100 or re.search(r"\d", value):
+                raise serializers.ValidationError("Please enter a valid state.")
+            return value
+        return None
+
+    def validate_pincode(self, value):
+        if value:
+            value = value.strip()
+            if not value:
+                return None
+            if not re.match(r"^\d{6}$", value):
+                raise serializers.ValidationError("Please enter a valid 6-digit pincode.")
+            return value
+        return None
+
+

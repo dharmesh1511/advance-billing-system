@@ -1565,4 +1565,398 @@ class AdminWorkflowEndToEndIntegrationTests(APITestCase):
         self.assertIn("Invalid or expired reset token.", reuse_token_res.data["detail"])
 
 
+from billing.models import Customer
+from accounts.models import DistributorProfile
+
+
+class CustomerRegistrationAPITests(APITestCase):
+    """
+    Automated test suite for POST /api/distributor/customers/register/
+    Validates Distributor authentication, ownership enforcement, input validation,
+    security boundaries, and non-regression of existing features.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse("api_distributor_customer_register")
+
+        # Distributor Group
+        self.distributor_group, _ = Group.objects.get_or_create(name="Distributor")
+
+        # Distributor 1 (User with group + DistributorProfile)
+        self.distributor1 = User.objects.create_user(
+            username="distributor1@example.com",
+            email="distributor1@example.com",
+            password="DistPassword@123",
+            first_name="Rahul",
+            last_name="Patel"
+        )
+        self.distributor1.groups.add(self.distributor_group)
+        self.profile1 = DistributorProfile.objects.create(
+            user=self.distributor1,
+            full_name="Rahul Patel",
+            email="distributor1@example.com",
+            phone="9876543210"
+        )
+
+        # Distributor 2 (User with group + DistributorProfile)
+        self.distributor2 = User.objects.create_user(
+            username="distributor2@example.com",
+            email="distributor2@example.com",
+            password="DistPassword@123",
+            first_name="Amit",
+            last_name="Shah"
+        )
+        self.distributor2.groups.add(self.distributor_group)
+        self.profile2 = DistributorProfile.objects.create(
+            user=self.distributor2,
+            full_name="Amit Shah",
+            email="distributor2@example.com",
+            phone="9876543211"
+        )
+
+        # Distributor 3 (User with DistributorProfile only, no group)
+        self.distributor3 = User.objects.create_user(
+            username="distributor3@example.com",
+            email="distributor3@example.com",
+            password="DistPassword@123",
+            first_name="Vikas",
+            last_name="Mehta"
+        )
+        self.profile3 = DistributorProfile.objects.create(
+            user=self.distributor3,
+            full_name="Vikas Mehta",
+            email="distributor3@example.com",
+            phone="9876543212"
+        )
+
+        # Regular Non-Distributor User
+        self.regular_user = User.objects.create_user(
+            username="regularuser@example.com",
+            email="regularuser@example.com",
+            password="RegularPassword@123"
+        )
+
+        # Staff Admin User (non-distributor)
+        self.staff_admin = User.objects.create_user(
+            username="admin@example.com",
+            email="admin@example.com",
+            password="AdminPassword@123",
+            is_staff=True,
+            is_superuser=False
+        )
+
+        # Superuser (non-distributor)
+        self.superuser = User.objects.create_superuser(
+            username="superuser@example.com",
+            email="superuser@example.com",
+            password="SuperPassword@123"
+        )
+
+        # Default valid customer payload
+        self.valid_payload = {
+            "name": "Rahul Patel",
+            "email": "rahul@example.com",
+            "phone": "9876543210",
+            "address": "Main Road",
+            "city": "Ahmedabad",
+            "state": "Gujarat",
+            "pincode": "380001"
+        }
+
+    # 1. Authenticated Distributor can register a valid customer
+    def test_authenticated_distributor_registers_valid_customer(self):
+        """Authenticated Distributor can register a valid customer (201 Created)."""
+        self.client.force_authenticate(user=self.distributor1)
+        response = self.client.post(self.url, self.valid_payload, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["message"], "Customer registered successfully.")
+        cust_data = response.data["customer"]
+        self.assertIsNotNone(cust_data.get("id"))
+        self.assertEqual(cust_data["name"], "Rahul Patel")
+        self.assertEqual(cust_data["email"], "rahul@example.com")
+        self.assertEqual(cust_data["phone"], "9876543210")
+        self.assertEqual(cust_data["address"], "Main Road")
+        self.assertEqual(cust_data["city"], "Ahmedabad")
+        self.assertEqual(cust_data["state"], "Gujarat")
+        self.assertEqual(cust_data["pincode"], "380001")
+
+    # 2. Customer is saved in database and 3. linked to logged-in Distributor
+    def test_customer_saved_in_database_and_linked_to_logged_in_distributor(self):
+        """Saved customer exists in DB and is linked strictly to the logged-in Distributor."""
+        self.client.force_authenticate(user=self.distributor1)
+        response = self.client.post(self.url, self.valid_payload, format="json")
+        self.assertEqual(response.status_code, 201)
+
+        customer_id = response.data["customer"]["id"]
+        customer = Customer.objects.get(id=customer_id)
+        self.assertEqual(customer.name, "Rahul Patel")
+        self.assertEqual(customer.email, "rahul@example.com")
+        self.assertEqual(customer.phone, "9876543210")
+        self.assertEqual(customer.distributor, self.distributor1)
+        self.assertNotEqual(customer.distributor, self.distributor2)
+
+    # 4. Unauthenticated request is rejected (401)
+    def test_unauthenticated_request_rejected(self):
+        """Unauthenticated request must be rejected with HTTP 401."""
+        response = self.client.post(self.url, self.valid_payload, format="json")
+        self.assertEqual(response.status_code, 401)
+        self.assertFalse(Customer.objects.filter(phone="9876543210").exists())
+
+    # 5. Admin user is rejected unless explicitly permitted by business rules (403)
+    def test_staff_admin_rejected_with_403(self):
+        """Staff Admin without Distributor role must be rejected with HTTP 403."""
+        self.client.force_authenticate(user=self.staff_admin)
+        response = self.client.post(self.url, self.valid_payload, format="json")
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Customer.objects.filter(phone="9876543210").exists())
+
+    def test_superuser_rejected_with_403(self):
+        """Superuser without Distributor role must be rejected with HTTP 403."""
+        self.client.force_authenticate(user=self.superuser)
+        response = self.client.post(self.url, self.valid_payload, format="json")
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Customer.objects.filter(phone="9876543210").exists())
+
+    def test_regular_user_rejected_with_403(self):
+        """Regular non-distributor user must be rejected with HTTP 403."""
+        self.client.force_authenticate(user=self.regular_user)
+        response = self.client.post(self.url, self.valid_payload, format="json")
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Customer.objects.filter(phone="9876543210").exists())
+
+    # 6. Distributor cannot supply another Distributor's ID
+    def test_client_cannot_spoof_distributor_ownership(self):
+        """Supplying another distributor's ID in payload is ignored; ownership stays with request.user."""
+        self.client.force_authenticate(user=self.distributor1)
+        spoofed_payload = dict(self.valid_payload)
+        spoofed_payload["distributor_id"] = self.distributor2.id
+        spoofed_payload["distributor"] = self.distributor2.id
+
+        response = self.client.post(self.url, spoofed_payload, format="json")
+        self.assertEqual(response.status_code, 201)
+
+        customer = Customer.objects.get(id=response.data["customer"]["id"])
+        self.assertEqual(customer.distributor, self.distributor1)
+        self.assertNotEqual(customer.distributor, self.distributor2)
+
+    # 7. Missing required fields return HTTP 400
+    def test_missing_required_fields_return_400(self):
+        """Missing required fields (name, phone) return HTTP 400 Bad Request."""
+        self.client.force_authenticate(user=self.distributor1)
+        # Empty payload
+        response = self.client.post(self.url, {}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("name", response.data)
+        self.assertIn("phone", response.data)
+
+    def test_missing_name_returns_400(self):
+        """Missing or empty customer name returns 400."""
+        self.client.force_authenticate(user=self.distributor1)
+        payload = dict(self.valid_payload)
+        payload["name"] = ""
+        response = self.client.post(self.url, payload, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("name", response.data)
+
+    def test_whitespace_name_returns_400(self):
+        """Customer name with only whitespace returns 400."""
+        self.client.force_authenticate(user=self.distributor1)
+        payload = dict(self.valid_payload)
+        payload["name"] = "   "
+        response = self.client.post(self.url, payload, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("name", response.data)
+
+    def test_digits_only_name_returns_400(self):
+        """Customer name with only digits returns 400."""
+        self.client.force_authenticate(user=self.distributor1)
+        payload = dict(self.valid_payload)
+        payload["name"] = "123456"
+        response = self.client.post(self.url, payload, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("name", response.data)
+
+    # 8. Invalid email returns HTTP 400
+    def test_invalid_email_returns_400(self):
+        """Invalid email format returns HTTP 400 Bad Request."""
+        self.client.force_authenticate(user=self.distributor1)
+        payload = dict(self.valid_payload)
+        payload["email"] = "not-a-valid-email"
+        response = self.client.post(self.url, payload, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("email", response.data)
+
+    def test_optional_fields_can_be_omitted_or_null(self):
+        """Customer can be registered with only required fields (name, phone); optional fields default gracefully."""
+        self.client.force_authenticate(user=self.distributor1)
+        minimal_payload = {
+            "name": "Minimal Customer",
+            "phone": "9876543299"
+        }
+        response = self.client.post(self.url, minimal_payload, format="json")
+        self.assertEqual(response.status_code, 201)
+        cust = Customer.objects.get(id=response.data["customer"]["id"])
+        self.assertEqual(cust.name, "Minimal Customer")
+        self.assertEqual(cust.phone, "9876543299")
+        self.assertIsNone(cust.email)
+        self.assertIsNone(cust.address)
+
+    # 9. Invalid phone or pincode returns HTTP 400
+    def test_invalid_phone_formats_return_400(self):
+        """Phones not matching 10-digit format starting with 6-9 return 400."""
+        self.client.force_authenticate(user=self.distributor1)
+
+        # Starts with invalid digit
+        p1 = dict(self.valid_payload, phone="1234567890")
+        r1 = self.client.post(self.url, p1, format="json")
+        self.assertEqual(r1.status_code, 400)
+        self.assertIn("phone", r1.data)
+
+        # Less than 10 digits
+        p2 = dict(self.valid_payload, phone="98765")
+        r2 = self.client.post(self.url, p2, format="json")
+        self.assertEqual(r2.status_code, 400)
+        self.assertIn("phone", r2.data)
+
+        # Contains non-digits
+        p3 = dict(self.valid_payload, phone="98765ABCDE")
+        r3 = self.client.post(self.url, p3, format="json")
+        self.assertEqual(r3.status_code, 400)
+        self.assertIn("phone", r3.data)
+
+    def test_invalid_pincode_formats_return_400(self):
+        """Pincodes not matching 6-digit numeric pattern return 400."""
+        self.client.force_authenticate(user=self.distributor1)
+
+        # 5 digits
+        p1 = dict(self.valid_payload, pincode="38001")
+        r1 = self.client.post(self.url, p1, format="json")
+        self.assertEqual(r1.status_code, 400)
+        self.assertIn("pincode", r1.data)
+
+        # Non-digits
+        p2 = dict(self.valid_payload, pincode="38000A")
+        r2 = self.client.post(self.url, p2, format="json")
+        self.assertEqual(r2.status_code, 400)
+        self.assertIn("pincode", r2.data)
+
+    def test_invalid_city_and_state_with_digits_return_400(self):
+        """City and State containing numbers are rejected with 400."""
+        self.client.force_authenticate(user=self.distributor1)
+
+        p1 = dict(self.valid_payload, city="Ahmedabad123")
+        r1 = self.client.post(self.url, p1, format="json")
+        self.assertEqual(r1.status_code, 400)
+        self.assertIn("city", r1.data)
+
+        p2 = dict(self.valid_payload, state="Gujarat99")
+        r2 = self.client.post(self.url, p2, format="json")
+        self.assertEqual(r2.status_code, 400)
+        self.assertIn("state", r2.data)
+
+    # 10. Duplicate customer data follows existing model constraints
+    def test_duplicate_customer_across_different_distributors_allowed(self):
+        """Two different Distributors can maintain separate customer records with identical details."""
+        self.client.force_authenticate(user=self.distributor1)
+        res1 = self.client.post(self.url, self.valid_payload, format="json")
+        self.assertEqual(res1.status_code, 201)
+
+        self.client.force_authenticate(user=self.distributor2)
+        res2 = self.client.post(self.url, self.valid_payload, format="json")
+        self.assertEqual(res2.status_code, 201)
+
+        c1 = Customer.objects.get(id=res1.data["customer"]["id"])
+        c2 = Customer.objects.get(id=res2.data["customer"]["id"])
+        self.assertEqual(c1.distributor, self.distributor1)
+        self.assertEqual(c2.distributor, self.distributor2)
+        self.assertNotEqual(c1.id, c2.id)
+
+    # 11. One Distributor cannot change another Distributor's customer ownership
+    def test_distributor_cannot_alter_existing_customer_ownership(self):
+        """Registering a customer never mutates or overwrites another distributor's existing customer."""
+        self.client.force_authenticate(user=self.distributor1)
+        res1 = self.client.post(self.url, self.valid_payload, format="json")
+        self.assertEqual(res1.status_code, 201)
+        c1_id = res1.data["customer"]["id"]
+
+        # Distributor 2 registers same details
+        self.client.force_authenticate(user=self.distributor2)
+        res2 = self.client.post(self.url, dict(self.valid_payload, id=c1_id), format="json")
+        self.assertEqual(res2.status_code, 201)
+        c2_id = res2.data["customer"]["id"]
+
+        # Existing customer owned by Distributor 1 was untouched
+        c1 = Customer.objects.get(id=c1_id)
+        self.assertEqual(c1.distributor, self.distributor1)
+
+        # New customer is owned by Distributor 2
+        c2 = Customer.objects.get(id=c2_id)
+        self.assertEqual(c2.distributor, self.distributor2)
+        self.assertNotEqual(c1.id, c2.id)
+
+    # 12. Authentication Methods: JWT Bearer Token
+    def test_jwt_token_authentication(self):
+        """Customer registration succeeds using JWT Bearer token authentication."""
+        token_res = self.client.post(
+            reverse("token_obtain_pair"),
+            {"username": self.distributor1.username, "password": "DistPassword@123"},
+            format="json"
+        )
+        self.assertEqual(token_res.status_code, 200)
+        access_token = token_res.data["access"]
+
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
+        response = self.client.post(self.url, self.valid_payload, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["message"], "Customer registered successfully.")
+        customer = Customer.objects.get(id=response.data["customer"]["id"])
+        self.assertEqual(customer.distributor, self.distributor1)
+
+    # 13. Authentication Methods: Session Authentication
+    def test_session_authentication(self):
+        """Customer registration succeeds using Django Session authentication."""
+        logged_in = self.client.login(username=self.distributor1.username, password="DistPassword@123")
+        self.assertTrue(logged_in)
+        response = self.client.post(self.url, self.valid_payload, format="json")
+        self.assertEqual(response.status_code, 201)
+        customer = Customer.objects.get(id=response.data["customer"]["id"])
+        self.assertEqual(customer.distributor, self.distributor1)
+
+    # 14. Distributor Profile-only user support
+    def test_distributor_with_profile_accepted(self):
+        """User with DistributorProfile is recognized as eligible distributor."""
+        self.client.force_authenticate(user=self.distributor3)
+        response = self.client.post(self.url, self.valid_payload, format="json")
+        self.assertEqual(response.status_code, 201)
+        customer = Customer.objects.get(id=response.data["customer"]["id"])
+        self.assertEqual(customer.distributor, self.distributor3)
+
+    # 15. No internal or private fields exposed
+    def test_no_private_fields_exposed(self):
+        """Response must not expose passwords, hashes, or unrelated private fields."""
+        self.client.force_authenticate(user=self.distributor1)
+        response = self.client.post(self.url, self.valid_payload, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertNotIn("password", response.data)
+        self.assertNotIn("password", response.data["customer"])
+        self.assertNotIn("distributor_id", response.data["customer"])
+        self.assertNotIn("distributor", response.data["customer"])
+
+    # 16. Existing customer management continue working
+    def test_existing_customer_list_reflects_registered_customer(self):
+        """Registered customer through API is correctly visible in the distributor's web customer list."""
+        self.client.force_authenticate(user=self.distributor1)
+        response = self.client.post(self.url, self.valid_payload, format="json")
+        self.assertEqual(response.status_code, 201)
+
+        # Login to web session and fetch customer_list
+        self.client.login(username=self.distributor1.username, password="DistPassword@123")
+        list_res = self.client.get(reverse("customer_list"))
+        self.assertEqual(list_res.status_code, 200)
+        self.assertContains(list_res, "Rahul Patel")
+        self.assertContains(list_res, "9876543210")
+
+
+
 

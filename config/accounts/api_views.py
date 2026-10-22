@@ -17,7 +17,9 @@ from .serializers import (
     AdminVerifyResetOTPSerializer,
     AdminResetPasswordSerializer,
     AdminResendResetOTPSerializer,
+    CustomerRegistrationSerializer,
 )
+from .permissions import IsDistributor
 from .services import (
     ADMIN_RECOVERY_PURPOSE,
     OTP_EXPIRY_MINUTES,
@@ -421,4 +423,44 @@ class AdminResendResetOTPAPIView(APIView):
                 "message": "If an eligible account exists, a new password reset OTP has been sent."
             },
             status=status.HTTP_200_OK
+        )
+
+
+class CustomerRegistrationAPIView(APIView):
+    """
+    POST /api/distributor/customers/register/
+
+    Allows an authenticated Distributor to register a customer.
+    The customer is linked to the authenticated Distributor.
+    """
+    authentication_classes = [
+        SecureJWTAuthentication,
+        SessionAuthentication,
+    ]
+    permission_classes = [IsAuthenticated, IsDistributor]
+
+    def post(self, request, *args, **kwargs):
+        serializer = CustomerRegistrationSerializer(data=request.data)
+        if serializer.is_valid():
+            customer = serializer.save(distributor=request.user)
+            return Response(
+                {
+                    "message": "Customer registered successfully.",
+                    "customer": {
+                        "id": customer.id,
+                        "name": customer.name,
+                        "email": customer.email,
+                        "phone": customer.phone,
+                        "address": customer.address,
+                        "city": customer.city,
+                        "state": customer.state,
+                        "pincode": customer.pincode,
+                    }
+                },
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
         )
