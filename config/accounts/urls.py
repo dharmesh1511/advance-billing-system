@@ -41,6 +41,7 @@ urlpatterns = [
     path("distributor/profile/edit/", views.edit_distributor_profile, name="edit_distributor_profile"),
     path("distributor/profile/update/", views.edit_distributor_profile, name="distributor_profile_edit"),
     path("distributor/customers/", billing_views.customer_list, name="customer_list"),
+    path("distributor/customers/register/", billing_views.customer_register_view, name="customer_register"),
     path("distributor/customers/add/", billing_views.add_customer, name="add_customer"),
     path("distributor/customers/<int:pk>/edit/", billing_views.edit_customer, name="customer_edit"),
     path("distributor/customers/<int:pk>/delete/", billing_views.delete_customer, name="customer_delete"),

@@ -1958,5 +1958,139 @@ class CustomerRegistrationAPITests(APITestCase):
         self.assertContains(list_res, "9876543210")
 
 
+class CustomerRegisterViewTests(APITestCase):
+    """
+    Test suite for the Frontend Customer Registration Page:
+    - URL routing & reverse
+    - Role-based access control (RBAC) & login protection
+    - Template inheritance and rendering
+    - Form field inputs and accessibility attributes
+    - Full end-to-end integration with POST /api/distributor/customers/register/
+    """
+
+    def setUp(self):
+        self.distributor_group, _ = Group.objects.get_or_create(name="Distributor")
+
+        # Distributor User
+        self.distributor_user = User.objects.create_user(
+            username="dist_user_frontend",
+            email="dist_fe@example.com",
+            password="StrongPassword@123"
+        )
+        self.distributor_user.groups.add(self.distributor_group)
+        DistributorProfile.objects.create(
+            user=self.distributor_user,
+            full_name="Frontend Enterprises",
+            email="dist_fe@example.com",
+            phone="9988776655"
+        )
+
+        # Regular Non-Distributor User
+        self.regular_user = User.objects.create_user(
+            username="regular_user",
+            email="reg@example.com",
+            password="StrongPassword@123"
+        )
+
+        # Admin User
+        self.admin_user = User.objects.create_superuser(
+            username="admin_super",
+            email="admin_super@example.com",
+            password="StrongPassword@123"
+        )
+
+        self.register_url = reverse("customer_register")
+        self.api_url = reverse("api_distributor_customer_register")
+
+    def test_customer_register_url_resolves(self):
+        """Verify URL reverses to expected path."""
+        self.assertEqual(self.register_url, "/distributor/customers/register/")
+
+    def test_unauthenticated_access_redirects(self):
+        """Unauthenticated user accessing customer register page is redirected to distributor login."""
+        response = self.client.get(self.register_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/distributor/login/", response.url)
+
+    def test_non_distributor_access_redirects(self):
+        """Authenticated non-distributor user is redirected away."""
+        self.client.login(username="regular_user", password="StrongPassword@123")
+        response = self.client.get(self.register_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/distributor/login/", response.url)
+
+    def test_admin_without_distributor_role_redirects(self):
+        """Superuser without distributor role is redirected away."""
+        self.client.login(username="admin_super", password="StrongPassword@123")
+        response = self.client.get(self.register_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/distributor/login/", response.url)
+
+    def test_distributor_access_granted(self):
+        """Authenticated distributor successfully loads customer registration page."""
+        self.client.login(username="dist_user_frontend", password="StrongPassword@123")
+        response = self.client.get(self.register_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "billing/customer_register.html")
+        self.assertTemplateUsed(response, "billing/base_distributor.html")
+
+    def test_page_elements_and_fields_present(self):
+        """Verify page contains required heading, subtitle, icons, breadcrumbs, inputs, and actions."""
+        self.client.login(username="dist_user_frontend", password="StrongPassword@123")
+        response = self.client.get(self.register_url)
+        self.assertEqual(response.status_code, 200)
+
+        # Headings & Subtitle
+        self.assertContains(response, "Register New Customer")
+        self.assertContains(response, "Add customer details to manage billing and invoices.")
+
+        # Breadcrumbs
+        self.assertContains(response, "Dashboard")
+        self.assertContains(response, "Customers")
+
+        # Form fields
+        self.assertContains(response, 'id="id_name"')
+        self.assertContains(response, 'id="id_phone"')
+        self.assertContains(response, 'id="id_email"')
+        self.assertContains(response, 'id="id_pincode"')
+        self.assertContains(response, 'id="id_city"')
+        self.assertContains(response, 'id="id_state"')
+        self.assertContains(response, 'id="id_address"')
+
+        # Buttons and Actions
+        self.assertContains(response, "Register Customer")
+        self.assertContains(response, "Cancel")
+        self.assertContains(response, reverse("customer_list"))
+
+        # Assets
+        self.assertContains(response, "distributor.css")
+        self.assertContains(response, "customer_register.js")
+
+    def test_api_integration_via_session_auth(self):
+        """Distributor logged into web session can register customer via the real API."""
+        self.client.login(username="dist_user_frontend", password="StrongPassword@123")
+        payload = {
+            "name": "Vikram Desai",
+            "phone": "9825012345",
+            "email": "vikram@example.com",
+            "address": "402 Sapphire Heights, CG Road",
+            "city": "Ahmedabad",
+            "state": "Gujarat",
+            "pincode": "380009"
+        }
+        response = self.client.post(
+            self.api_url,
+            data=payload,
+            content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(Customer.objects.filter(
+            name="Vikram Desai",
+            phone="9825012345",
+            distributor=self.distributor_user
+        ).exists())
+
+
+
 
 

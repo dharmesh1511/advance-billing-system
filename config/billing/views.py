@@ -21,7 +21,26 @@ from .utils import (
 
 
 def is_distributor(user):
-    return user.groups.filter(name="Distributor").exists()
+    if not (user and user.is_authenticated):
+        return False
+    if user.groups.filter(name="Distributor").exists():
+        return True
+    if hasattr(user, "distributor_profile"):
+        return True
+    from accounts.models import DistributorProfile
+    return DistributorProfile.objects.filter(user=user).exists()
+
+
+@login_required(login_url="/distributor/login/")
+def customer_register_view(request):
+    """
+    Renders the modern frontend Customer Registration form for authenticated Distributors.
+    """
+    if not is_distributor(request.user):
+        return redirect("distributor_login")
+
+    return render(request, "billing/customer_register.html")
+
 
 
 @login_required(login_url="/distributor/login/")

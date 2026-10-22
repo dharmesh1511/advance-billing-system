@@ -1,0 +1,238 @@
+{% extends "billing/base_distributor.html" %}
+{% load static %}
+
+{% block title %}Register New Customer | Advance Billing System{% endblock %}
+
+{% block nav_register_customer %}active{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'customer_list' %}">Customers</a></li>
+<li class="breadcrumb-item active" aria-current="page">Register Customer</li>
+{% endblock %}
+
+{% block page_heading %}Register New Customer{% endblock %}
+{% block page_subheading %}Add customer details to manage billing and invoices.{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'customer_list' %}" class="btn btn-secondary">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+    </svg>
+    <span>Back to Customers</span>
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <div class="form-card">
+        <!-- Form Header with Customer Icon -->
+        <div class="form-card-header">
+            <div class="form-icon-wrapper" aria-hidden="true">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+                </svg>
+            </div>
+            <div class="form-title-group">
+                <h2 class="form-title">Register New Customer</h2>
+                <p class="form-subtitle">Fill in the customer information below. Fields marked with an asterisk (<span class="required-asterisk">*</span>) are required.</p>
+            </div>
+        </div>
+
+        <!-- Global Status Messages -->
+        <div id="alert-container" aria-live="polite">
+            <div id="global-error-alert" class="alert alert-danger" style="display: none;" role="alert">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <div id="global-error-message"></div>
+            </div>
+
+            <div id="global-success-alert" class="alert alert-success" style="display: none;" role="alert">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                <div class="success-content">
+                    <strong id="global-success-message">Customer registered successfully!</strong>
+                    <div class="success-actions" style="margin-top: 10px;">
+                        <a href="{% url 'customer_list' %}" class="btn btn-primary btn-sm">View Customer List</a>
+                        <button type="button" id="btn-register-another" class="btn btn-secondary btn-sm">Register Another Customer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Registration Form -->
+        <form id="customer-registration-form" method="POST" novalidate autocomplete="off">
+            {% csrf_token %}
+
+            <div class="form-grid">
+                <!-- Customer Name -->
+                <div class="form-group">
+                    <label for="id_name" class="form-label required">
+                        Customer Name <span class="required-asterisk" aria-hidden="true">*</span>
+                    </label>
+                    <div class="input-wrapper">
+                        <input
+                            type="text"
+                            name="name"
+                            id="id_name"
+                            class="form-control"
+                            placeholder="e.g. Ramesh Patel"
+                            required
+                            maxlength="255"
+                            autocomplete="name"
+                            aria-describedby="name-error"
+                        >
+                    </div>
+                    <div id="name-error" class="field-error" role="alert"></div>
+                </div>
+
+                <!-- Phone Number -->
+                <div class="form-group">
+                    <label for="id_phone" class="form-label required">
+                        Phone Number <span class="required-asterisk" aria-hidden="true">*</span>
+                    </label>
+                    <div class="input-wrapper">
+                        <input
+                            type="tel"
+                            name="phone"
+                            id="id_phone"
+                            class="form-control"
+                            placeholder="e.g. 9876543210"
+                            required
+                            maxlength="15"
+                            autocomplete="tel"
+                            aria-describedby="phone-error"
+                        >
+                    </div>
+                    <div id="phone-error" class="field-error" role="alert"></div>
+                </div>
+
+                <!-- Email Address -->
+                <div class="form-group">
+                    <label for="id_email" class="form-label">
+                        Email Address
+                    </label>
+                    <div class="input-wrapper">
+                        <input
+                            type="email"
+                            name="email"
+                            id="id_email"
+                            class="form-control"
+                            placeholder="e.g. customer@example.com"
+                            maxlength="254"
+                            autocomplete="email"
+                            aria-describedby="email-error"
+                        >
+                    </div>
+                    <div id="email-error" class="field-error" role="alert"></div>
+                </div>
+
+                <!-- PIN Code -->
+                <div class="form-group">
+                    <label for="id_pincode" class="form-label">
+                        PIN Code
+                    </label>
+                    <div class="input-wrapper">
+                        <input
+                            type="text"
+                            name="pincode"
+                            id="id_pincode"
+                            class="form-control"
+                            placeholder="e.g. 380001"
+                            maxlength="6"
+                            pattern="[0-9]{6}"
+                            autocomplete="postal-code"
+                            aria-describedby="pincode-error"
+                        >
+                    </div>
+                    <div id="pincode-error" class="field-error" role="alert"></div>
+                </div>
+
+                <!-- City -->
+                <div class="form-group">
+                    <label for="id_city" class="form-label">
+                        City
+                    </label>
+                    <div class="input-wrapper">
+                        <input
+                            type="text"
+                            name="city"
+                            id="id_city"
+                            class="form-control"
+                            placeholder="e.g. Ahmedabad"
+                            maxlength="100"
+                            autocomplete="address-level2"
+                            aria-describedby="city-error"
+                        >
+                    </div>
+                    <div id="city-error" class="field-error" role="alert"></div>
+                </div>
+
+                <!-- State -->
+                <div class="form-group">
+                    <label for="id_state" class="form-label">
+                        State
+                    </label>
+                    <div class="input-wrapper">
+                        <input
+                            type="text"
+                            name="state"
+                            id="id_state"
+                            class="form-control"
+                            placeholder="e.g. Gujarat"
+                            maxlength="100"
+                            autocomplete="address-level1"
+                            aria-describedby="state-error"
+                        >
+                    </div>
+                    <div id="state-error" class="field-error" role="alert"></div>
+                </div>
+
+                <!-- Full Address (spans 2 columns) -->
+                <div class="form-group full-width">
+                    <label for="id_address" class="form-label">
+                        Address
+                    </label>
+                    <div class="input-wrapper">
+                        <textarea
+                            name="address"
+                            id="id_address"
+                            class="form-control form-textarea"
+                            placeholder="Flat/House No., Building, Street Area"
+                            rows="3"
+                            maxlength="500"
+                            autocomplete="street-address"
+                            aria-describedby="address-error"
+                        ></textarea>
+                    </div>
+                    <div id="address-error" class="field-error" role="alert"></div>
+                </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="form-actions">
+                <a href="{% url 'customer_list' %}" class="btn btn-secondary" id="btn-cancel">
+                    Cancel
+                </a>
+                <button type="submit" class="btn btn-primary" id="btn-submit">
+                    <span class="btn-spinner" aria-hidden="true" style="display: none;"></span>
+                    <span class="btn-text">Register Customer</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Configuration object passed to external JS file
+    window.CUSTOMER_REGISTER_CONFIG = {
+        apiEndpoint: "{% url 'api_distributor_customer_register' %}",
+        customerListUrl: "{% url 'customer_list' %}",
+        loginUrl: "{% url 'distributor_login' %}"
+    };
+</script>
+<script src="{% static 'js/customer_register.js' %}"></script>
+{% endblock %}
