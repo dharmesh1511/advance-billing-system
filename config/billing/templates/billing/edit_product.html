@@ -11,11 +11,11 @@
 {% endblock %}
 
 {% block page_heading %}Edit Product{% endblock %}
-{% block page_subheading %}Update catalog specifications, inventory count, and pricing.{% endblock %}
+{% block page_subheading %}Update catalog specifications, inventory levels, and pricing for {{ product.name }}.{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'product_list' %}" class="btn btn-secondary">
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<a href="{% url 'product_list' %}" class="btn-cancel" style="padding: 9px 18px; font-size: 14px;" title="Back to product list">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px;">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
     </svg>
     <span>Back to Products</span>
@@ -23,53 +23,75 @@
 {% endblock %}
 
 {% block content %}
-<div class="form-container">
+<div class="form-card-container">
     <div class="form-card">
+        <!-- Form Header -->
         <div class="form-card-header">
-            <div class="form-icon-wrapper" aria-hidden="true">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <div class="card-header-icon" aria-hidden="true">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 24px; height: 24px;">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                 </svg>
             </div>
-            <div class="form-title-group">
-                <h2 class="form-title">Edit Product Details</h2>
-                <p class="form-subtitle">Editing product: <strong>{{ product.name }}</strong> (ID: #{{ product.id }})</p>
+            <div class="card-header-text">
+                <h2 class="form-card-title">Modify Product Information</h2>
+                <p class="form-card-subtitle">
+                    Editing: <strong>{{ product.name }}</strong> (Item #{{ product.id }}){% if product.sku %} &bull; SKU: <code>{{ product.sku }}</code>{% endif %}.
+                </p>
             </div>
         </div>
 
+        <!-- Global / Server Error Feedback -->
         {% if error %}
-            <div class="alert alert-danger" role="alert" style="margin-bottom: 20px;">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <div class="alert-box alert-box-error" role="alert">
+                <svg style="width: 20px; height: 20px; flex-shrink: 0;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
                 <div>{{ error }}</div>
             </div>
         {% endif %}
 
+        {% if form.non_field_errors %}
+            <div class="alert-box alert-box-error" role="alert">
+                <svg style="width: 20px; height: 20px; flex-shrink: 0;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <div>
+                    {% for nfe in form.non_field_errors %}
+                        <div>{{ nfe }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Edit Product Form -->
         <form method="POST" action="{% url 'product_edit' product.pk %}" id="edit-product-form" novalidate>
             {% csrf_token %}
 
             <div class="form-grid">
                 <!-- Product Name -->
                 <div class="form-group">
-                    <label for="id_name" class="form-label required">
-                        Product Name <span class="required-asterisk">*</span>
+                    <label for="id_name" class="form-label">
+                        Product Name <span class="required-star">*</span>
                     </label>
-                    <div class="input-wrapper">
+                    <div class="form-input-container">
+                        <svg class="input-icon-prefix" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                        </svg>
                         <input
                             type="text"
                             name="name"
                             id="id_name"
-                            class="form-control {% if form.name.errors %}is-invalid{% endif %}"
+                            class="form-input {% if form.name.errors %}is-invalid{% endif %}"
                             placeholder="Enter product name"
                             value="{{ form.name.value|default:product.name }}"
                             required
                             maxlength="200"
-                        >
+                            autocomplete="off"
+                        />
                     </div>
-                    {% if form.name.errors %}
-                        <div class="field-error" role="alert">{{ form.name.errors.0 }}</div>
-                    {% endif %}
+                    <div class="field-error {% if form.name.errors %}active{% endif %}" id="name-error">
+                        {{ form.name.errors.0|default:"Please enter a valid product name." }}
+                    </div>
                 </div>
 
                 <!-- SKU / Product Code -->
@@ -77,41 +99,48 @@
                     <label for="id_sku" class="form-label">
                         SKU / Product Code
                     </label>
-                    <div class="input-wrapper">
+                    <div class="form-input-container">
+                        <svg class="input-icon-prefix" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path>
+                        </svg>
                         <input
                             type="text"
                             name="sku"
                             id="id_sku"
-                            class="form-control {% if form.sku.errors %}is-invalid{% endif %}"
-                            placeholder="e.g. WM-001"
+                            class="form-input {% if form.sku.errors %}is-invalid{% endif %}"
+                            placeholder="e.g. PRD-COT-001"
                             value="{{ form.sku.value|default:product.sku|default:'' }}"
                             maxlength="100"
-                        >
+                        />
                     </div>
-                    {% if form.sku.errors %}
-                        <div class="field-error" role="alert">{{ form.sku.errors.0 }}</div>
-                    {% endif %}
+                    <div class="field-error {% if form.sku.errors %}active{% endif %}" id="sku-error">
+                        {{ form.sku.errors.0 }}
+                    </div>
+                    <div class="field-hint">Unique identifier for stock tracking (optional).</div>
                 </div>
 
                 <!-- Category -->
                 <div class="form-group">
                     <label for="id_category" class="form-label">
-                        Category
+                        Product Category
                     </label>
-                    <div class="input-wrapper">
+                    <div class="form-input-container">
+                        <svg class="input-icon-prefix" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                        </svg>
                         <input
                             type="text"
                             name="category"
                             id="id_category"
-                            class="form-control {% if form.category.errors %}is-invalid{% endif %}"
-                            placeholder="e.g. Electronics, Hardware"
+                            class="form-input {% if form.category.errors %}is-invalid{% endif %}"
+                            placeholder="e.g. Textiles, Electronics, Hardware"
                             value="{{ form.category.value|default:product.category|default:'' }}"
                             maxlength="100"
-                        >
+                        />
                     </div>
-                    {% if form.category.errors %}
-                        <div class="field-error" role="alert">{{ form.category.errors.0 }}</div>
-                    {% endif %}
+                    <div class="field-error {% if form.category.errors %}active{% endif %}" id="category-error">
+                        {{ form.category.errors.0 }}
+                    </div>
                 </div>
 
                 <!-- Unit of Measurement -->
@@ -119,135 +148,148 @@
                     <label for="id_unit" class="form-label">
                         Unit of Measurement
                     </label>
-                    <div class="input-wrapper">
+                    <div class="form-input-container">
+                        <svg class="input-icon-prefix" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path>
+                        </svg>
                         <input
                             type="text"
                             name="unit"
                             id="id_unit"
-                            class="form-control {% if form.unit.errors %}is-invalid{% endif %}"
-                            placeholder="e.g. piece, kg, box, litre"
+                            class="form-input {% if form.unit.errors %}is-invalid{% endif %}"
+                            placeholder="e.g. piece, kg, metre, box, litre"
                             value="{{ form.unit.value|default:product.unit|default:'piece' }}"
                             maxlength="50"
-                        >
+                        />
                     </div>
-                    {% if form.unit.errors %}
-                        <div class="field-error" role="alert">{{ form.unit.errors.0 }}</div>
-                    {% endif %}
+                    <div class="field-error {% if form.unit.errors %}active{% endif %}" id="unit-error">
+                        {{ form.unit.errors.0 }}
+                    </div>
+                    <div class="field-hint">Billing measurement unit (defaults to 'piece').</div>
                 </div>
 
                 <!-- Selling Price -->
                 <div class="form-group">
-                    <label for="id_price" class="form-label required">
-                        Selling Price (₹) <span class="required-asterisk">*</span>
+                    <label for="id_price" class="form-label">
+                        Selling Price (₹) <span class="required-star">*</span>
                     </label>
-                    <div class="input-wrapper">
+                    <div class="form-input-container">
+                        <span class="input-icon-prefix" style="font-weight: 700; font-size: 17px; line-height: 1;">₹</span>
                         <input
                             type="number"
-                            step="0.01"
-                            min="0.01"
                             name="price"
                             id="id_price"
-                            class="form-control {% if form.price.errors %}is-invalid{% endif %}"
-                            placeholder="e.g. 599.00"
+                            step="0.01"
+                            min="0.01"
+                            class="form-input {% if form.price.errors %}is-invalid{% endif %}"
+                            placeholder="0.00"
                             value="{{ form.price.value|default:product.price }}"
                             required
-                        >
+                        />
                     </div>
-                    {% if form.price.errors %}
-                        <div class="field-error" role="alert">{{ form.price.errors.0 }}</div>
-                    {% endif %}
+                    <div class="field-error {% if form.price.errors %}active{% endif %}" id="price-error">
+                        {{ form.price.errors.0|default:"Price must be greater than 0." }}
+                    </div>
                 </div>
 
-                <!-- Stock Quantity -->
+                <!-- Available Stock Quantity -->
                 <div class="form-group">
-                    <label for="id_stock" class="form-label required">
-                        Available Stock <span class="required-asterisk">*</span>
+                    <label for="id_stock" class="form-label">
+                        Available Stock Quantity <span class="required-star">*</span>
                     </label>
-                    <div class="input-wrapper">
+                    <div class="form-input-container">
+                        <svg class="input-icon-prefix" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                        </svg>
                         <input
                             type="number"
-                            step="1"
-                            min="0"
                             name="stock"
                             id="id_stock"
-                            class="form-control {% if form.stock.errors %}is-invalid{% endif %}"
-                            placeholder="e.g. 50"
+                            step="1"
+                            min="0"
+                            class="form-input {% if form.stock.errors %}is-invalid{% endif %}"
+                            placeholder="0"
                             value="{{ form.stock.value|default:product.stock }}"
                             required
-                        >
+                        />
                     </div>
-                    {% if form.stock.errors %}
-                        <div class="field-error" role="alert">{{ form.stock.errors.0 }}</div>
-                    {% endif %}
+                    <div class="field-error {% if form.stock.errors %}active{% endif %}" id="stock-error">
+                        {{ form.stock.errors.0|default:"Stock cannot be negative." }}
+                    </div>
+                    <div class="field-hint">Current units available for customer invoicing.</div>
                 </div>
 
-                <!-- GST Tax Rate -->
+                <!-- GST Tax Rate (%) -->
                 <div class="form-group">
                     <label for="id_gst_rate" class="form-label">
                         GST Tax Rate (%)
                     </label>
-                    <div class="input-wrapper">
+                    <div class="form-input-container">
+                        <span class="input-icon-prefix" style="font-weight: 700; font-size: 15px;">%</span>
                         <input
                             type="number"
+                            name="gst_rate"
+                            id="id_gst_rate"
                             step="0.01"
                             min="0"
                             max="100"
-                            name="gst_rate"
-                            id="id_gst_rate"
-                            class="form-control {% if form.gst_rate.errors %}is-invalid{% endif %}"
-                            placeholder="e.g. 18.00"
-                            value="{{ form.gst_rate.value|default:product.gst_rate|default:'0' }}"
-                        >
+                            class="form-input {% if form.gst_rate.errors %}is-invalid{% endif %}"
+                            placeholder="0.00"
+                            value="{{ form.gst_rate.value|default:product.gst_rate|default:'0.00' }}"
+                        />
                     </div>
-                    {% if form.gst_rate.errors %}
-                        <div class="field-error" role="alert">{{ form.gst_rate.errors.0 }}</div>
-                    {% endif %}
+                    <div class="field-error {% if form.gst_rate.errors %}active{% endif %}" id="gst-rate-error">
+                        {{ form.gst_rate.errors.0|default:"GST rate must be between 0% and 100%." }}
+                    </div>
+                    <div class="field-hint">Applicable GST percentage (e.g. 5, 12, 18, 28).</div>
                 </div>
 
-                <!-- Status (Active / Inactive) -->
-                <div class="form-group" style="display: flex; flex-direction: column; justify-content: center;">
+                <!-- Status (Active / Inactive Toggle) -->
+                <div class="form-group" style="justify-content: flex-end;">
                     <label class="form-label">Product Status</label>
-                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
+                    <label class="pm-switch-container" for="id_is_active">
                         <input
                             type="checkbox"
                             name="is_active"
                             id="id_is_active"
-                            style="width: 18px; height: 18px; accent-color: #16a34a; cursor: pointer;"
+                            class="pm-switch-input"
                             {% if form.is_active.value or product.is_active %}checked{% endif %}
-                        >
-                        <label for="id_is_active" style="cursor: pointer; font-size: 14px; color: #374151; font-weight: 500;">
-                            Active (Available for billing & invoices)
-                        </label>
-                    </div>
+                        />
+                        <div class="pm-switch-label-group">
+                            <span class="pm-switch-title">Active for Invoicing</span>
+                            <span class="pm-switch-hint">When active, this product appears in invoice line item pickers.</span>
+                        </div>
+                    </label>
                 </div>
 
-                <!-- Description -->
+                <!-- Product Description -->
                 <div class="form-group full-width">
                     <label for="id_description" class="form-label">
                         Product Description
                     </label>
-                    <div class="input-wrapper">
-                        <textarea
-                            name="description"
-                            id="id_description"
-                            class="form-control form-textarea {% if form.description.errors %}is-invalid{% endif %}"
-                            placeholder="Enter additional product details, specifications, or notes..."
-                            rows="3"
-                        >{{ form.description.value|default:product.description|default:'' }}</textarea>
+                    <textarea
+                        name="description"
+                        id="id_description"
+                        rows="3"
+                        class="form-textarea {% if form.description.errors %}is-invalid{% endif %}"
+                        placeholder="Add optional notes, specifications, dimensions, material information, or details for invoice remarks..."
+                    >{{ form.description.value|default:product.description|default:'' }}</textarea>
+                    <div class="field-error {% if form.description.errors %}active{% endif %}" id="description-error">
+                        {{ form.description.errors.0 }}
                     </div>
-                    {% if form.description.errors %}
-                        <div class="field-error" role="alert">{{ form.description.errors.0 }}</div>
-                    {% endif %}
                 </div>
             </div>
 
-            <!-- Actions -->
+            <!-- Action Controls -->
             <div class="form-actions">
-                <a href="{% url 'product_list' %}" class="btn btn-secondary">
+                <a href="{% url 'product_list' %}" class="btn-cancel" id="btn-cancel-edit">
                     Cancel
                 </a>
-                <button type="submit" class="btn btn-primary" id="btn-update-product">
-                    <span class="btn-text">Update Product</span>
+                <button type="submit" class="btn-save" id="btn-update-product">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    <span id="btn-update-text">Update Product</span>
                 </button>
             </div>
         </form>
@@ -257,12 +299,116 @@
 
 {% block extra_js %}
 <script>
-    document.getElementById('edit-product-form').addEventListener('submit', function () {
-        const btn = document.getElementById('btn-update-product');
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<span class="btn-spinner" style="display: inline-block;"></span> Updating...';
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('edit-product-form');
+        const nameInput = document.getElementById('id_name');
+        const priceInput = document.getElementById('id_price');
+        const stockInput = document.getElementById('id_stock');
+        const gstInput = document.getElementById('id_gst_rate');
+
+        function setFieldError(input, errorElId, msg) {
+            const errEl = document.getElementById(errorElId);
+            if (msg) {
+                input.classList.add('is-invalid');
+                if (errEl) {
+                    errEl.textContent = msg;
+                    errEl.classList.add('active');
+                }
+                return false;
+            } else {
+                input.classList.remove('is-invalid');
+                if (errEl) {
+                    errEl.classList.remove('active');
+                }
+                return true;
+            }
         }
+
+        // Live blur validation
+        nameInput.addEventListener('blur', function () {
+            const val = this.value.trim();
+            if (!val) {
+                setFieldError(this, 'name-error', 'Please enter a valid product name.');
+            } else if (val.length > 200) {
+                setFieldError(this, 'name-error', 'Product name cannot exceed 200 characters.');
+            } else {
+                setFieldError(this, 'name-error', null);
+            }
+        });
+
+        priceInput.addEventListener('blur', function () {
+            const val = parseFloat(this.value);
+            if (isNaN(val) || val <= 0) {
+                setFieldError(this, 'price-error', 'Price must be greater than 0.');
+            } else {
+                setFieldError(this, 'price-error', null);
+            }
+        });
+
+        stockInput.addEventListener('blur', function () {
+            const val = parseInt(this.value, 10);
+            if (isNaN(val) || val < 0) {
+                setFieldError(this, 'stock-error', 'Stock quantity cannot be negative.');
+            } else {
+                setFieldError(this, 'stock-error', null);
+            }
+        });
+
+        gstInput.addEventListener('blur', function () {
+            const val = parseFloat(this.value);
+            if (!isNaN(val) && (val < 0 || val > 100)) {
+                setFieldError(this, 'gst-rate-error', 'GST rate must be between 0% and 100%.');
+            } else {
+                setFieldError(this, 'gst-rate-error', null);
+            }
+        });
+
+        // Form Submit Handler
+        form.addEventListener('submit', function (e) {
+            let isValid = true;
+
+            const nameVal = nameInput.value.trim();
+            if (!nameVal) {
+                setFieldError(nameInput, 'name-error', 'Please enter a valid product name.');
+                isValid = false;
+            } else if (nameVal.length > 200) {
+                setFieldError(nameInput, 'name-error', 'Product name cannot exceed 200 characters.');
+                isValid = false;
+            }
+
+            const priceVal = parseFloat(priceInput.value);
+            if (isNaN(priceVal) || priceVal <= 0) {
+                setFieldError(priceInput, 'price-error', 'Price must be greater than 0.');
+                isValid = false;
+            }
+
+            const stockVal = parseInt(stockInput.value, 10);
+            if (isNaN(stockVal) || stockVal < 0) {
+                setFieldError(stockInput, 'stock-error', 'Stock quantity cannot be negative.');
+                isValid = false;
+            }
+
+            const gstVal = parseFloat(gstInput.value);
+            if (!isNaN(gstVal) && (gstVal < 0 || gstVal > 100)) {
+                setFieldError(gstInput, 'gst-rate-error', 'GST rate must be between 0% and 100%.');
+                isValid = false;
+            }
+
+            if (!isValid) {
+                e.preventDefault();
+                const firstInvalid = form.querySelector('.is-invalid');
+                if (firstInvalid) firstInvalid.focus();
+                return;
+            }
+
+            // Loading state feedback
+            const updateBtn = document.getElementById('btn-update-product');
+            const updateText = document.getElementById('btn-update-text');
+            if (updateBtn) {
+                updateBtn.disabled = true;
+                if (updateText) updateText.textContent = 'Updating Product...';
+            }
+        });
     });
 </script>
 {% endblock %}

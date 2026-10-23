@@ -1,72 +1,130 @@
 {% extends "billing/base_distributor.html" %}
 {% load static %}
 
-{% block title %}Products | Advance Billing System{% endblock %}
+{% block title %}Product Management | Advance Billing System{% endblock %}
 
 {% block nav_products %}active{% endblock %}
 
 {% block breadcrumb_items %}
-<li class="breadcrumb-item active" aria-current="page">Products</li>
+<li class="breadcrumb-item active" aria-current="page">Product Management</li>
 {% endblock %}
 
-{% block page_heading %}Products{% endblock %}
-{% block page_subheading %}Manage your inventory, prices, stock, units, and billing items.{% endblock %}
+{% block page_heading %}Product Management{% endblock %}
+{% block page_subheading %}Manage your products, pricing, stock, and availability.{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'add_product' %}" class="btn btn-primary" id="btn-add-product">
+<a href="{% url 'product_add' %}" class="pm-btn pm-btn-primary" id="btn-add-product" title="Add New Product">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
     </svg>
-    <span>+ Add Product</span>
+    <span>Add New Product</span>
 </a>
 {% endblock %}
 
 {% block content %}
-<div class="page-card">
-    <!-- Search Controls -->
-    <div class="search-container">
-        <form method="GET" action="{% url 'product_list' %}" class="search-form" id="search-form">
-            <div class="search-input-wrapper">
-                <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<!-- Summary Statistics Cards -->
+<div class="pm-stats-grid" id="stats-summary-grid">
+    <!-- Total Products Card -->
+    <div class="pm-stat-card total">
+        <div class="pm-stat-icon" aria-hidden="true">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+            </svg>
+        </div>
+        <div class="pm-stat-info">
+            <span class="pm-stat-value" id="stat-total-count">{{ total_count|default:"0" }}</span>
+            <span class="pm-stat-label">Total Products</span>
+        </div>
+    </div>
+
+    <!-- Active Products Card -->
+    <div class="pm-stat-card active">
+        <div class="pm-stat-icon" aria-hidden="true">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+        </div>
+        <div class="pm-stat-info">
+            <span class="pm-stat-value" id="stat-active-count">
+                {% if not query %}--{% else %}{{ filtered_count }}{% endif %}
+            </span>
+            <span class="pm-stat-label">Active Products</span>
+        </div>
+    </div>
+
+    <!-- Inactive Products Card -->
+    <div class="pm-stat-card inactive">
+        <div class="pm-stat-icon" aria-hidden="true">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+            </svg>
+        </div>
+        <div class="pm-stat-info">
+            <span class="pm-stat-value" id="stat-inactive-count">--</span>
+            <span class="pm-stat-label">Inactive Products</span>
+        </div>
+    </div>
+
+    <!-- Low Stock Alert Card -->
+    <div class="pm-stat-card low-stock">
+        <div class="pm-stat-icon" aria-hidden="true">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+        </div>
+        <div class="pm-stat-info">
+            <span class="pm-stat-value" id="stat-low-stock-count">--</span>
+            <span class="pm-stat-label">Low Stock (≤5)</span>
+        </div>
+    </div>
+</div>
+
+<!-- Main Products Card & Table -->
+<div class="pm-card">
+    <!-- Toolbar: Search, Filters, and Actions -->
+    <div class="pm-toolbar">
+        <form method="GET" action="{% url 'product_list' %}" class="pm-search-form" id="product-search-form">
+            <div class="pm-search-input-group">
+                <svg class="pm-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                 </svg>
                 <input
                     type="text"
                     name="q"
                     value="{{ query }}"
-                    placeholder="Search products by name, SKU, or category..."
-                    class="search-input"
-                    id="id_search_input"
+                    placeholder="Search products by name, SKU, category..."
+                    class="pm-search-input"
+                    id="id_product_search_input"
                     aria-label="Search products"
                 />
             </div>
-            <button type="submit" class="btn btn-primary">Search</button>
+            <button type="submit" class="pm-btn pm-btn-primary" id="btn-search-submit">Search</button>
             {% if query %}
-                <a href="{% url 'product_list' %}" class="btn btn-secondary">Clear</a>
+                <a href="{% url 'product_list' %}" class="pm-btn pm-btn-secondary" title="Clear search query">Clear</a>
             {% endif %}
         </form>
 
-        <div class="results-summary">
+        <div class="pm-toolbar-meta">
             {% if query %}
-                Found <strong>{{ filtered_count }}</strong> matching product{% if filtered_count != 1 %}s{% endif %}
+                Filtered: <strong>{{ filtered_count }}</strong> of <strong>{{ total_count }}</strong> product{% if total_count != 1 %}s{% endif %}
             {% else %}
-                Total: <strong>{{ total_count }}</strong> product{% if total_count != 1 %}s{% endif %}
+                Total Inventory: <strong>{{ total_count }}</strong> product{% if total_count != 1 %}s{% endif %}
             {% endif %}
         </div>
     </div>
 
     <!-- Product Table or Empty States -->
     {% if page_obj.object_list %}
-        <div class="table-responsive">
-            <table class="product-table" id="products-table">
+        <div class="pm-table-responsive">
+            <table class="pm-table" id="products-table" aria-label="Product inventory catalog">
                 <thead>
                     <tr>
-                        <th scope="col">#</th>
+                        <th scope="col" style="width: 44px;">#</th>
                         <th scope="col">Product Name</th>
                         <th scope="col">SKU / Code</th>
                         <th scope="col">Category</th>
-                        <th scope="col">Price</th>
-                        <th scope="col">Stock</th>
+                        <th scope="col">Selling Price</th>
+                        <th scope="col">Available Stock</th>
                         <th scope="col">Unit</th>
                         <th scope="col">Status</th>
                         <th scope="col">Created Date</th>
@@ -75,58 +133,76 @@
                 </thead>
                 <tbody>
                     {% for product in page_obj.object_list %}
-                        <tr id="product-row-{{ product.pk }}">
-                            <td class="badge-cell">{{ page_obj.start_index|add:forloop.counter0 }}</td>
+                        <tr id="product-row-{{ product.pk }}" data-status="{% if product.is_active %}active{% else %}inactive{% endif %}" data-stock="{{ product.stock }}">
+                            <td class="pm-cell-index">{{ page_obj.start_index|add:forloop.counter0 }}</td>
                             <td>
-                                <strong class="product-name-cell">{{ product.name }}</strong>
+                                <div class="pm-product-identity">
+                                    <span class="pm-product-name">{{ product.name }}</span>
+                                    {% if product.description %}
+                                        <span class="pm-product-desc-preview" title="{{ product.description }}">{{ product.description }}</span>
+                                    {% endif %}
+                                </div>
                             </td>
                             <td>
                                 {% if product.sku %}
-                                    <code>{{ product.sku }}</code>
+                                    <code class="pm-code">{{ product.sku }}</code>
                                 {% else %}
-                                    <span class="text-muted">-</span>
+                                    <span style="color: #9ca3af; font-size: 13px;">—</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if product.category %}
-                                    {{ product.category }}
+                                    <span style="color: #374151; font-weight: 500;">{{ product.category }}</span>
                                 {% else %}
-                                    <span class="text-muted">-</span>
+                                    <span style="color: #9ca3af; font-size: 13px;">General</span>
                                 {% endif %}
                             </td>
-                            <td class="price-text">₹{{ product.price }}</td>
+                            <td>
+                                <span class="pm-price">₹{{ product.price }}</span>
+                            </td>
                             <td>
                                 {% if product.stock == 0 %}
-                                    <span class="badge badge-danger">Out of Stock (0)</span>
+                                    <span class="pm-badge pm-badge-stock-out" title="Out of stock - update inventory">
+                                        <span class="pm-badge-dot"></span> 0 Out of Stock
+                                    </span>
                                 {% elif product.stock <= 5 %}
-                                    <span class="badge badge-warning">Low Stock ({{ product.stock }})</span>
+                                    <span class="pm-badge pm-badge-stock-low" title="Low inventory level">
+                                        <span class="pm-badge-dot"></span> {{ product.stock }} Low Stock
+                                    </span>
                                 {% else %}
-                                    <span class="badge badge-success">{{ product.stock }}</span>
+                                    <span class="pm-badge pm-badge-stock-ok">
+                                        <span class="pm-badge-dot"></span> {{ product.stock }} in stock
+                                    </span>
                                 {% endif %}
                             </td>
                             <td>
-                                <span class="badge badge-secondary" style="background-color: #f3f4f6; color: #374151; font-weight: 500; border: 1px solid #e5e7eb;">
-                                    {{ product.unit|default:"piece" }}
-                                </span>
+                                <span class="pm-badge-unit">{{ product.unit|default:"piece" }}</span>
                             </td>
                             <td>
                                 {% if product.is_active %}
-                                    <span class="badge badge-success">Active</span>
+                                    <span class="pm-badge pm-badge-active">
+                                        <span class="pm-badge-dot"></span> Active
+                                    </span>
                                 {% else %}
-                                    <span class="badge badge-danger">Inactive</span>
+                                    <span class="pm-badge pm-badge-inactive">
+                                        <span class="pm-badge-dot"></span> Inactive
+                                    </span>
                                 {% endif %}
                             </td>
-                            <td>{{ product.created_at|date:"M d, Y" }}</td>
+                            <td style="color: #6b7280; font-size: 13px; white-space: nowrap;">
+                                {{ product.created_at|date:"M d, Y" }}
+                            </td>
                             <td style="text-align: right; white-space: nowrap;">
-                                <div style="display: inline-flex; gap: 6px; align-items: center; justify-content: flex-end;">
+                                <div class="pm-actions-group">
                                     <!-- View Action -->
                                     <button
                                         type="button"
-                                        class="btn btn-secondary btn-sm"
+                                        class="pm-action-btn view"
                                         onclick="viewProductDetails('{{ product.pk }}')"
-                                        title="View Details"
+                                        title="View full product specifications"
+                                        id="btn-view-{{ product.pk }}"
                                     >
-                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px;">
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                         </svg>
@@ -136,10 +212,11 @@
                                     <!-- Edit Action -->
                                     <a
                                         href="{% url 'product_edit' product.pk %}"
-                                        class="btn btn-secondary btn-sm"
-                                        title="Edit Product"
+                                        class="pm-action-btn edit"
+                                        title="Edit product details"
+                                        id="btn-edit-{{ product.pk }}"
                                     >
-                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px;">
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                         </svg>
                                         <span>Edit</span>
@@ -149,11 +226,11 @@
                                     <button
                                         type="button"
                                         onclick="openDeleteModal('{{ product.pk }}', '{{ product.name|escapejs }}')"
-                                        class="btn btn-sm"
-                                        style="background-color: #fef2f2; color: #dc2626; border: 1px solid #fca5a5;"
-                                        title="Delete Product"
+                                        class="pm-action-btn delete"
+                                        title="Delete product"
+                                        id="btn-delete-{{ product.pk }}"
                                     >
-                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 14px; height: 14px;">
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                         </svg>
                                         <span>Delete</span>
@@ -166,219 +243,331 @@
             </table>
         </div>
 
-        <!-- Pagination -->
+        <!-- Pagination Controls -->
         {% if page_obj.has_other_pages %}
-            <div class="pagination-container" style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; flex-wrap: wrap; gap: 12px;">
-                <div class="pagination-info" style="font-size: 14px; color: #6b7280;">
-                    Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} products
+            <div class="pm-pagination-bar">
+                <div class="pm-pagination-info">
+                    Showing <strong>{{ page_obj.start_index }}</strong> to <strong>{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> products
                 </div>
-                <nav class="pagination-nav" aria-label="Product navigation" style="display: flex; gap: 6px;">
+                <nav class="pm-pagination-links" aria-label="Product list pagination">
                     {% if page_obj.has_previous %}
-                        <a href="?{% if query %}q={{ query }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-secondary btn-sm">← Previous</a>
+                        <a href="?{% if query %}q={{ query }}&{% endif %}page={{ page_obj.previous_page_number }}" class="pm-page-link" aria-label="Previous Page">
+                            &larr; Prev
+                        </a>
                     {% endif %}
 
                     {% for num in page_obj.paginator.page_range %}
                         {% if page_obj.number == num %}
-                            <span class="btn btn-primary btn-sm disabled" aria-current="page">{{ num }}</span>
+                            <span class="pm-page-link active" aria-current="page">{{ num }}</span>
                         {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                            <a href="?{% if query %}q={{ query }}&{% endif %}page={{ num }}" class="btn btn-secondary btn-sm">{{ num }}</a>
+                            <a href="?{% if query %}q={{ query }}&{% endif %}page={{ num }}" class="pm-page-link">{{ num }}</a>
                         {% endif %}
                     {% endfor %}
 
                     {% if page_obj.has_next %}
-                        <a href="?{% if query %}q={{ query }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-secondary btn-sm">Next →</a>
+                        <a href="?{% if query %}q={{ query }}&{% endif %}page={{ page_obj.next_page_number }}" class="pm-page-link" aria-label="Next Page">
+                            Next &rarr;
+                        </a>
                     {% endif %}
                 </nav>
             </div>
         {% endif %}
 
     {% elif query %}
-        <!-- No Search Results -->
-        <div class="empty-state" style="text-align: center; padding: 48px 20px;">
-            <div class="empty-state-icon" style="width: 56px; height: 56px; margin: 0 auto 16px; background: #f3f4f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #6b7280;">
+        <!-- No Search Results Found -->
+        <div style="text-align: center; padding: 56px 20px; background: #fafafa; border-radius: 12px; border: 1px dashed #d1d5db;">
+            <div style="width: 56px; height: 56px; margin: 0 auto 16px; background: #f3f4f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #6b7280;">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 28px; height: 28px;">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                 </svg>
             </div>
-            <h3 style="font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 6px;">No products found</h3>
-            <p style="color: #6b7280; margin-bottom: 20px;">We couldn't find any products matching "<strong>{{ query }}</strong>".</p>
-            <a href="{% url 'product_list' %}" class="btn btn-secondary">Clear Search</a>
+            <h3 style="font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 6px;">No products match your search</h3>
+            <p style="color: #6b7280; font-size: 14px; margin-bottom: 20px;">We couldn't find any products matching "<strong>{{ query }}</strong>".</p>
+            <a href="{% url 'product_list' %}" class="pm-btn pm-btn-secondary">Clear Search & View All</a>
         </div>
     {% else %}
         <!-- Empty Inventory State -->
-        <div class="empty-state" style="text-align: center; padding: 56px 20px;">
-            <div class="empty-state-icon" style="width: 64px; height: 64px; margin: 0 auto 16px; background: #e0f2fe; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #0284c7;">
+        <div style="text-align: center; padding: 64px 20px; background: #fafafa; border-radius: 12px; border: 1px dashed #d1d5db;">
+            <div style="width: 64px; height: 64px; margin: 0 auto 16px; background: #dcfce7; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #16a34a;">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 32px; height: 32px;">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                 </svg>
             </div>
-            <h3 style="font-size: 20px; font-weight: 700; color: #111827; margin-bottom: 8px;">No Products Yet</h3>
-            <p style="color: #6b7280; max-width: 420px; margin: 0 auto 24px;">Start by registering products to create invoices, track inventory, and calculate GST accurately.</p>
-            <a href="{% url 'add_product' %}" class="btn btn-primary">+ Add Your First Product</a>
+            <h3 style="font-size: 20px; font-weight: 700; color: #111827; margin-bottom: 8px;">No Products in Catalog Yet</h3>
+            <p style="color: #6b7280; font-size: 14px; max-width: 440px; margin: 0 auto 24px; line-height: 1.5;">
+                Add your items to track inventory counts, establish selling prices and GST rates, and streamline customer invoicing.
+            </p>
+            <a href="{% url 'product_add' %}" class="pm-btn pm-btn-primary">+ Add Your First Product</a>
         </div>
     {% endif %}
 </div>
 
 <!-- Product Details Modal -->
-<div id="viewModal" style="display: none; position: fixed; inset: 0; background-color: rgba(17, 24, 39, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center; padding: 20px;" role="dialog" aria-modal="true" aria-labelledby="viewModalTitle">
-    <div style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 520px; padding: 28px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; position: relative;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
-            <div style="display: flex; gap: 12px; align-items: center;">
-                <div style="width: 44px; height: 44px; background: #dcfce7; color: #16a34a; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-                    <svg style="width: 24px; height: 24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<div id="viewModal" class="pm-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="viewModalTitle">
+    <div class="pm-modal-container">
+        <div class="pm-modal-header">
+            <div class="pm-modal-title-wrap">
+                <div class="pm-modal-icon info" aria-hidden="true">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                     </svg>
                 </div>
                 <div>
-                    <h3 id="viewModalTitle" style="font-size: 18px; font-weight: 700; color: #111827;">Product Details</h3>
-                    <p style="font-size: 13px; color: #6b7280;">Inventory & Pricing Information</p>
+                    <h3 id="viewModalTitle" class="pm-modal-title">Product Details</h3>
+                    <p class="pm-modal-subtitle">Catalog specifications & inventory</p>
                 </div>
             </div>
-            <button type="button" onclick="closeViewModal()" style="background: transparent; border: none; font-size: 20px; color: #9ca3af; cursor: pointer; padding: 4px;">✕</button>
+            <button type="button" class="pm-modal-close" onclick="closeViewModal()" aria-label="Close dialog">&times;</button>
         </div>
 
-        <div id="viewModalContent" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 14px; margin-bottom: 24px;">
-            <div>
-                <span style="color: #6b7280; display: block; font-size: 12px; font-weight: 600;">Product Name</span>
-                <strong id="vm-name" style="color: #111827;">-</strong>
-            </div>
-            <div>
-                <span style="color: #6b7280; display: block; font-size: 12px; font-weight: 600;">SKU / Code</span>
-                <code id="vm-sku" style="color: #111827;">-</code>
-            </div>
-            <div>
-                <span style="color: #6b7280; display: block; font-size: 12px; font-weight: 600;">Category</span>
-                <span id="vm-category" style="color: #111827;">-</span>
-            </div>
-            <div>
-                <span style="color: #6b7280; display: block; font-size: 12px; font-weight: 600;">Price (₹)</span>
-                <strong id="vm-price" style="color: #16a34a; font-size: 16px;">-</strong>
-            </div>
-            <div>
-                <span style="color: #6b7280; display: block; font-size: 12px; font-weight: 600;">Available Stock</span>
-                <span id="vm-stock" style="color: #111827; font-weight: 600;">-</span>
-            </div>
-            <div>
-                <span style="color: #6b7280; display: block; font-size: 12px; font-weight: 600;">Unit</span>
-                <span id="vm-unit" style="color: #111827;">-</span>
-            </div>
-            <div>
-                <span style="color: #6b7280; display: block; font-size: 12px; font-weight: 600;">GST Rate</span>
-                <span id="vm-gst" style="color: #111827;">-</span>
-            </div>
-            <div>
-                <span style="color: #6b7280; display: block; font-size: 12px; font-weight: 600;">Status</span>
-                <span id="vm-status">-</span>
-            </div>
-            <div style="grid-column: span 2;">
-                <span style="color: #6b7280; display: block; font-size: 12px; font-weight: 600;">Description</span>
-                <p id="vm-description" style="color: #374151; margin-top: 4px; line-height: 1.4; background: #f9fafb; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb;">-</p>
+        <div class="pm-modal-body">
+            <div class="pm-detail-grid">
+                <div class="pm-detail-item">
+                    <div class="pm-detail-label">Product Name</div>
+                    <div class="pm-detail-value" id="vm-name">-</div>
+                </div>
+
+                <div class="pm-detail-item">
+                    <div class="pm-detail-label">SKU / Code</div>
+                    <div class="pm-detail-value">
+                        <code class="pm-code" id="vm-sku">-</code>
+                    </div>
+                </div>
+
+                <div class="pm-detail-item">
+                    <div class="pm-detail-label">Category</div>
+                    <div class="pm-detail-value" id="vm-category">-</div>
+                </div>
+
+                <div class="pm-detail-item">
+                    <div class="pm-detail-label">Selling Price</div>
+                    <div class="pm-detail-value" style="color: #16a34a;" id="vm-price">-</div>
+                </div>
+
+                <div class="pm-detail-item">
+                    <div class="pm-detail-label">Available Stock</div>
+                    <div class="pm-detail-value" id="vm-stock">-</div>
+                </div>
+
+                <div class="pm-detail-item">
+                    <div class="pm-detail-label">Unit of Measure</div>
+                    <div class="pm-detail-value" id="vm-unit">-</div>
+                </div>
+
+                <div class="pm-detail-item">
+                    <div class="pm-detail-label">GST Tax Rate</div>
+                    <div class="pm-detail-value" id="vm-gst">-</div>
+                </div>
+
+                <div class="pm-detail-item">
+                    <div class="pm-detail-label">Status</div>
+                    <div class="pm-detail-value" id="vm-status">-</div>
+                </div>
+
+                <div class="pm-detail-item full-width">
+                    <div class="pm-detail-label">Description</div>
+                    <div class="pm-detail-value" id="vm-description" style="font-weight: 400; font-size: 13.5px; color: #4b5563; line-height: 1.5; white-space: pre-wrap;">-</div>
+                </div>
+
+                <div class="pm-detail-item full-width" style="background: transparent; border: none; padding: 4px 0 0 0;">
+                    <div style="font-size: 12px; color: #9ca3af;">
+                        Registered: <span id="vm-created">-</span>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div style="display: flex; justify-content: flex-end; gap: 10px;">
-            <a id="vm-edit-btn" href="#" class="btn btn-primary btn-sm">Edit Product</a>
-            <button type="button" onclick="closeViewModal()" class="btn btn-secondary btn-sm">Close</button>
+        <div class="pm-modal-footer">
+            <a id="vm-edit-btn" href="#" class="pm-btn pm-btn-primary">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                </svg>
+                <span>Edit Product</span>
+            </a>
+            <button type="button" onclick="closeViewModal()" class="pm-btn pm-btn-secondary">Close</button>
         </div>
     </div>
 </div>
 
 <!-- Delete Confirmation Modal -->
-<div id="deleteModal" style="display: none; position: fixed; inset: 0; background-color: rgba(17, 24, 39, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center; padding: 20px;" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
-    <div style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 440px; padding: 28px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; position: relative;">
-        <div style="width: 48px; height: 48px; background-color: #fee2e2; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; color: #dc2626;">
-            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-            </svg>
-        </div>
-        
-        <h3 id="deleteModalTitle" style="font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 8px;">Delete Product?</h3>
-        <p style="font-size: 14px; color: #6b7280; line-height: 1.5; margin-bottom: 20px;">
-            Are you sure you want to delete <strong id="deleteProductName" style="color: #111827;"></strong>?
-        </p>
-
-        <div style="background: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 10px 14px; border-radius: 8px; font-size: 12px; margin-bottom: 20px; line-height: 1.4;">
-            ℹ Note: Products associated with existing invoices cannot be deleted to preserve billing and tax compliance records.
-        </div>
-
-        <form id="deleteProductForm" method="POST" action="">
-            {% csrf_token %}
-            <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                <button type="button" onclick="closeDeleteModal()" class="btn btn-secondary">
-                    Cancel
-                </button>
-                <button type="submit" id="confirmDeleteSubmitBtn" onclick="onDeleteSubmit(this)" class="btn" style="background-color: #dc2626; color: #ffffff; border: none;">
-                    Delete Product
-                </button>
+<div id="deleteModal" class="pm-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+    <div class="pm-modal-container" style="max-width: 460px;">
+        <div class="pm-modal-header" style="background-color: #fff8f8;">
+            <div class="pm-modal-title-wrap">
+                <div class="pm-modal-icon danger" aria-hidden="true">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 id="deleteModalTitle" class="pm-modal-title" style="color: #991b1b;">Delete Product?</h3>
+                    <p class="pm-modal-subtitle">Confirm catalog removal</p>
+                </div>
             </div>
-        </form>
+            <button type="button" class="pm-modal-close" onclick="closeDeleteModal()" aria-label="Close dialog">&times;</button>
+        </div>
+
+        <div class="pm-modal-body">
+            <p style="font-size: 14.5px; color: #374151; line-height: 1.5; margin-bottom: 16px;">
+                Are you sure you want to permanently delete product <strong id="deleteProductName" style="color: #111827;"></strong>?
+            </p>
+
+            <div style="background-color: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start;">
+                <svg style="width: 20px; height: 20px; color: #d97706; flex-shrink: 0; margin-top: 1px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <div style="font-size: 12.5px; color: #92400e; line-height: 1.45;">
+                    <strong>Billing Protection:</strong> Products already used in existing customer invoices cannot be deleted to preserve financial audit and tax compliance records.
+                </div>
+            </div>
+
+            <form id="deleteProductForm" method="POST" action="" style="margin-top: 20px;">
+                {% csrf_token %}
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" onclick="closeDeleteModal()" class="pm-btn pm-btn-secondary">
+                        Cancel
+                    </button>
+                    <button type="submit" id="confirmDeleteSubmitBtn" class="pm-btn" style="background-color: #dc2626; color: #ffffff; border-color: #dc2626;">
+                        Delete Product
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    // View Product Details via API
-    async function viewProductDetails(productId) {
-        const modal = document.getElementById('viewModal');
+    // Asynchronously populate summary cards if API is accessible
+    document.addEventListener('DOMContentLoaded', function () {
+        // Compute on-page stats immediately
+        const rows = document.querySelectorAll('#products-table tbody tr');
+        let pageActive = 0;
+        let pageInactive = 0;
+        let pageLowStock = 0;
+
+        rows.forEach(function (row) {
+            const status = row.getAttribute('data-status');
+            const stock = parseInt(row.getAttribute('data-stock'), 10) || 0;
+
+            if (status === 'active') pageActive++;
+            if (status === 'inactive') pageInactive++;
+            if (stock <= 5) pageLowStock++;
+        });
+
+        // Set initial page-level counters
+        const activeEl = document.getElementById('stat-active-count');
+        const inactiveEl = document.getElementById('stat-inactive-count');
+        const lowStockEl = document.getElementById('stat-low-stock-count');
+
+        if (activeEl && activeEl.textContent.trim() === '--') activeEl.textContent = pageActive;
+        if (inactiveEl && inactiveEl.textContent.trim() === '--') inactiveEl.textContent = pageInactive;
+        if (lowStockEl && lowStockEl.textContent.trim() === '--') lowStockEl.textContent = pageLowStock;
+
+        // Fetch exact global stats via API if available
+        fetchGlobalProductStats();
+    });
+
+    async function fetchGlobalProductStats() {
         try {
-            const res = await fetch(`/api/products/${productId}/`, {
-                headers: { 'Accept': 'application/json' },
-                credentials: 'same-origin'
-            });
-            if (!res.ok) {
-                // Fallback to legacy endpoint if needed
-                const fallbackRes = await fetch(`/distributor/products/${productId}/details/`);
-                if (fallbackRes.ok) {
-                    const data = await fallbackRes.json();
-                    populateViewModal(data);
-                    return;
+            const [resActive, resInactive] = await Promise.all([
+                fetch('/api/products/?is_active=true', { credentials: 'same-origin' }),
+                fetch('/api/products/?is_active=false', { credentials: 'same-origin' })
+            ]);
+
+            if (resActive.ok) {
+                const dataActive = await resActive.json();
+                if (typeof dataActive.count === 'number') {
+                    const activeEl = document.getElementById('stat-active-count');
+                    if (activeEl) activeEl.textContent = dataActive.count;
                 }
-                alert('Unable to load product details.');
+            }
+
+            if (resInactive.ok) {
+                const dataInactive = await resInactive.json();
+                if (typeof dataInactive.count === 'number') {
+                    const inactiveEl = document.getElementById('stat-inactive-count');
+                    if (inactiveEl) inactiveEl.textContent = dataInactive.count;
+                }
+            }
+        } catch (e) {
+            // Keep on-page calculated fallbacks safely
+            console.debug('Async summary count fallback engaged:', e);
+        }
+    }
+
+    // View Product Details Modal Handler
+    async function viewProductDetails(productId) {
+        try {
+            // Prefer dedicated product_details endpoint
+            let res = await fetch(`/distributor/products/${productId}/details/`);
+            if (!res.ok) {
+                res = await fetch(`/api/products/${productId}/`, {
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin'
+                });
+            }
+
+            if (!res.ok) {
+                window.location.href = `/distributor/products/${productId}/edit/`;
                 return;
             }
+
             const data = await res.json();
             populateViewModal(data);
         } catch (err) {
             console.error('Error fetching product details:', err);
-            // Fallback
             window.location.href = `/distributor/products/${productId}/edit/`;
         }
     }
 
     function populateViewModal(data) {
         document.getElementById('vm-name').textContent = data.name || '-';
-        document.getElementById('vm-sku').textContent = data.sku || '-';
-        document.getElementById('vm-category').textContent = data.category || '-';
+        document.getElementById('vm-sku').textContent = data.sku || 'N/A';
+        document.getElementById('vm-category').textContent = data.category || 'General';
         document.getElementById('vm-price').textContent = '₹' + (data.price || '0.00');
-        document.getElementById('vm-stock').textContent = (data.stock !== undefined ? data.stock : (data.stock_quantity || 0));
-        document.getElementById('vm-unit').textContent = data.unit || 'piece';
-        document.getElementById('vm-gst').textContent = (data.gst_rate || 0) + '%';
-        
-        const statusEl = document.getElementById('vm-status');
-        if (data.is_active) {
-            statusEl.innerHTML = '<span class="badge badge-success">Active</span>';
+
+        const stockVal = data.stock !== undefined ? data.stock : (data.stock_quantity || 0);
+        const stockEl = document.getElementById('vm-stock');
+        if (stockVal === 0) {
+            stockEl.innerHTML = '<span class="pm-badge pm-badge-stock-out"><span class="pm-badge-dot"></span> 0 Out of Stock</span>';
+        } else if (stockVal <= 5) {
+            stockEl.innerHTML = '<span class="pm-badge pm-badge-stock-low"><span class="pm-badge-dot"></span> ' + stockVal + ' Low Stock</span>';
         } else {
-            statusEl.innerHTML = '<span class="badge badge-danger">Inactive</span>';
+            stockEl.innerHTML = '<span class="pm-badge pm-badge-stock-ok"><span class="pm-badge-dot"></span> ' + stockVal + ' in stock</span>';
         }
 
-        document.getElementById('vm-description').textContent = data.description || 'No description provided.';
+        document.getElementById('vm-unit').textContent = data.unit || 'piece';
+        document.getElementById('vm-gst').textContent = (data.gst_rate || 0) + '%';
+
+        const statusEl = document.getElementById('vm-status');
+        if (data.is_active) {
+            statusEl.innerHTML = '<span class="pm-badge pm-badge-active"><span class="pm-badge-dot"></span> Active for Billing</span>';
+        } else {
+            statusEl.innerHTML = '<span class="pm-badge pm-badge-inactive"><span class="pm-badge-dot"></span> Inactive</span>';
+        }
+
+        document.getElementById('vm-description').textContent = data.description || 'No description provided for this product.';
+        document.getElementById('vm-created').textContent = data.created_at || 'Recorded in inventory';
         document.getElementById('vm-edit-btn').href = `/distributor/products/${data.id}/edit/`;
-        document.getElementById('viewModal').style.display = 'flex';
+
+        const modal = document.getElementById('viewModal');
+        modal.style.display = 'flex';
     }
 
     function closeViewModal() {
         document.getElementById('viewModal').style.display = 'none';
     }
 
-    // Delete Modal
+    // Delete Confirmation Modal Handler
     function openDeleteModal(productId, productName) {
         const modal = document.getElementById('deleteModal');
         const nameEl = document.getElementById('deleteProductName');
         const form = document.getElementById('deleteProductForm');
-        
+
         nameEl.textContent = '"' + productName + '"';
-        form.action = '/distributor/products/' + productId + '/delete/';
+        form.action = `/distributor/products/${productId}/delete/`;
         modal.style.display = 'flex';
     }
 
@@ -386,17 +575,27 @@
         document.getElementById('deleteModal').style.display = 'none';
     }
 
-    function onDeleteSubmit(btn) {
-        btn.disabled = true;
-        btn.textContent = 'Deleting...';
-        btn.form.submit();
-    }
+    document.getElementById('deleteProductForm').addEventListener('submit', function () {
+        const btn = document.getElementById('confirmDeleteSubmitBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Deleting...';
+        }
+    });
 
-    window.onclick = function(event) {
+    // Close Modals on Backdrop Click or Escape Key
+    window.addEventListener('click', function (e) {
         const delModal = document.getElementById('deleteModal');
         const viewModal = document.getElementById('viewModal');
-        if (event.target === delModal) closeDeleteModal();
-        if (event.target === viewModal) closeViewModal();
-    };
+        if (e.target === delModal) closeDeleteModal();
+        if (e.target === viewModal) closeViewModal();
+    });
+
+    window.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closeDeleteModal();
+            closeViewModal();
+        }
+    });
 </script>
 {% endblock %}
