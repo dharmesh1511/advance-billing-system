@@ -214,7 +214,7 @@
                     </div>
                     <div class="border-start ps-3 text-start">
                         <span class="text-muted d-block small fw-bold text-uppercase">Paid / Settled</span>
-                        <strong class="fs-5 text-primary font-monospace">₹{{ total_sales|floatformat:2 }}</strong>
+                        <strong class="fs-5 text-primary font-monospace">₹{{ amount_collected|floatformat:2 }}</strong>
                         <span class="badge bg-success bg-opacity-10 text-success small ms-1">100% Billed</span>
                     </div>
                     <div class="border-start ps-3 text-start">
@@ -427,6 +427,57 @@
                             <span class="d-block small text-muted">Customer base</span>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    <!-- Dedicated Invoice & Collection Summary Cards (Directly above Invoice Results Table) -->
+    <div class="row g-4 mb-4" id="invoiceSummaryCardsSection">
+        <!-- Card 1: Total Invoices -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-4" style="background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%); border-left: 5px solid #2563eb !important;">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div>
+                        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-1 rounded-pill small fw-bold text-uppercase">
+                            <i class="bi bi-receipt-cutoff me-1"></i> Invoice Statistics
+                        </span>
+                        <h4 class="fw-bold text-dark mb-0 mt-2">Total Invoices</h4>
+                    </div>
+                    <div class="p-3 rounded-4 text-primary bg-primary bg-opacity-10 fs-2">
+                        <i class="bi bi-receipt"></i>
+                    </div>
+                </div>
+                <div class="d-flex align-items-baseline gap-2 mb-3">
+                    <span class="display-5 fw-bold text-dark font-monospace" id="statTotalInvoices">{{ total_invoices }}</span>
+                    <span class="text-muted fw-semibold fs-6">matching invoices</span>
+                </div>
+                <div class="small text-muted pt-2 border-top d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <span><i class="bi bi-calendar3 me-1 text-primary"></i> Selected Period: <strong>{{ report_period_label }}</strong></span>
+                    <span class="badge bg-white border text-secondary px-2 py-1">Distinct Invoices</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Amount Collected -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-4" style="background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%); border-left: 5px solid #10b981 !important;">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div>
+                        <span class="badge bg-success bg-opacity-10 text-success px-3 py-1 rounded-pill small fw-bold text-uppercase">
+                            <i class="bi bi-cash-stack me-1"></i> Revenue Settlement
+                        </span>
+                        <h4 class="fw-bold text-dark mb-0 mt-2">Amount Collected</h4>
+                    </div>
+                    <div class="p-3 rounded-4 text-success bg-success bg-opacity-10 fs-2">
+                        <i class="bi bi-currency-rupee"></i>
+                    </div>
+                </div>
+                <div class="d-flex align-items-baseline gap-2 mb-3">
+                    <span class="display-5 fw-bold text-success font-monospace" id="statAmountCollected">₹{{ amount_collected|floatformat:2 }}</span>
+                    <span class="text-muted fw-semibold fs-6">total collected</span>
+                </div>
+                <div class="small text-muted pt-2 border-top d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <span><i class="bi bi-check-circle-fill me-1 text-success"></i> Payment Status: <strong>{% if status_filter == 'pending' %}0.00 (No Pending Records){% else %}Finalized Billed Sales{% endif %}</strong></span>
+                    <span class="badge bg-white border text-secondary px-2 py-1">INR (₹) Standard</span>
                 </div>
             </div>
         </div>

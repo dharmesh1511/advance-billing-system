@@ -2565,6 +2565,80 @@ class AdminReportsDataAndFilteringTests(TestCase):
         self.assertIn("'@DANGEROUS-INV", content)
         self.assertIn("'=cmd|' /C calc'!A0", content)
 
+    def test_summary_cards_rendered_with_correct_metrics(self):
+        """Total Invoices and Amount Collected cards render with accurate figures."""
+        response = self.client.get(self.reports_url + "?filter=all_time")
+        self.assertEqual(response.status_code, 200)
+        ctx = response.context
+
+        self.assertEqual(ctx["total_invoices"], 3)
+        self.assertEqual(ctx["amount_collected"], Decimal("4484.00"))
+        self.assertContains(response, 'id="statTotalInvoices"')
+        self.assertContains(response, 'id="statAmountCollected"')
+        self.assertContains(response, "Total Invoices")
+        self.assertContains(response, "Amount Collected")
+        self.assertContains(response, "₹4484.00")
+
+    def test_summary_cards_multiple_items_do_not_duplicate_invoice_count(self):
+        """Invoices with multiple line items are counted exactly once in Total Invoices."""
+        # Add multiple invoice items to INV-REP-001
+        inv1 = Invoice.objects.get(invoice_number="INV-REP-001")
+        InvoiceItem.objects.create(
+            invoice=inv1,
+            product=self.prod2,
+            product_name="Extra Item 1",
+            quantity=2,
+            unit_price=Decimal("100.00"),
+            taxable_amount=Decimal("200.00"),
+            gst_amount=Decimal("36.00"),
+            line_total=Decimal("236.00")
+        )
+        InvoiceItem.objects.create(
+            invoice=inv1,
+            product=self.prod1,
+            product_name="Extra Item 2",
+            quantity=1,
+            unit_price=Decimal("50.00"),
+            taxable_amount=Decimal("50.00"),
+            gst_amount=Decimal("9.00"),
+            line_total=Decimal("59.00")
+        )
+
+        response = self.client.get(self.reports_url + "?filter=today")
+        self.assertEqual(response.status_code, 200)
+        ctx = response.context
+        # Count must remain exactly 1, not 3 (no join duplication)
+        self.assertEqual(ctx["total_invoices"], 1)
+
+    def test_summary_cards_boundary_dates_inclusivity(self):
+        """Summary cards accurately sum invoices created on boundary start and end dates."""
+        yesterday = date.today() - timedelta(days=1)
+        today = date.today()
+        start_str = yesterday.strftime("%Y-%m-%d")
+        end_str = today.strftime("%Y-%m-%d")
+
+        response = self.client.get(f"{self.reports_url}?start_date={start_str}&end_date={end_str}")
+        self.assertEqual(response.status_code, 200)
+        ctx = response.context
+
+        # INV-REP-001 (1180.00) + INV-REP-002 (2360.00) = 3540.00
+        self.assertEqual(ctx["total_invoices"], 2)
+        self.assertEqual(ctx["amount_collected"], Decimal("3540.00"))
+
+    def test_summary_cards_zero_when_no_records_in_range(self):
+        """Summary cards display 0 and ₹0.00 when no records match the selected date range."""
+        future_start = (date.today() + timedelta(days=90)).strftime("%Y-%m-%d")
+        future_end = (date.today() + timedelta(days=95)).strftime("%Y-%m-%d")
+
+        response = self.client.get(f"{self.reports_url}?start_date={future_start}&end_date={future_end}")
+        self.assertEqual(response.status_code, 200)
+        ctx = response.context
+
+        self.assertEqual(ctx["total_invoices"], 0)
+        self.assertEqual(ctx["amount_collected"], Decimal("0.00"))
+        self.assertContains(response, ">0<")
+        self.assertContains(response, "₹0.00")
+
 
 
 

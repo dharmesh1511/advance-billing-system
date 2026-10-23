@@ -393,10 +393,11 @@ def admin_reports(request):
         total_sales=Coalesce(Sum("grand_total"), Value(Decimal("0.00"))),
         total_subtotal=Coalesce(Sum("subtotal"), Value(Decimal("0.00"))),
         total_gst=Coalesce(Sum("total_gst"), Value(Decimal("0.00"))),
-        total_invoices=Count("id")
+        total_invoices=Count("id", distinct=True)
     )
     total_sales = invoice_aggregates["total_sales"]
     total_invoices = invoice_aggregates["total_invoices"]
+    amount_collected = total_sales if status_filter != "pending" else Decimal("0.00")
     total_subtotal = invoice_aggregates["total_subtotal"]
     total_gst = invoice_aggregates["total_gst"]
     avg_invoice_value = (total_sales / total_invoices) if total_invoices > 0 else Decimal("0.00")
@@ -501,6 +502,7 @@ def admin_reports(request):
 
         # Metrics
         "total_sales": total_sales,
+        "amount_collected": amount_collected,
         "total_invoices": total_invoices,
         "total_subtotal": total_subtotal,
         "total_gst": total_gst,
