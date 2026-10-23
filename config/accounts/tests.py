@@ -2186,6 +2186,7 @@ class AdminReportsAccessAndSecurityTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "adminpanel/admin_reports.html")
         self.assertContains(response, "Reports & Business Analytics")
+        self.assertContains(response, "Generate Invoice Report")
         self.assertContains(response, "Report Filters")
         self.assertContains(response, "Export Report (CSV)")
 
@@ -2411,13 +2412,59 @@ class AdminReportsDataAndFilteringTests(TestCase):
         self.assertEqual(ctx["total_sales"], Decimal("2360.00"))
 
     def test_invalid_date_range_handled_gracefully(self):
-        """When start_date > end_date, view does not 500 and swaps dates gracefully."""
+        """When start_date > end_date, view flags validation errors, preserves inputs, and prevents calculation."""
         today_str = date.today().strftime("%Y-%m-%d")
         past_str = (date.today() - timedelta(days=10)).strftime("%Y-%m-%d")
         response = self.client.get(
-            f"{self.reports_url}?filter=custom&start_date={today_str}&end_date={past_str}"
+            f"{self.reports_url}?start_date={today_str}&end_date={past_str}"
         )
         self.assertEqual(response.status_code, 200)
+        ctx = response.context
+        self.assertIn("start_date", ctx["field_errors"])
+        self.assertEqual(ctx["field_errors"]["start_date"], "Start Date must not be later than End Date.")
+        self.assertEqual(ctx["field_errors"]["end_date"], "End Date must not be earlier than Start Date.")
+        # Preserves user's entered values
+        self.assertEqual(ctx["start_date"], today_str)
+        self.assertEqual(ctx["end_date"], past_str)
+        self.assertEqual(ctx["total_invoices"], 0)
+        self.assertContains(response, "Start Date must not be later than End Date.")
+
+    def test_boundary_dates_inclusivity(self):
+        """Invoices exactly on the start date and end date boundaries are inclusively returned."""
+        yesterday = date.today() - timedelta(days=1)
+        today = date.today()
+        start_str = yesterday.strftime("%Y-%m-%d")
+        end_str = today.strftime("%Y-%m-%d")
+
+        response = self.client.get(f"{self.reports_url}?start_date={start_str}&end_date={end_str}")
+        self.assertEqual(response.status_code, 200)
+        ctx = response.context
+
+        # Both INV-REP-001 (today) and INV-REP-002 (yesterday) must be included
+        invoice_numbers = [inv.invoice_number for inv in ctx["page_obj"]]
+        self.assertIn("INV-REP-001", invoice_numbers)
+        self.assertIn("INV-REP-002", invoice_numbers)
+        self.assertNotIn("INV-REP-003", invoice_numbers)  # 14 days ago
+        self.assertEqual(ctx["total_invoices"], 2)
+
+    def test_empty_date_range_displays_friendly_message(self):
+        """Querying a date range with zero invoices displays 'No invoices found for the selected date range.'"""
+        future_start = (date.today() + timedelta(days=60)).strftime("%Y-%m-%d")
+        future_end = (date.today() + timedelta(days=65)).strftime("%Y-%m-%d")
+        response = self.client.get(f"{self.reports_url}?start_date={future_start}&end_date={future_end}")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No invoices found for the selected date range.")
+
+    def test_status_filter_options(self):
+        """Status filter 'all' or 'paid' returns billed invoices; 'pending' returns zero."""
+        response_all = self.client.get(f"{self.reports_url}?status=all")
+        self.assertEqual(response_all.context["total_invoices"], 3)
+
+        response_paid = self.client.get(f"{self.reports_url}?status=paid")
+        self.assertEqual(response_paid.context["total_invoices"], 3)
+
+        response_pending = self.client.get(f"{self.reports_url}?status=pending")
+        self.assertEqual(response_pending.context["total_invoices"], 0)
 
     def test_distributor_isolation_filter(self):
         """Filtering by distributor narrows calculations to that distributor's invoices only."""
@@ -2450,7 +2497,20 @@ class AdminReportsDataAndFilteringTests(TestCase):
         self.assertEqual(ctx["total_invoices"], 0)
         self.assertFalse(ctx["has_sales_data"])
         self.assertContains(response, "No Sales Records Found")
-        self.assertContains(response, "No Invoices Found")
+        self.assertContains(response, "No invoices found for the selected date range.")
+
+    def test_csv_export_invoices_with_date_range_filename(self):
+        """Exporting invoices CSV with date filters produces filename with start and end dates."""
+        start_str = (date.today() - timedelta(days=7)).strftime("%Y-%m-%d")
+        end_str = date.today().strftime("%Y-%m-%d")
+        response = self.client.get(f"{self.export_url}?type=invoices&start_date={start_str}&end_date={end_str}")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        expected_filename = f'attachment; filename="invoices_report_{start_str}_to_{end_str}.csv"'
+        self.assertEqual(response["Content-Disposition"], expected_filename)
+        content = response.content.decode("utf-8")
+        self.assertIn("Invoice Number,Date,Distributor,Customer Name,Customer Phone,Subtotal (INR),Total GST (INR),Grand Total (INR),Status", content)
+        self.assertIn("Finalized (Billed)", content)
 
     def test_csv_export_invoices(self):
         """Exporting invoices CSV returns text/csv with attachment header and rows."""

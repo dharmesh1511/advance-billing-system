@@ -239,49 +239,76 @@ def admin_register_view(request):
 
 def parse_date_filters(request):
     """
-    Parses date range filters from GET request.
-    Supports: 'all_time', 'today', 'last_7_days', 'this_month', 'this_year', 'custom'.
-    Returns (filter_preset, start_date, end_date, error_message).
+    Parses and validates date range filters from GET request.
+    Supports preset shortcuts: 'all_time', 'today', 'last_7_days', 'this_month', 'this_year'.
+    Or custom start_date and end_date inputs.
+    Returns:
+        filter_preset (str)
+        start_date (date or None)
+        end_date (date or None)
+        field_errors (dict)
+        raw_start (str)
+        raw_end (str)
     """
-    filter_preset = request.GET.get("filter", "all_time").strip().lower()
     today = timezone.localdate()
+    filter_preset = request.GET.get("filter", "").strip().lower()
+    raw_start = request.GET.get("start_date", "").strip()
+    raw_end = request.GET.get("end_date", "").strip()
+
+    field_errors = {}
     start_date = None
     end_date = None
-    error_message = None
 
     if filter_preset == "today":
         start_date = today
         end_date = today
+        raw_start = start_date.strftime("%Y-%m-%d")
+        raw_end = end_date.strftime("%Y-%m-%d")
     elif filter_preset == "last_7_days":
         start_date = today - timedelta(days=6)
         end_date = today
+        raw_start = start_date.strftime("%Y-%m-%d")
+        raw_end = end_date.strftime("%Y-%m-%d")
     elif filter_preset == "this_month":
         start_date = today.replace(day=1)
         end_date = today
+        raw_start = start_date.strftime("%Y-%m-%d")
+        raw_end = end_date.strftime("%Y-%m-%d")
     elif filter_preset == "this_year":
         start_date = today.replace(month=1, day=1)
         end_date = today
-    elif filter_preset == "custom":
-        raw_start = request.GET.get("start_date", "").strip()
-        raw_end = request.GET.get("end_date", "").strip()
+        raw_start = start_date.strftime("%Y-%m-%d")
+        raw_end = end_date.strftime("%Y-%m-%d")
+    elif filter_preset == "all_time":
+        start_date = None
+        end_date = None
+        raw_start = ""
+        raw_end = ""
+    else:
+        # Custom or direct input from form
         if raw_start:
             try:
                 start_date = datetime.strptime(raw_start, "%Y-%m-%d").date()
             except ValueError:
-                error_message = "Invalid start date format. Please use YYYY-MM-DD."
+                field_errors["start_date"] = "Please enter a valid Start Date (YYYY-MM-DD)."
         if raw_end:
             try:
                 end_date = datetime.strptime(raw_end, "%Y-%m-%d").date()
             except ValueError:
-                error_message = "Invalid end date format. Please use YYYY-MM-DD."
+                field_errors["end_date"] = "Please enter a valid End Date (YYYY-MM-DD)."
 
-        if start_date and end_date and start_date > end_date:
-            error_message = "Start date cannot be after end date."
-            start_date, end_date = end_date, start_date
-    else:
-        filter_preset = "all_time"
+        if start_date and end_date:
+            if start_date > end_date:
+                field_errors["start_date"] = "Start Date must not be later than End Date."
+                field_errors["end_date"] = "End Date must not be earlier than Start Date."
+                field_errors["general"] = "Start Date must not be later than End Date."
+            filter_preset = "custom"
+        elif start_date or end_date:
+            filter_preset = "custom"
+        else:
+            filter_preset = "all_time"
 
-    return filter_preset, start_date, end_date, error_message
+    return filter_preset, start_date, end_date, field_errors, raw_start, raw_end
 
 
 @login_required(login_url="/admin/login/")
@@ -296,9 +323,17 @@ def admin_reports(request):
         messages.error(request, "Access denied. Admin privileges required.")
         return redirect("admin_login")
 
-    filter_preset, start_date, end_date, date_error = parse_date_filters(request)
-    if date_error:
-        messages.warning(request, date_error)
+    filter_preset, start_date, end_date, field_errors, raw_start, raw_end = parse_date_filters(request)
+    if field_errors:
+        if "general" in field_errors:
+            messages.error(request, field_errors["general"])
+        elif "start_date" in field_errors:
+            messages.error(request, field_errors["start_date"])
+        elif "end_date" in field_errors:
+            messages.error(request, field_errors["end_date"])
+
+    # Optional Invoice Status Filter
+    status_filter = request.GET.get("status", "all").strip().lower()
 
     # Distributor filter
     distributor_id_str = request.GET.get("distributor_id", "").strip()
@@ -316,17 +351,22 @@ def admin_reports(request):
         .order_by("-invoice_date", "-created_at")
     )
 
-    if start_date:
-        invoices_qs = invoices_qs.filter(invoice_date__gte=start_date)
-    if end_date:
-        invoices_qs = invoices_qs.filter(invoice_date__lte=end_date)
-    if selected_distributor:
-        invoices_qs = invoices_qs.filter(distributor=selected_distributor)
+    if field_errors:
+        invoices_qs = Invoice.objects.none()
+    else:
+        if start_date:
+            invoices_qs = invoices_qs.filter(invoice_date__gte=start_date)
+        if end_date:
+            invoices_qs = invoices_qs.filter(invoice_date__lte=end_date)
+        if selected_distributor:
+            invoices_qs = invoices_qs.filter(distributor=selected_distributor)
+        if status_filter == "pending":
+            invoices_qs = invoices_qs.none()
 
     # Search filter on the invoices table
     search_query = request.GET.get("q", "").strip()
     table_invoices_qs = invoices_qs
-    if search_query:
+    if search_query and not field_errors:
         table_invoices_qs = table_invoices_qs.filter(
             Q(invoice_number__icontains=search_query) |
             Q(customer__name__icontains=search_query) |
@@ -334,6 +374,19 @@ def admin_reports(request):
             Q(distributor__username__icontains=search_query) |
             Q(distributor__distributor_profile__full_name__icontains=search_query)
         )
+
+    # Human-readable report period label
+    if start_date and end_date:
+        if start_date == end_date:
+            report_period_label = start_date.strftime("%d %b %Y")
+        else:
+            report_period_label = f"{start_date.strftime('%d %b %Y')} to {end_date.strftime('%d %b %Y')}"
+    elif start_date:
+        report_period_label = f"From {start_date.strftime('%d %b %Y')}"
+    elif end_date:
+        report_period_label = f"Up to {end_date.strftime('%d %b %Y')}"
+    else:
+        report_period_label = "All Time"
 
     # KPI Aggregations
     invoice_aggregates = invoices_qs.aggregate(
@@ -436,8 +489,11 @@ def admin_reports(request):
 
     context = {
         "filter_preset": filter_preset,
-        "start_date": start_date.strftime("%Y-%m-%d") if start_date else "",
-        "end_date": end_date.strftime("%Y-%m-%d") if end_date else "",
+        "start_date": raw_start if raw_start else (start_date.strftime("%Y-%m-%d") if start_date else ""),
+        "end_date": raw_end if raw_end else (end_date.strftime("%Y-%m-%d") if end_date else ""),
+        "field_errors": field_errors,
+        "report_period_label": report_period_label,
+        "status_filter": status_filter,
         "selected_distributor_id": int(distributor_id_str) if distributor_id_str else None,
         "selected_distributor": selected_distributor,
         "distributors": distributors,
@@ -487,7 +543,8 @@ def admin_reports_export_csv(request):
         return redirect("admin_login")
 
     report_type = request.GET.get("type", "invoices").strip().lower()
-    filter_preset, start_date, end_date, _ = parse_date_filters(request)
+    filter_preset, start_date, end_date, field_errors, raw_start, raw_end = parse_date_filters(request)
+    status_filter = request.GET.get("status", "all").strip().lower()
 
     distributor_id_str = request.GET.get("distributor_id", "").strip()
     selected_distributor = None
@@ -501,15 +558,30 @@ def admin_reports_export_csv(request):
         Invoice.objects.select_related("customer", "distributor", "distributor__distributor_profile")
         .order_by("-invoice_date", "-created_at")
     )
-    if start_date:
-        invoices_qs = invoices_qs.filter(invoice_date__gte=start_date)
-    if end_date:
-        invoices_qs = invoices_qs.filter(invoice_date__lte=end_date)
-    if selected_distributor:
-        invoices_qs = invoices_qs.filter(distributor=selected_distributor)
+    if field_errors:
+        invoices_qs = Invoice.objects.none()
+    else:
+        if start_date:
+            invoices_qs = invoices_qs.filter(invoice_date__gte=start_date)
+        if end_date:
+            invoices_qs = invoices_qs.filter(invoice_date__lte=end_date)
+        if selected_distributor:
+            invoices_qs = invoices_qs.filter(distributor=selected_distributor)
+        if status_filter == "pending":
+            invoices_qs = invoices_qs.none()
 
     response = HttpResponse(content_type="text/csv; charset=utf-8")
     timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
+
+    # Safe filename containing date range
+    if start_date and end_date:
+        date_filename_part = f"{start_date.strftime('%Y-%m-%d')}_to_{end_date.strftime('%Y-%m-%d')}"
+    elif start_date:
+        date_filename_part = f"from_{start_date.strftime('%Y-%m-%d')}"
+    elif end_date:
+        date_filename_part = f"until_{end_date.strftime('%Y-%m-%d')}"
+    else:
+        date_filename_part = f"all_time_{timestamp}"
 
     def sanitize_csv(value):
         if value is None:
@@ -520,7 +592,7 @@ def admin_reports_export_csv(request):
         return s
 
     if report_type == "products":
-        response["Content-Disposition"] = f'attachment; filename="product_sales_report_{timestamp}.csv"'
+        response["Content-Disposition"] = f'attachment; filename="product_sales_report_{date_filename_part}.csv"'
         writer = csv.writer(response)
         writer.writerow(["Product Name", "Units Sold", "Total Revenue (INR)", "Distributor"])
 
@@ -542,7 +614,7 @@ def admin_reports_export_csv(request):
             ])
 
     elif report_type == "customers":
-        response["Content-Disposition"] = f'attachment; filename="customer_sales_report_{timestamp}.csv"'
+        response["Content-Disposition"] = f'attachment; filename="customer_sales_report_{date_filename_part}.csv"'
         writer = csv.writer(response)
         writer.writerow(["Customer Name", "Phone", "Email", "Distributor", "Invoices Count", "Total Spent (INR)"])
 
@@ -565,7 +637,7 @@ def admin_reports_export_csv(request):
             ])
 
     else:  # 'invoices' default
-        response["Content-Disposition"] = f'attachment; filename="invoices_report_{timestamp}.csv"'
+        response["Content-Disposition"] = f'attachment; filename="invoices_report_{date_filename_part}.csv"'
         writer = csv.writer(response)
         writer.writerow([
             "Invoice Number",
@@ -575,7 +647,8 @@ def admin_reports_export_csv(request):
             "Customer Phone",
             "Subtotal (INR)",
             "Total GST (INR)",
-            "Grand Total (INR)"
+            "Grand Total (INR)",
+            "Status"
         ])
         for inv in invoices_qs:
             dist_profile = getattr(inv.distributor, "distributor_profile", None)
@@ -589,6 +662,7 @@ def admin_reports_export_csv(request):
                 sanitize_csv(f"{inv.subtotal:.2f}"),
                 sanitize_csv(f"{inv.total_gst:.2f}"),
                 sanitize_csv(f"{inv.grand_total:.2f}"),
+                sanitize_csv("Finalized (Billed)"),
             ])
 
     return response

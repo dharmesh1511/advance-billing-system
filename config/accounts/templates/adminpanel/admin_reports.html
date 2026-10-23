@@ -1,132 +1,229 @@
 {% extends 'adminpanel/base_admin.html' %}
 {% load static %}
 
-{% block title %}System Reports & Analytics | Advance Billing System{% endblock %}
+{% block title %}Generate Invoice Report | Advance Billing System{% endblock %}
 
-{% block page_heading %}Reports & Business Analytics{% endblock %}
-{% block page_subheading %}Comprehensive sales metrics, platform volume, catalog performance, and downloadable audit reports.{% endblock %}
+{% block page_heading %}Generate Invoice Report{% endblock %}
+{% block page_subheading %}Reports & Business Analytics &mdash; Filter invoices by date range, analyze revenue metrics, and export audit-ready billing records.{% endblock %}
 
 {% block content %}
 <div class="reports-container">
 
-    <!-- Top Filter & Control Panel -->
+    <!-- Dedicated Invoice Report Generation Form Card -->
     <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: #ffffff;">
-        <div class="card-body p-4">
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 pb-3 border-bottom">
-                <div class="d-flex align-items-center gap-2">
-                    <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill fw-semibold fs-6">
-                        <i class="bi bi-funnel-fill me-1"></i> Report Filters
-                    </span>
-                    {% if filter_preset != 'all_time' or selected_distributor %}
-                        <span class="badge bg-light text-secondary border px-3 py-2 rounded-pill small">
-                            <i class="bi bi-clock-history me-1"></i> Active Filter: <strong class="text-dark">{{ filter_preset|title }}</strong>
-                            {% if selected_distributor %} | Distributor: <strong class="text-dark">{{ selected_distributor.username }}</strong>{% endif %}
+        <div class="card-header bg-white border-bottom p-4">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-1 rounded-pill small fw-bold">
+                            <i class="bi bi-funnel-fill me-1"></i> Report Filters
                         </span>
+                    </div>
+                    <h4 class="fw-bold text-dark mb-1 d-flex align-items-center gap-2">
+                        <i class="bi bi-file-earmark-text-fill text-primary"></i> Generate Invoice Report
+                    </h4>
+                    <p class="text-muted small mb-0">
+                        Filter invoices by date range, review revenue totals and tax breakdowns, or export verified audit logs.
+                    </p>
+                </div>
+                <!-- Export CSV Quick Action -->
+                <div class="d-flex align-items-center gap-2">
+                    <a href="{% url 'admin_reports_export_csv' %}?type=invoices&start_date={{ start_date }}&end_date={{ end_date }}&status={{ status_filter }}&distributor_id={{ selected_distributor_id|default:'' }}"
+                       class="btn btn-outline-success fw-semibold shadow-sm d-flex align-items-center gap-2"
+                       id="btnExportCsv"
+                       title="Export filtered invoices to CSV">
+                        <i class="bi bi-file-earmark-spreadsheet-fill"></i> Export Report (CSV)
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-body p-4">
+            <!-- Validation Error Alert Banner (Backend & Preserved Input) -->
+            {% if field_errors %}
+            <div class="alert alert-danger alert-dismissible fade show rounded-3 d-flex align-items-center gap-3 mb-4" role="alert" id="backendValidationAlert">
+                <i class="bi bi-exclamation-triangle-fill fs-4 flex-shrink-0"></i>
+                <div>
+                    <strong>Date Range Validation Failed:</strong>
+                    {% if field_errors.general %}
+                        <span class="d-block">{{ field_errors.general }}</span>
+                    {% else %}
+                        <ul class="mb-0 ps-3 mt-1 small">
+                            {% for field, err in field_errors.items %}
+                                <li>{{ err }}</li>
+                            {% endfor %}
+                        </ul>
                     {% endif %}
                 </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endif %}
 
-                <!-- Export CSV Dropdown -->
-                <div class="dropdown">
-                    <button class="btn btn-primary-blue dropdown-toggle" type="button" id="exportMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-download me-1"></i> Export Report (CSV)
+            <!-- Client-side Validation Alert Placeholder -->
+            <div class="alert alert-danger rounded-3 d-none align-items-center gap-3 mb-4" id="clientValidationAlert" role="alert">
+                <i class="bi bi-exclamation-triangle-fill fs-4 flex-shrink-0"></i>
+                <div id="clientValidationMessage"></div>
+            </div>
+
+            <!-- Date-Range Shortcuts -->
+            <div class="mb-4">
+                <label class="form-label text-muted small fw-bold mb-2 text-uppercase d-flex align-items-center gap-1">
+                    <i class="bi bi-lightning-charge-fill text-warning"></i> Date Range Shortcuts
+                </label>
+                <div class="d-flex flex-wrap gap-2" id="dateShortcutGroup">
+                    <button type="button" class="btn btn-sm {% if filter_preset == 'today' %}btn-primary text-white fw-bold shadow-sm{% else %}btn-outline-secondary bg-light text-dark{% endif %} rounded-pill px-3 py-1 shortcut-btn" data-preset="today">
+                        <i class="bi bi-calendar-event me-1"></i> Today
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3" aria-labelledby="exportMenuButton">
-                        <li>
-                            <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{% url 'admin_reports_export_csv' %}?type=invoices&filter={{ filter_preset }}&start_date={{ start_date }}&end_date={{ end_date }}&distributor_id={{ selected_distributor_id|default:'' }}">
-                                <i class="bi bi-file-earmark-spreadsheet text-primary"></i> Export Invoices CSV
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{% url 'admin_reports_export_csv' %}?type=products&filter={{ filter_preset }}&start_date={{ start_date }}&end_date={{ end_date }}&distributor_id={{ selected_distributor_id|default:'' }}">
-                                <i class="bi bi-box-seam text-success"></i> Export Product Sales CSV
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{% url 'admin_reports_export_csv' %}?type=customers&filter={{ filter_preset }}&start_date={{ start_date }}&end_date={{ end_date }}&distributor_id={{ selected_distributor_id|default:'' }}">
-                                <i class="bi bi-people text-info"></i> Export Customer Spend CSV
-                            </a>
-                        </li>
-                    </ul>
+                    <button type="button" class="btn btn-sm {% if filter_preset == 'last_7_days' %}btn-primary text-white fw-bold shadow-sm{% else %}btn-outline-secondary bg-light text-dark{% endif %} rounded-pill px-3 py-1 shortcut-btn" data-preset="last_7_days">
+                        <i class="bi bi-calendar-week me-1"></i> Last 7 Days
+                    </button>
+                    <button type="button" class="btn btn-sm {% if filter_preset == 'this_month' %}btn-primary text-white fw-bold shadow-sm{% else %}btn-outline-secondary bg-light text-dark{% endif %} rounded-pill px-3 py-1 shortcut-btn" data-preset="this_month">
+                        <i class="bi bi-calendar-month me-1"></i> This Month
+                    </button>
+                    <button type="button" class="btn btn-sm {% if filter_preset == 'this_year' %}btn-primary text-white fw-bold shadow-sm{% else %}btn-outline-secondary bg-light text-dark{% endif %} rounded-pill px-3 py-1 shortcut-btn" data-preset="this_year">
+                        <i class="bi bi-calendar3 me-1"></i> This Year
+                    </button>
+                    <button type="button" class="btn btn-sm {% if filter_preset == 'all_time' or not filter_preset %}btn-primary text-white fw-bold shadow-sm{% else %}btn-outline-secondary bg-light text-dark{% endif %} rounded-pill px-3 py-1 shortcut-btn" data-preset="all_time">
+                        <i class="bi bi-infinity me-1"></i> All Time
+                    </button>
                 </div>
             </div>
 
-            <!-- Filter Presets Form -->
-            <form method="GET" action="{% url 'admin_reports' %}" class="row g-3 align-items-end" id="reportsFilterForm">
-                <!-- Preset Pills -->
-                <div class="col-12 mb-2">
-                    <label class="form-label text-muted small fw-bold mb-2">Quick Date Ranges</label>
-                    <div class="d-flex flex-wrap gap-2">
-                        <a href="{% url 'admin_reports' %}?filter=all_time{% if selected_distributor_id %}&distributor_id={{ selected_distributor_id }}{% endif %}"
-                           class="btn btn-sm {% if filter_preset == 'all_time' %}btn-primary text-white fw-bold{% else %}btn-outline-secondary bg-white{% endif %} rounded-pill px-3 py-1">
-                            All Time
+            <!-- Dedicated Filter Form -->
+            <form method="GET" action="{% url 'admin_reports' %}" id="invoiceReportForm" novalidate>
+                <input type="hidden" name="filter" id="filterPresetInput" value="{{ filter_preset|default:'all_time' }}">
+
+                <div class="row g-3 align-items-start">
+                    <!-- Start Date Picker -->
+                    <div class="col-md-3">
+                        <label for="id_start_date" class="form-label text-dark small fw-bold mb-1">
+                            Start Date <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group has-validation">
+                            <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-calendar"></i></span>
+                            <input type="date"
+                                   name="start_date"
+                                   id="id_start_date"
+                                   class="form-control border-start-0 {% if field_errors.start_date %}is-invalid{% endif %}"
+                                   value="{{ start_date }}"
+                                   aria-describedby="startDateError">
+                        </div>
+                        <div class="invalid-feedback d-block text-danger small mt-1" id="startDateError">
+                            {% if field_errors.start_date %}<i class="bi bi-exclamation-circle me-1"></i>{{ field_errors.start_date }}{% endif %}
+                        </div>
+                    </div>
+
+                    <!-- End Date Picker -->
+                    <div class="col-md-3">
+                        <label for="id_end_date" class="form-label text-dark small fw-bold mb-1">
+                            End Date <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group has-validation">
+                            <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-calendar-check"></i></span>
+                            <input type="date"
+                                   name="end_date"
+                                   id="id_end_date"
+                                   class="form-control border-start-0 {% if field_errors.end_date %}is-invalid{% endif %}"
+                                   value="{{ end_date }}"
+                                   aria-describedby="endDateError">
+                        </div>
+                        <div class="invalid-feedback d-block text-danger small mt-1" id="endDateError">
+                            {% if field_errors.end_date %}<i class="bi bi-exclamation-circle me-1"></i>{{ field_errors.end_date }}{% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Invoice Status Filter -->
+                    <div class="col-md-3">
+                        <label for="id_status" class="form-label text-dark small fw-bold mb-1">
+                            Invoice Status
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-check2-circle"></i></span>
+                            <select name="status" class="form-select border-start-0" id="id_status">
+                                <option value="all" {% if status_filter == 'all' or not status_filter %}selected{% endif %}>
+                                    All Invoices (Finalized Billed)
+                                </option>
+                                <option value="paid" {% if status_filter == 'paid' %}selected{% endif %}>
+                                    Paid / Settled (All Billed)
+                                </option>
+                                <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>
+                                    Pending / Due (0 Records)
+                                </option>
+                            </select>
+                        </div>
+                        <small class="text-muted d-block mt-1">Database finalizes billing upon invoice creation</small>
+                    </div>
+
+                    <!-- Distributor Filter -->
+                    <div class="col-md-3">
+                        <label for="id_distributor_id" class="form-label text-dark small fw-bold mb-1">
+                            Distributor Filter
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-shop"></i></span>
+                            <select name="distributor_id" class="form-select border-start-0" id="id_distributor_id">
+                                <option value="">All Distributors (Platform Wide)</option>
+                                {% for dist in distributors %}
+                                    <option value="{{ dist.id }}" {% if selected_distributor_id == dist.id %}selected{% endif %}>
+                                        {{ dist.distributor_profile.full_name|default:dist.username }} ({{ dist.email }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <small class="text-muted d-block mt-1">Optional account-level filter</small>
+                    </div>
+
+                    <!-- Form Action Buttons -->
+                    <div class="col-12 d-flex flex-wrap align-items-center justify-content-end gap-2 pt-2 border-top mt-3">
+                        <a href="{% url 'admin_reports' %}" class="btn btn-light border px-4 fw-medium text-secondary" id="btnResetFilters" title="Clear all filters">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
                         </a>
-                        <a href="{% url 'admin_reports' %}?filter=today{% if selected_distributor_id %}&distributor_id={{ selected_distributor_id }}{% endif %}"
-                           class="btn btn-sm {% if filter_preset == 'today' %}btn-primary text-white fw-bold{% else %}btn-outline-secondary bg-white{% endif %} rounded-pill px-3 py-1">
-                            Today
-                        </a>
-                        <a href="{% url 'admin_reports' %}?filter=last_7_days{% if selected_distributor_id %}&distributor_id={{ selected_distributor_id }}{% endif %}"
-                           class="btn btn-sm {% if filter_preset == 'last_7_days' %}btn-primary text-white fw-bold{% else %}btn-outline-secondary bg-white{% endif %} rounded-pill px-3 py-1">
-                            Last 7 Days
-                        </a>
-                        <a href="{% url 'admin_reports' %}?filter=this_month{% if selected_distributor_id %}&distributor_id={{ selected_distributor_id }}{% endif %}"
-                           class="btn btn-sm {% if filter_preset == 'this_month' %}btn-primary text-white fw-bold{% else %}btn-outline-secondary bg-white{% endif %} rounded-pill px-3 py-1">
-                            This Month
-                        </a>
-                        <a href="{% url 'admin_reports' %}?filter=this_year{% if selected_distributor_id %}&distributor_id={{ selected_distributor_id }}{% endif %}"
-                           class="btn btn-sm {% if filter_preset == 'this_year' %}btn-primary text-white fw-bold{% else %}btn-outline-secondary bg-white{% endif %} rounded-pill px-3 py-1">
-                            This Year
-                        </a>
-                        <button type="button" id="customRangeToggle" class="btn btn-sm {% if filter_preset == 'custom' %}btn-primary text-white fw-bold{% else %}btn-outline-secondary bg-white{% endif %} rounded-pill px-3 py-1">
-                            <i class="bi bi-calendar-range me-1"></i> Custom Range
+                        <button type="submit" class="btn btn-primary px-4 fw-semibold shadow-sm" id="btnGenerateReport">
+                            <i class="bi bi-funnel-fill me-1"></i> Generate Report
                         </button>
                     </div>
                 </div>
-
-                <input type="hidden" name="filter" id="filterPresetInput" value="{{ filter_preset }}">
-
-                <!-- Custom Date Inputs -->
-                <div class="col-md-3" id="startDateCol" style="{% if filter_preset != 'custom' %}display: none;{% endif %}">
-                    <label class="form-label text-muted small fw-bold mb-1">Start Date</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-calendar"></i></span>
-                        <input type="date" name="start_date" id="id_start_date" class="form-control border-start-0" value="{{ start_date }}">
-                    </div>
-                </div>
-
-                <div class="col-md-3" id="endDateCol" style="{% if filter_preset != 'custom' %}display: none;{% endif %}">
-                    <label class="form-label text-muted small fw-bold mb-1">End Date</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-calendar-check"></i></span>
-                        <input type="date" name="end_date" id="id_end_date" class="form-control border-start-0" value="{{ end_date }}">
-                    </div>
-                </div>
-
-                <!-- Distributor Selector -->
-                <div class="col-md-4">
-                    <label class="form-label text-muted small fw-bold mb-1">Filter by Distributor</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-shop"></i></span>
-                        <select name="distributor_id" class="form-select border-start-0" id="id_distributor_id">
-                            <option value="">All Distributors (Platform Wide)</option>
-                            {% for dist in distributors %}
-                                <option value="{{ dist.id }}" {% if selected_distributor_id == dist.id %}selected{% endif %}>
-                                    {{ dist.distributor_profile.full_name|default:dist.username }} ({{ dist.email }})
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Actions -->
-                <div class="col-md-2 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary w-100 fw-semibold">
-                        <i class="bi bi-check-lg me-1"></i> Apply
-                    </button>
-                    <a href="{% url 'admin_reports' %}" class="btn btn-light border text-muted px-3" title="Reset Filters">
-                        <i class="bi bi-arrow-counterclockwise"></i>
-                    </a>
-                </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Selected Report Scope & Summary Banner -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%); border-left: 5px solid #2563eb !important;">
+        <div class="card-body p-4">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div>
+                    <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-1 rounded-pill small fw-bold mb-1">
+                        <i class="bi bi-calendar3 me-1"></i> Active Report Period
+                    </span>
+                    <h5 class="fw-bold text-dark mb-0 mt-1">
+                        {{ report_period_label }}
+                        {% if selected_distributor %}
+                            <span class="text-muted fs-6 fw-normal"> | Distributor: <strong class="text-dark">{{ selected_distributor.distributor_profile.full_name|default:selected_distributor.username }}</strong></span>
+                        {% endif %}
+                    </h5>
+                    <small class="text-muted">Inclusive boundaries: Records starting on start date through end date are included.</small>
+                </div>
+                <div class="d-flex flex-wrap align-items-center gap-4">
+                    <div class="text-start">
+                        <span class="text-muted d-block small fw-bold text-uppercase">Matching Invoices</span>
+                        <strong class="fs-4 text-dark font-monospace">{{ total_invoices }}</strong>
+                    </div>
+                    <div class="border-start ps-3 text-start">
+                        <span class="text-muted d-block small fw-bold text-uppercase">Total Invoice Amount</span>
+                        <strong class="fs-4 text-success font-monospace">₹{{ total_sales|floatformat:2 }}</strong>
+                    </div>
+                    <div class="border-start ps-3 text-start">
+                        <span class="text-muted d-block small fw-bold text-uppercase">Paid / Settled</span>
+                        <strong class="fs-5 text-primary font-monospace">₹{{ total_sales|floatformat:2 }}</strong>
+                        <span class="badge bg-success bg-opacity-10 text-success small ms-1">100% Billed</span>
+                    </div>
+                    <div class="border-start ps-3 text-start">
+                        <span class="text-muted d-block small fw-bold text-uppercase">Pending / Due</span>
+                        <strong class="fs-5 text-muted font-monospace">₹0.00</strong>
+                        <span class="badge bg-light text-muted border small ms-1">0 Pending</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -348,13 +445,14 @@
                     <input type="hidden" name="filter" value="{{ filter_preset }}">
                     <input type="hidden" name="start_date" value="{{ start_date }}">
                     <input type="hidden" name="end_date" value="{{ end_date }}">
+                    <input type="hidden" name="status" value="{{ status_filter }}">
                     {% if selected_distributor_id %}<input type="hidden" name="distributor_id" value="{{ selected_distributor_id }}">{% endif %}
                     <div class="input-group input-group-sm" style="max-width: 280px;">
                         <input type="text" name="q" class="form-control" placeholder="Search invoice, customer, distributor..." value="{{ search_query }}">
                         <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i></button>
                     </div>
                     {% if search_query %}
-                        <a href="{% url 'admin_reports' %}?filter={{ filter_preset }}&start_date={{ start_date }}&end_date={{ end_date }}{% if selected_distributor_id %}&distributor_id={{ selected_distributor_id }}{% endif %}" class="btn btn-sm btn-outline-secondary" title="Clear search">
+                        <a href="{% url 'admin_reports' %}?filter={{ filter_preset }}&start_date={{ start_date }}&end_date={{ end_date }}&status={{ status_filter }}{% if selected_distributor_id %}&distributor_id={{ selected_distributor_id }}{% endif %}" class="btn btn-sm btn-outline-secondary" title="Clear search">
                             <i class="bi bi-x"></i>
                         </a>
                     {% endif %}
@@ -374,7 +472,8 @@
                             <th>Phone</th>
                             <th class="text-end">Taxable Subtotal</th>
                             <th class="text-end">GST</th>
-                            <th class="text-end pe-4">Grand Total</th>
+                            <th class="text-end">Grand Total</th>
+                            <th class="text-center pe-4">Status</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -403,16 +502,21 @@
                             <td class="text-end font-monospace text-muted">
                                 ₹{{ invoice.total_gst|floatformat:2 }}
                             </td>
-                            <td class="text-end pe-4 font-monospace fw-bold text-dark">
+                            <td class="text-end font-monospace fw-bold text-dark">
                                 ₹{{ invoice.grand_total|floatformat:2 }}
+                            </td>
+                            <td class="text-center pe-4">
+                                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2 py-1 small fw-semibold">
+                                    <i class="bi bi-check-circle me-1"></i>Finalized
+                                </span>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="8" class="text-center py-5">
-                                <i class="bi bi-inbox text-muted fs-1 d-block mb-3 opacity-50"></i>
+                            <td colspan="9" class="text-center py-5">
+                                <i class="bi bi-calendar-x text-muted fs-1 d-block mb-3 opacity-50"></i>
                                 <h6 class="fw-bold text-secondary">No Invoices Found</h6>
-                                <p class="text-muted small mb-0">No billing records match the current filter criteria.</p>
+                                <p class="text-muted small mb-0">No invoices found for the selected date range.</p>
                             </td>
                         </tr>
                         {% endfor %}
@@ -430,7 +534,7 @@
                     <ul class="pagination pagination-sm mb-0">
                         {% if page_obj.has_previous %}
                         <li class="page-item">
-                            <a class="page-link" href="{% url 'admin_reports' %}?page={{ page_obj.previous_page_number }}&filter={{ filter_preset }}&start_date={{ start_date }}&end_date={{ end_date }}&distributor_id={{ selected_distributor_id|default:'' }}&q={{ search_query }}">
+                            <a class="page-link" href="{% url 'admin_reports' %}?page={{ page_obj.previous_page_number }}&filter={{ filter_preset }}&start_date={{ start_date }}&end_date={{ end_date }}&status={{ status_filter }}&distributor_id={{ selected_distributor_id|default:'' }}&q={{ search_query }}">
                                 &laquo; Previous
                             </a>
                         </li>
@@ -442,7 +546,7 @@
 
                         {% if page_obj.has_next %}
                         <li class="page-item">
-                            <a class="page-link" href="{% url 'admin_reports' %}?page={{ page_obj.next_page_number }}&filter={{ filter_preset }}&start_date={{ start_date }}&end_date={{ end_date }}&distributor_id={{ selected_distributor_id|default:'' }}&q={{ search_query }}">
+                            <a class="page-link" href="{% url 'admin_reports' %}?page={{ page_obj.next_page_number }}&filter={{ filter_preset }}&start_date={{ start_date }}&end_date={{ end_date }}&status={{ status_filter }}&distributor_id={{ selected_distributor_id|default:'' }}&q={{ search_query }}">
                                 Next &raquo;
                             </a>
                         </li>
@@ -539,26 +643,140 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-    // Toggle Custom Range Inputs
-    const customRangeToggle = document.getElementById("customRangeToggle");
-    const startDateCol = document.getElementById("startDateCol");
-    const endDateCol = document.getElementById("endDateCol");
+    const reportForm = document.getElementById("invoiceReportForm");
+    const startDateInput = document.getElementById("id_start_date");
+    const endDateInput = document.getElementById("id_end_date");
     const filterPresetInput = document.getElementById("filterPresetInput");
+    const startDateError = document.getElementById("startDateError");
+    const endDateError = document.getElementById("endDateError");
+    const clientAlert = document.getElementById("clientValidationAlert");
+    const clientMsg = document.getElementById("clientValidationMessage");
+    const shortcutButtons = document.querySelectorAll(".shortcut-btn");
 
-    if (customRangeToggle) {
-        customRangeToggle.addEventListener("click", function () {
-            if (startDateCol.style.display === "none") {
-                startDateCol.style.display = "block";
-                endDateCol.style.display = "block";
-                filterPresetInput.value = "custom";
-                customRangeToggle.classList.remove("btn-outline-secondary", "bg-white");
-                customRangeToggle.classList.add("btn-primary", "text-white", "fw-bold");
-            } else {
-                startDateCol.style.display = "none";
-                endDateCol.style.display = "none";
-                filterPresetInput.value = "all_time";
-                customRangeToggle.classList.add("btn-outline-secondary", "bg-white");
-                customRangeToggle.classList.remove("btn-primary", "text-white", "fw-bold");
+    function formatDate(d) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    // 1. Interactive Date Range Shortcuts
+    shortcutButtons.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            const preset = this.getAttribute("data-preset");
+            const now = new Date();
+            let start = "";
+            let end = "";
+
+            if (preset === "today") {
+                start = formatDate(now);
+                end = formatDate(now);
+            } else if (preset === "last_7_days") {
+                const past7 = new Date(now);
+                past7.setDate(past7.getDate() - 6);
+                start = formatDate(past7);
+                end = formatDate(now);
+            } else if (preset === "this_month") {
+                const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                start = formatDate(monthStart);
+                end = formatDate(now);
+            } else if (preset === "this_year") {
+                const yearStart = new Date(now.getFullYear(), 0, 1);
+                start = formatDate(yearStart);
+                end = formatDate(now);
+            } else if (preset === "all_time") {
+                start = "";
+                end = "";
+            }
+
+            if (startDateInput) startDateInput.value = start;
+            if (endDateInput) endDateInput.value = end;
+            if (filterPresetInput) filterPresetInput.value = preset;
+
+            // Highlight clicked button
+            shortcutButtons.forEach(b => {
+                b.classList.remove("btn-primary", "text-white", "fw-bold", "shadow-sm");
+                b.classList.add("btn-outline-secondary", "bg-light", "text-dark");
+            });
+            this.classList.remove("btn-outline-secondary", "bg-light", "text-dark");
+            this.classList.add("btn-primary", "text-white", "fw-bold", "shadow-sm");
+
+            // Clear any lingering validation errors
+            if (startDateInput) startDateInput.classList.remove("is-invalid");
+            if (endDateInput) endDateInput.classList.remove("is-invalid");
+            if (startDateError) startDateError.textContent = "";
+            if (endDateError) endDateError.textContent = "";
+            if (clientAlert) {
+                clientAlert.classList.add("d-none");
+                clientAlert.classList.remove("d-flex");
+            }
+
+            // Automatically submit to fetch results
+            if (reportForm) {
+                reportForm.submit();
+            }
+        });
+    });
+
+    // 2. Real-time validation feedback on manual input
+    [startDateInput, endDateInput].forEach(function (inputEl) {
+        if (!inputEl) return;
+        inputEl.addEventListener("input", function () {
+            this.classList.remove("is-invalid");
+            if (this.id === "id_start_date" && startDateError) startDateError.textContent = "";
+            if (this.id === "id_end_date" && endDateError) endDateError.textContent = "";
+            if (clientAlert) {
+                clientAlert.classList.add("d-none");
+                clientAlert.classList.remove("d-flex");
+            }
+            if (filterPresetInput) filterPresetInput.value = "custom";
+            shortcutButtons.forEach(btn => {
+                btn.classList.remove("btn-primary", "text-white", "fw-bold", "shadow-sm");
+                btn.classList.add("btn-outline-secondary", "bg-light", "text-dark");
+            });
+        });
+    });
+
+    // 3. Client-Side Form Submission Validation
+    if (reportForm) {
+        reportForm.addEventListener("submit", function (e) {
+            const startVal = startDateInput ? startDateInput.value.trim() : "";
+            const endVal = endDateInput ? endDateInput.value.trim() : "";
+
+            let hasError = false;
+
+            if (startVal && endVal) {
+                const startDateObj = new Date(startVal + "T00:00:00");
+                const endDateObj = new Date(endVal + "T00:00:00");
+
+                if (isNaN(startDateObj.getTime())) {
+                    if (startDateInput) startDateInput.classList.add("is-invalid");
+                    if (startDateError) startDateError.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>Please enter a valid Start Date.';
+                    hasError = true;
+                }
+                if (isNaN(endDateObj.getTime())) {
+                    if (endDateInput) endDateInput.classList.add("is-invalid");
+                    if (endDateError) endDateError.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>Please enter a valid End Date.';
+                    hasError = true;
+                }
+                if (!hasError && startDateObj > endDateObj) {
+                    if (startDateInput) startDateInput.classList.add("is-invalid");
+                    if (endDateInput) endDateInput.classList.add("is-invalid");
+                    if (startDateError) startDateError.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>Start Date must not be later than End Date.';
+                    if (endDateError) endDateError.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>End Date must not be earlier than Start Date.';
+                    if (clientMsg) clientMsg.innerHTML = '<strong>Validation Error:</strong> Start Date cannot be later than End Date.';
+                    if (clientAlert) {
+                        clientAlert.classList.remove("d-none");
+                        clientAlert.classList.add("d-flex");
+                    }
+                    hasError = true;
+                }
+            }
+
+            if (hasError) {
+                e.preventDefault();
+                if (startDateInput) startDateInput.focus();
+                return false;
             }
         });
     }
