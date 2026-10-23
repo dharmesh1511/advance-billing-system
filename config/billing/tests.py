@@ -2755,16 +2755,505 @@ class ProductCRUDAPITests(APITestCase):
         self.assertContains(response, "viewProductDetails")
 
 
+class CustomerRegistrationAndManagementViewTests(TestCase):
+    """
+    Test suite for Customer Registration and Management views in billing app:
+    - customer_register_view (GET /distributor/customers/register/)
+    - add_customer (GET/POST /distributor/customers/add/)
+    - customer_list (GET /distributor/customers/)
+    - edit_customer (GET/POST /distributor/customers/<pk>/edit/)
+    - delete_customer (POST /distributor/customers/<pk>/delete/)
+    - Access control, distributor data isolation, invoice protection
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.distributor_group, _ = Group.objects.get_or_create(name="Distributor")
+
+        # Distributor 1
+        self.distributor1 = User.objects.create_user(
+            username="dist1_cust",
+            email="dist1_cust@example.com",
+            password="DistPassword@123"
+        )
+        self.distributor1.groups.add(self.distributor_group)
+        self.profile1 = DistributorProfile.objects.create(
+            user=self.distributor1,
+            full_name="Distributor One",
+            email="dist1_cust@example.com",
+            phone="9876543210"
+        )
+
+        # Distributor 2
+        self.distributor2 = User.objects.create_user(
+            username="dist2_cust",
+            email="dist2_cust@example.com",
+            password="DistPassword@123"
+        )
+        self.distributor2.groups.add(self.distributor_group)
+        self.profile2 = DistributorProfile.objects.create(
+            user=self.distributor2,
+            full_name="Distributor Two",
+            email="dist2_cust@example.com",
+            phone="9876543211"
+        )
+
+        # Regular non-distributor
+        self.regular_user = User.objects.create_user(
+            username="regular_cust",
+            email="regular_cust@example.com",
+            password="RegularPassword@123"
+        )
+
+        # Pre-created customer for distributor 1
+        self.customer1 = Customer.objects.create(
+            distributor=self.distributor1,
+            name="Ramesh Patel",
+            email="ramesh@example.com",
+            phone="9876543210",
+            address="123 Market Road",
+            city="Ahmedabad",
+            state="Gujarat",
+            pincode="380001"
+        )
+
+        # Pre-created customer for distributor 2
+        self.customer2 = Customer.objects.create(
+            distributor=self.distributor2,
+            name="Suresh Shah",
+            email="suresh@example.com",
+            phone="9876543211",
+            address="456 Cross Street",
+            city="Surat",
+            state="Gujarat",
+            pincode="395001"
+        )
+
+    def test_customer_register_view_unauthenticated(self):
+        """Unauthenticated GET redirects to distributor login."""
+        url = reverse("billing_customer_register")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/distributor/login/", response.url)
+
+    def test_customer_register_view_non_distributor(self):
+        """Non-distributor user is redirected away."""
+        self.client.login(username="regular_cust", password="RegularPassword@123")
+        url = reverse("billing_customer_register")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+
+    def test_customer_register_view_authenticated(self):
+        """Authenticated distributor GET renders billing/customer_register.html."""
+        self.client.login(username="dist1_cust", password="DistPassword@123")
+        url = reverse("billing_customer_register")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "billing/customer_register.html")
+
+    def test_add_customer_view_get(self):
+        """Authenticated distributor GET renders billing/add_customer.html with form."""
+        self.client.login(username="dist1_cust", password="DistPassword@123")
+        url = reverse("billing_add_customer")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "billing/add_customer.html")
+        self.assertIn("form", response.context)
+
+    def test_add_customer_view_valid_post(self):
+        """Valid POST creates customer linked to request.user and redirects."""
+        self.client.login(username="dist1_cust", password="DistPassword@123")
+        url = reverse("billing_add_customer")
+        data = {
+            "name": "Kiran Rao",
+            "email": "kiran@example.com",
+            "phone": "9823456789",
+            "address": "789 Park View",
+            "city": "Vadodara",
+            "state": "Gujarat",
+            "pincode": "390001"
+        }
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Customer.objects.filter(name="Kiran Rao", distributor=self.distributor1).exists())
+
+    def test_add_customer_view_invalid_phone(self):
+        """Invalid phone (less than 10 digits or non-6-9) rejected with form error."""
+        self.client.login(username="dist1_cust", password="DistPassword@123")
+        url = reverse("billing_add_customer")
+        data = {
+            "name": "Invalid Phone Cust",
+            "phone": "12345"
+        }
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(response.context["form"], "phone", "Please enter a valid 10-digit phone number.")
+        self.assertFalse(Customer.objects.filter(name="Invalid Phone Cust").exists())
+
+    def test_add_customer_view_invalid_email(self):
+        """Invalid email rejected with form error."""
+        self.client.login(username="dist1_cust", password="DistPassword@123")
+        url = reverse("billing_add_customer")
+        data = {
+            "name": "Invalid Email Cust",
+            "phone": "9823456789",
+            "email": "notanemail"
+        }
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(response.context["form"], "email", "Please enter a valid email address.")
+
+    def test_customer_list_isolation_and_search(self):
+        """Distributor 1 only sees their own customers; search query filters correctly."""
+        self.client.login(username="dist1_cust", password="DistPassword@123")
+        url = reverse("billing_customer_list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        customers = list(response.context["page_obj"])
+        self.assertIn(self.customer1, customers)
+        self.assertNotIn(self.customer2, customers)
+
+        # Search
+        search_res = self.client.get(url + "?q=Ramesh")
+        self.assertEqual(search_res.status_code, 200)
+        self.assertEqual(len(search_res.context["page_obj"]), 1)
+
+    def test_edit_customer_success(self):
+        """Distributor can edit their own customer."""
+        self.client.login(username="dist1_cust", password="DistPassword@123")
+        url = reverse("billing_edit_customer", kwargs={"pk": self.customer1.pk})
+        data = {
+            "name": "Ramesh Patel Updated",
+            "phone": "9876543210",
+            "email": "ramesh.updated@example.com"
+        }
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 302)
+        self.customer1.refresh_from_db()
+        self.assertEqual(self.customer1.name, "Ramesh Patel Updated")
+
+    def test_edit_customer_isolation_404(self):
+        """Distributor 1 cannot edit Distributor 2's customer."""
+        self.client.login(username="dist1_cust", password="DistPassword@123")
+        url = reverse("billing_edit_customer", kwargs={"pk": self.customer2.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+    def test_delete_unreferenced_customer(self):
+        """Unreferenced customer can be deleted."""
+        self.client.login(username="dist1_cust", password="DistPassword@123")
+        url = reverse("billing_delete_customer", kwargs={"pk": self.customer1.pk})
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Customer.objects.filter(pk=self.customer1.pk).exists())
+
+    def test_delete_referenced_customer_protected(self):
+        """Customer referenced in an invoice is protected from deletion."""
+        invoice = Invoice.objects.create(
+            distributor=self.distributor1,
+            customer=self.customer1,
+            invoice_number="INV-CUST-PROT",
+            invoice_date=date.today(),
+            subtotal=Decimal("100.00"),
+            total_gst=Decimal("18.00"),
+            grand_total=Decimal("118.00")
+        )
+        self.client.login(username="dist1_cust", password="DistPassword@123")
+        url = reverse("billing_delete_customer", kwargs={"pk": self.customer1.pk})
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Customer.objects.filter(pk=self.customer1.pk).exists())
 
 
+class ProductManagementFrontendViewTests(TestCase):
+    """
+    Test suite for Product Management frontend views:
+    - product_list (GET /distributor/products/)
+    - add_product (GET/POST /distributor/products/add/)
+    - edit_product (GET/POST /distributor/products/<pk>/edit/)
+    - delete_product (POST /distributor/products/<pk>/delete/)
+    - product_details (GET /distributor/products/<pk>/details/)
+    - Validation: negative price/quantity, required fields, invoice protection
+    """
 
+    def setUp(self):
+        self.client = Client()
+        self.distributor_group, _ = Group.objects.get_or_create(name="Distributor")
 
+        # Distributor 1
+        self.distributor1 = User.objects.create_user(
+            username="dist1_pm",
+            email="dist1_pm@example.com",
+            password="DistPassword@123"
+        )
+        self.distributor1.groups.add(self.distributor_group)
+        self.profile1 = DistributorProfile.objects.create(
+            user=self.distributor1,
+            full_name="Distributor PM 1",
+            email="dist1_pm@example.com",
+            phone="9876543220"
+        )
 
+        # Distributor 2
+        self.distributor2 = User.objects.create_user(
+            username="dist2_pm",
+            email="dist2_pm@example.com",
+            password="DistPassword@123"
+        )
+        self.distributor2.groups.add(self.distributor_group)
+        self.profile2 = DistributorProfile.objects.create(
+            user=self.distributor2,
+            full_name="Distributor PM 2",
+            email="dist2_pm@example.com",
+            phone="9876543221"
+        )
 
+        # Regular user
+        self.regular_user = User.objects.create_user(
+            username="regular_pm",
+            email="regular_pm@example.com",
+            password="RegularPassword@123"
+        )
 
+        # Customer for invoice test
+        self.customer1 = Customer.objects.create(
+            distributor=self.distributor1,
+            name="PM Test Customer",
+            phone="9876543222"
+        )
 
+        # Products
+        self.product1 = Product.objects.create(
+            distributor=self.distributor1,
+            name="Wireless Mouse",
+            sku="WM-100",
+            category="Hardware",
+            price=Decimal("499.00"),
+            stock=50,
+            unit="piece",
+            gst_rate=Decimal("18.00"),
+            is_active=True
+        )
 
+        self.product2 = Product.objects.create(
+            distributor=self.distributor2,
+            name="Other Distributor Product",
+            sku="ODP-200",
+            category="Hardware",
+            price=Decimal("999.00"),
+            stock=20,
+            unit="piece",
+            gst_rate=Decimal("18.00"),
+            is_active=True
+        )
 
+    def test_product_list_unauthenticated(self):
+        """Unauthenticated access redirects to login."""
+        url = reverse("product_list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/distributor/login/", response.url)
 
+    def test_product_list_distributor_isolation(self):
+        """Distributor only sees their own products."""
+        self.client.login(username="dist1_pm", password="DistPassword@123")
+        url = reverse("product_list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "billing/product_list.html")
+        products = list(response.context["page_obj"])
+        self.assertIn(self.product1, products)
+        self.assertNotIn(self.product2, products)
 
+    def test_product_list_search_by_name_and_sku(self):
+        """Search query filters products by name or SKU."""
+        self.client.login(username="dist1_pm", password="DistPassword@123")
+        url = reverse("product_list")
+
+        res_name = self.client.get(url + "?q=Mouse")
+        self.assertEqual(res_name.status_code, 200)
+        self.assertEqual(len(res_name.context["page_obj"]), 1)
+
+        res_sku = self.client.get(url + "?q=WM-100")
+        self.assertEqual(res_sku.status_code, 200)
+        self.assertEqual(len(res_sku.context["page_obj"]), 1)
+
+        res_none = self.client.get(url + "?q=NonExistentQueryXYZ")
+        self.assertEqual(res_none.status_code, 200)
+        self.assertEqual(len(res_none.context["page_obj"]), 0)
+
+    def test_add_product_get(self):
+        """Authenticated distributor GET renders add_product form."""
+        self.client.login(username="dist1_pm", password="DistPassword@123")
+        url = reverse("add_product")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "billing/add_product.html")
+        self.assertIn("form", response.context)
+
+    def test_add_product_valid_post(self):
+        """Valid product POST creates product assigned to request.user."""
+        self.client.login(username="dist1_pm", password="DistPassword@123")
+        url = reverse("add_product")
+        data = {
+            "name": "USB-C Hub",
+            "category": "Accessories",
+            "sku": "HUB-301",
+            "price": "1299.00",
+            "stock": 35,
+            "unit": "piece",
+            "gst_rate": "18.00",
+            "is_active": True,
+            "description": "7-in-1 multi-port adapter"
+        }
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 302)
+        created = Product.objects.get(sku="HUB-301")
+        self.assertEqual(created.distributor, self.distributor1)
+        self.assertEqual(created.price, Decimal("1299.00"))
+        self.assertEqual(created.stock, 35)
+
+    def test_add_product_negative_price_rejected(self):
+        """Negative price is rejected by ProductForm."""
+        self.client.login(username="dist1_pm", password="DistPassword@123")
+        url = reverse("add_product")
+        data = {
+            "name": "Negative Price Item",
+            "price": "-50.00",
+            "stock": 10,
+            "gst_rate": "18.00"
+        }
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(response.context["form"], "price", "Price must be greater than 0.")
+        self.assertFalse(Product.objects.filter(name="Negative Price Item").exists())
+
+    def test_add_product_zero_price_rejected(self):
+        """Zero price is rejected by ProductForm."""
+        self.client.login(username="dist1_pm", password="DistPassword@123")
+        url = reverse("add_product")
+        data = {
+            "name": "Zero Price Item",
+            "price": "0.00",
+            "stock": 10,
+            "gst_rate": "18.00"
+        }
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(response.context["form"], "price", "Price must be greater than 0.")
+
+    def test_add_product_negative_stock_rejected(self):
+        """Negative stock is rejected by ProductForm."""
+        self.client.login(username="dist1_pm", password="DistPassword@123")
+        url = reverse("add_product")
+        data = {
+            "name": "Negative Stock Item",
+            "price": "100.00",
+            "stock": -5,
+            "gst_rate": "18.00"
+        }
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(response.context["form"], "stock", "Ensure this value is greater than or equal to 0.")
+
+    def test_edit_product_get_and_post(self):
+        """Edit product view renders edit form and successfully updates product."""
+        self.client.login(username="dist1_pm", password="DistPassword@123")
+        url = reverse("edit_product", kwargs={"pk": self.product1.pk})
+
+        # GET
+        get_res = self.client.get(url)
+        self.assertEqual(get_res.status_code, 200)
+        self.assertTemplateUsed(get_res, "billing/edit_product.html")
+
+        # POST
+        data = {
+            "name": "Wireless Mouse Enhanced",
+            "category": "Peripherals",
+            "sku": "WM-100",
+            "price": "549.00",
+            "stock": 60,
+            "unit": "piece",
+            "gst_rate": "18.00",
+            "is_active": True
+        }
+        post_res = self.client.post(url, data)
+        self.assertEqual(post_res.status_code, 302)
+        self.product1.refresh_from_db()
+        self.assertEqual(self.product1.name, "Wireless Mouse Enhanced")
+        self.assertEqual(self.product1.price, Decimal("549.00"))
+        self.assertEqual(self.product1.stock, 60)
+
+    def test_edit_product_distributor_isolation_404(self):
+        """Distributor 1 cannot edit Distributor 2's product."""
+        self.client.login(username="dist1_pm", password="DistPassword@123")
+        url = reverse("edit_product", kwargs={"pk": self.product2.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+    def test_delete_unreferenced_product_success(self):
+        """Unreferenced product can be deleted via POST."""
+        self.client.login(username="dist1_pm", password="DistPassword@123")
+        url = reverse("delete_product", kwargs={"pk": self.product1.pk})
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Product.objects.filter(pk=self.product1.pk).exists())
+
+    def test_delete_product_referenced_by_invoice_protected(self):
+        """Product referenced by an invoice cannot be deleted; protected by ProtectedError."""
+        invoice = Invoice.objects.create(
+            distributor=self.distributor1,
+            customer=self.customer1,
+            invoice_number="INV-PM-PROT",
+            invoice_date=date.today(),
+            subtotal=Decimal("499.00"),
+            total_gst=Decimal("89.82"),
+            grand_total=Decimal("588.82")
+        )
+        InvoiceItem.objects.create(
+            invoice=invoice,
+            product=self.product1,
+            product_name=self.product1.name,
+            quantity=1,
+            unit_price=self.product1.price,
+            gst_rate=self.product1.gst_rate,
+            taxable_amount=Decimal("499.00"),
+            gst_amount=Decimal("89.82"),
+            line_total=Decimal("588.82")
+        )
+
+        self.client.login(username="dist1_pm", password="DistPassword@123")
+        url = reverse("delete_product", kwargs={"pk": self.product1.pk})
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Product.objects.filter(pk=self.product1.pk).exists())
+
+    def test_product_details_json_endpoint(self):
+        """GET /distributor/products/<pk>/details/ returns product JSON metadata."""
+        self.client.login(username="dist1_pm", password="DistPassword@123")
+        url = reverse("billing_product_details", kwargs={"pk": self.product1.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["id"], self.product1.pk)
+        self.assertEqual(data["name"], "Wireless Mouse")
+        self.assertEqual(data["price"], "499.00")
+        self.assertEqual(data["stock"], 50)
+        self.assertEqual(data["unit"], "piece")
+        self.assertTrue(data["is_active"])
+
+    def test_product_details_isolation_404(self):
+        """Distributor 1 cannot fetch details of Distributor 2's product."""
+        self.client.login(username="dist1_pm", password="DistPassword@123")
+        url = reverse("billing_product_details", kwargs={"pk": self.product2.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+    def test_product_details_unauthorized_user_403(self):
+        """Non-distributor user accessing product details receives 403 JSON."""
+        self.client.login(username="regular_pm", password="RegularPassword@123")
+        url = reverse("billing_product_details", kwargs={"pk": self.product1.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json(), {"error": "Unauthorized"})
 
