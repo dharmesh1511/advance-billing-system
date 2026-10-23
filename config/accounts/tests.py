@@ -2108,6 +2108,7 @@ class AdminReportsAccessAndSecurityTests(TestCase):
         self.client = Client()
         self.reports_url = reverse("admin_reports")
         self.export_url = reverse("admin_reports_export_csv")
+        self.export_pdf_url = reverse("admin_reports_export_pdf")
 
         # Staff Admin User
         self.staff_admin = User.objects.create_user(
@@ -2159,6 +2160,12 @@ class AdminReportsAccessAndSecurityTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn("/admin/login/", response.url)
 
+    def test_unauthenticated_user_cannot_export_pdf(self):
+        """Unauthenticated visitor cannot export PDF reports."""
+        response = self.client.get(self.export_pdf_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/admin/login/", response.url)
+
     def test_distributor_user_denied_access_to_reports(self):
         """Distributor user without staff flag is rejected with redirect to login."""
         self.client.login(username="dist_reports_user", password="DistPassword@123")
@@ -2170,6 +2177,13 @@ class AdminReportsAccessAndSecurityTests(TestCase):
         """Distributor user without staff flag cannot access CSV export."""
         self.client.login(username="dist_reports_user", password="DistPassword@123")
         response = self.client.get(self.export_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/admin/login/", response.url)
+
+    def test_distributor_user_cannot_export_pdf(self):
+        """Distributor user without staff flag cannot access PDF export."""
+        self.client.login(username="dist_reports_user", password="DistPassword@123")
+        response = self.client.get(self.export_pdf_url)
         self.assertEqual(response.status_code, 302)
         self.assertIn("/admin/login/", response.url)
 
@@ -2189,6 +2203,8 @@ class AdminReportsAccessAndSecurityTests(TestCase):
         self.assertContains(response, "Generate Invoice Report")
         self.assertContains(response, "Report Filters")
         self.assertContains(response, "Export Report (CSV)")
+        self.assertContains(response, "Download PDF")
+        self.assertContains(response, self.export_pdf_url)
 
     def test_superuser_can_access_reports_dashboard(self):
         """Superuser successfully accesses reports dashboard (200 OK)."""
@@ -2214,6 +2230,7 @@ class AdminReportsDataAndFilteringTests(TestCase):
         self.client = Client()
         self.reports_url = reverse("admin_reports")
         self.export_url = reverse("admin_reports_export_csv")
+        self.export_pdf_url = reverse("admin_reports_export_pdf")
 
         # Staff Admin
         self.admin = User.objects.create_user(
@@ -2638,6 +2655,59 @@ class AdminReportsDataAndFilteringTests(TestCase):
         self.assertEqual(ctx["amount_collected"], Decimal("0.00"))
         self.assertContains(response, ">0<")
         self.assertContains(response, "₹0.00")
+
+    def test_pdf_export_invoices_returns_pdf_response(self):
+        """PDF export returns application/pdf with valid PDF header and attachment filename."""
+        response = self.client.get(self.export_pdf_url + "?filter=all_time")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn("invoices_report_", response["Content-Disposition"])
+        self.assertTrue(response["Content-Disposition"].endswith('.pdf"'))
+        # PDF files begin with %PDF magic bytes
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_pdf_export_with_date_range_filename_and_content(self):
+        """PDF export with start_date and end_date sets date-ranged filename and generates valid PDF."""
+        yesterday = date.today() - timedelta(days=1)
+        today = date.today()
+        start_str = yesterday.strftime("%Y-%m-%d")
+        end_str = today.strftime("%Y-%m-%d")
+
+        response = self.client.get(f"{self.export_pdf_url}?start_date={start_str}&end_date={end_str}")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        expected_filename = f'attachment; filename="invoices_report_{start_str}_to_{end_str}.pdf"'
+        self.assertEqual(response["Content-Disposition"], expected_filename)
+        self.assertTrue(response.content.startswith(b"%PDF"))
+        # Verify non-trivial PDF size (> 1KB)
+        self.assertGreater(len(response.content), 1000)
+
+    def test_pdf_export_empty_date_range(self):
+        """PDF export when no invoices match generates a clean PDF with empty state message."""
+        future_start = (date.today() + timedelta(days=90)).strftime("%Y-%m-%d")
+        future_end = (date.today() + timedelta(days=95)).strftime("%Y-%m-%d")
+
+        response = self.client.get(f"{self.export_pdf_url}?start_date={future_start}&end_date={future_end}")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_pdf_export_with_status_filter_pending_yields_zero_invoices(self):
+        """PDF export with status=pending yields zero invoices in generated PDF."""
+        response = self.client.get(f"{self.export_pdf_url}?status=pending")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_pdf_export_invalid_date_range_handled_gracefully(self):
+        """When start_date > end_date, PDF generation handles it safely without crashing."""
+        today_str = date.today().strftime("%Y-%m-%d")
+        past_str = (date.today() - timedelta(days=10)).strftime("%Y-%m-%d")
+        response = self.client.get(f"{self.export_pdf_url}?start_date={today_str}&end_date={past_str}")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
 
 
 

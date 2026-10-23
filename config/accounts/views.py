@@ -1,6 +1,8 @@
 import csv
 import json
+import logging
 import secrets
+from io import BytesIO
 from decimal import Decimal
 from datetime import datetime, date, timedelta
 from django.contrib import messages
@@ -14,10 +16,15 @@ from django.db.models import Sum, Count, Avg, F, Q, Value, DecimalField
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect
+from django.template.loader import render_to_string
 from django.utils import timezone
+from xhtml2pdf import pisa
 from .models import OTPVerification, DistributorProfile
 from .forms import DistributorRegistrationForm, DistributorProfileUpdateForm
 from billing.models import Customer, Product, Invoice, InvoiceItem
+from billing.utils import link_callback
+
+logger = logging.getLogger(__name__)
 
 
 def is_distributor(user):
@@ -670,10 +677,119 @@ def admin_reports_export_csv(request):
     return response
 
 
+@login_required(login_url="/admin/login/")
+def admin_reports_export_pdf(request):
+    """
+    Exports filtered invoice reports data to PDF using xhtml2pdf.pisa.CreatePDF.
+    Reuses date validation, invoice filtering, and summary calculations.
+    Returns HTTP response with application/pdf and Content-Disposition attachment.
+    """
+    if not request.user.is_staff:
+        messages.error(request, "Access denied. Admin privileges required.")
+        return redirect("admin_login")
 
-# =========================
-# DISTRIBUTOR DASHBOARD
-# =========================
+    filter_preset, start_date, end_date, field_errors, raw_start, raw_end = parse_date_filters(request)
+    status_filter = request.GET.get("status", "all").strip().lower()
+
+    distributor_id_str = request.GET.get("distributor_id", "").strip()
+    selected_distributor = None
+    if distributor_id_str:
+        try:
+            selected_distributor = User.objects.get(id=int(distributor_id_str))
+        except (ValueError, User.DoesNotExist):
+            selected_distributor = None
+
+    invoices_qs = (
+        Invoice.objects.select_related("customer", "distributor", "distributor__distributor_profile")
+        .order_by("-invoice_date", "-created_at")
+    )
+    if field_errors:
+        invoices_qs = Invoice.objects.none()
+    else:
+        if start_date:
+            invoices_qs = invoices_qs.filter(invoice_date__gte=start_date)
+        if end_date:
+            invoices_qs = invoices_qs.filter(invoice_date__lte=end_date)
+        if selected_distributor:
+            invoices_qs = invoices_qs.filter(distributor=selected_distributor)
+        if status_filter == "pending":
+            invoices_qs = invoices_qs.none()
+
+    # Human-readable report period label
+    if start_date and end_date:
+        if start_date == end_date:
+            report_period_label = start_date.strftime("%d %b %Y")
+        else:
+            report_period_label = f"{start_date.strftime('%d %b %Y')} to {end_date.strftime('%d %b %Y')}"
+    elif start_date:
+        report_period_label = f"From {start_date.strftime('%d %b %Y')}"
+    elif end_date:
+        report_period_label = f"Up to {end_date.strftime('%d %b %Y')}"
+    else:
+        report_period_label = "All Time"
+
+    # Aggregates
+    invoice_aggregates = invoices_qs.aggregate(
+        total_sales=Coalesce(Sum("grand_total"), Value(Decimal("0.00"))),
+        total_subtotal=Coalesce(Sum("subtotal"), Value(Decimal("0.00"))),
+        total_gst=Coalesce(Sum("total_gst"), Value(Decimal("0.00"))),
+        total_invoices=Count("id", distinct=True)
+    )
+    total_sales = invoice_aggregates["total_sales"]
+    total_invoices = invoice_aggregates["total_invoices"]
+    amount_collected = total_sales if status_filter != "pending" else Decimal("0.00")
+    total_subtotal = invoice_aggregates["total_subtotal"]
+    total_gst = invoice_aggregates["total_gst"]
+    avg_invoice_value = (total_sales / total_invoices) if total_invoices > 0 else Decimal("0.00")
+
+    timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
+    if start_date and end_date:
+        date_filename_part = f"{start_date.strftime('%Y-%m-%d')}_to_{end_date.strftime('%Y-%m-%d')}"
+    elif start_date:
+        date_filename_part = f"from_{start_date.strftime('%Y-%m-%d')}"
+    elif end_date:
+        date_filename_part = f"until_{end_date.strftime('%Y-%m-%d')}"
+    else:
+        date_filename_part = f"all_time_{timestamp}"
+
+    context = {
+        "report_period_label": report_period_label,
+        "start_date": start_date,
+        "end_date": end_date,
+        "generated_at": timezone.now(),
+        "selected_distributor": selected_distributor,
+        "status_filter": status_filter,
+        "invoices": invoices_qs,
+        "total_invoices": total_invoices,
+        "total_sales": total_sales,
+        "amount_collected": amount_collected,
+        "total_subtotal": total_subtotal,
+        "total_gst": total_gst,
+        "avg_invoice_value": avg_invoice_value,
+        "has_records": total_invoices > 0,
+        "field_errors": field_errors,
+    }
+
+    try:
+        html_content = render_to_string("billing/reports/invoice_report_pdf.html", context)
+        buffer = BytesIO()
+        pdf = pisa.CreatePDF(
+            src=html_content,
+            dest=buffer,
+            encoding="utf-8",
+            link_callback=link_callback
+        )
+        if pdf.err:
+            logger.error(f"xhtml2pdf error generating invoice report PDF: {pdf.err}")
+            return HttpResponse("Error generating report PDF", status=500)
+
+        pdf_bytes = buffer.getvalue()
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="invoices_report_{date_filename_part}.pdf"'
+        return response
+    except Exception as e:
+        logger.error(f"Unexpected exception generating invoice report PDF: {e}")
+        return HttpResponse("Unable to generate PDF report at this time.", status=500)
 
 @login_required(login_url="/distributor/login/")
 def distributor_dashboard(request):

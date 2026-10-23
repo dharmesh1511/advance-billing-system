@@ -1,0 +1,372 @@
+{% load billing_tags %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice Report - {{ report_period_label }}</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 12mm 15mm 20mm 15mm;
+            @frame footer_frame {
+                -pdf-frame-content: footer_content;
+                left: 15mm;
+                width: 180mm;
+                bottom: 8mm;
+                height: 12mm;
+            }
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            color: #1e293b;
+            font-size: 8.5pt;
+            line-height: 1.35;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header-bar {
+            background-color: #1e3a8a;
+            height: 4px;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+
+        table.layout-table {
+            width: 100%;
+            margin-bottom: 12px;
+        }
+
+        table.layout-table td {
+            vertical-align: top;
+            padding: 0;
+        }
+
+        .brand-title {
+            font-size: 14pt;
+            font-weight: bold;
+            color: #1e3a8a;
+            letter-spacing: 0.5px;
+            margin: 0 0 2px 0;
+        }
+
+        .brand-subtitle {
+            font-size: 8pt;
+            color: #64748b;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .report-title {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #0f172a;
+            text-align: right;
+            margin: 0 0 4px 0;
+            letter-spacing: 0.5px;
+        }
+
+        .meta-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 8pt;
+        }
+
+        .meta-table td {
+            padding: 2px 0;
+        }
+
+        .meta-label {
+            color: #64748b;
+            font-weight: bold;
+            text-align: right;
+            padding-right: 8px;
+            width: 50%;
+        }
+
+        .meta-value {
+            color: #0f172a;
+            text-align: right;
+            width: 50%;
+        }
+
+        /* Summary Cards / Table */
+        .summary-box {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            margin-bottom: 14px;
+            padding: 8px 10px;
+        }
+
+        .summary-table {
+            width: 100%;
+        }
+
+        .summary-table td {
+            vertical-align: middle;
+            padding: 4px 8px;
+            border-right: 1px solid #e2e8f0;
+        }
+
+        .summary-table td:last-child {
+            border-right: none;
+        }
+
+        .summary-label {
+            font-size: 7.5pt;
+            color: #64748b;
+            text-transform: uppercase;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .summary-value {
+            font-size: 12pt;
+            font-weight: bold;
+            color: #0f172a;
+        }
+
+        .summary-value.text-primary {
+            color: #2563eb;
+        }
+
+        .summary-value.text-success {
+            color: #059669;
+        }
+
+        .summary-subtext {
+            font-size: 7pt;
+            color: #94a3b8;
+        }
+
+        /* Invoice Details Table */
+        .section-title {
+            font-size: 10pt;
+            font-weight: bold;
+            color: #0f172a;
+            margin: 0 0 6px 0;
+            padding-bottom: 4px;
+            border-bottom: 1.5px solid #cbd5e1;
+        }
+
+        .invoices-table {
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .invoices-table th {
+            background-color: #f1f5f9;
+            color: #334155;
+            font-size: 7.5pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            padding: 6px 4px;
+            border-bottom: 1.5px solid #cbd5e1;
+            border-top: 1px solid #cbd5e1;
+        }
+
+        .invoices-table td {
+            padding: 5px 4px;
+            font-size: 8pt;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+
+        .invoices-table tr.odd {
+            background-color: #ffffff;
+        }
+
+        .invoices-table tr.even {
+            background-color: #f8fafc;
+        }
+
+        .text-left { text-align: left; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .font-bold { font-weight: bold; }
+        .font-mono { font-family: Arial, Helvetica, sans-serif; }
+
+        .status-badge {
+            font-size: 7pt;
+            font-weight: bold;
+            color: #059669;
+            background-color: #ecfdf5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            border: 1px solid #a7f3d0;
+            display: inline-block;
+        }
+
+        .empty-message {
+            text-align: center;
+            padding: 25px 10px;
+            color: #64748b;
+            font-style: italic;
+            font-size: 9pt;
+        }
+
+        .limitation-note {
+            background-color: #eff6ff;
+            border-left: 3px solid #3b82f6;
+            padding: 5px 8px;
+            margin-top: 8px;
+            font-size: 7pt;
+            color: #475569;
+        }
+
+        /* Footer Frame */
+        #footer_content {
+            border-top: 1px solid #e2e8f0;
+            padding-top: 4px;
+            font-size: 7.5pt;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Accent Bar -->
+    <div class="header-bar"></div>
+
+    <!-- Header Layout -->
+    <table class="layout-table">
+        <tr>
+            <!-- Left: Company / System Branding -->
+            <td style="width: 50%;">
+                <div class="brand-title">Advance Billing System</div>
+                <div class="brand-subtitle">Enterprise Billing &amp; Invoicing Platform</div>
+                <div style="font-size: 7.5pt; color: #475569; margin-top: 4px;">
+                    Official Audit &amp; Performance Report<br>
+                    {% if selected_distributor %}
+                        Distributor Scope: <strong>{{ selected_distributor.distributor_profile.full_name|default:selected_distributor.username }}</strong>
+                    {% else %}
+                        Scope: <strong>Platform Wide (All Distributors)</strong>
+                    {% endif %}
+                </div>
+            </td>
+
+            <!-- Right: Document Heading & Metadata -->
+            <td style="width: 50%;">
+                <div class="report-title">INVOICE REPORT</div>
+                <table class="meta-table">
+                    <tr>
+                        <td class="meta-label">Reporting Period:</td>
+                        <td class="meta-value"><strong>{{ report_period_label }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td class="meta-label">Generated On:</td>
+                        <td class="meta-value">{{ generated_at|date:"d M Y, H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="meta-label">Status Filter:</td>
+                        <td class="meta-value">{{ status_filter|title }} Invoices</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Summary Box -->
+    <div class="summary-box">
+        <table class="summary-table">
+            <tr>
+                <td style="width: 25%; text-align: center;">
+                    <span class="summary-label">Total Invoices</span>
+                    <span class="summary-value text-primary font-mono">{{ total_invoices }}</span>
+                    <div class="summary-subtext">Issued Records</div>
+                </td>
+                <td style="width: 25%; text-align: center;">
+                    <span class="summary-label">Amount Collected</span>
+                    <span class="summary-value text-success font-mono">{{ amount_collected|inr }}</span>
+                    <div class="summary-subtext">Billed Settlements</div>
+                </td>
+                <td style="width: 25%; text-align: center;">
+                    <span class="summary-label">Taxable Subtotal</span>
+                    <span class="summary-value font-mono">{{ total_subtotal|inr }}</span>
+                    <div class="summary-subtext">Before Tax</div>
+                </td>
+                <td style="width: 25%; text-align: center;">
+                    <span class="summary-label">Total GST</span>
+                    <span class="summary-value font-mono">{{ total_gst|inr }}</span>
+                    <div class="summary-subtext">Tax Liability</div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Details Section Heading -->
+    <div class="section-title">
+        Invoice Details &amp; Transaction Log
+    </div>
+
+    <!-- Invoice Details Table -->
+    <table class="invoices-table">
+        <thead>
+            <tr>
+                <th style="width: 5%; text-align: center;">#</th>
+                <th style="width: 14%; text-align: left;">Invoice #</th>
+                <th style="width: 11%; text-align: center;">Date</th>
+                <th style="width: 19%; text-align: left;">Customer</th>
+                <th style="width: 14%; text-align: left;">Distributor</th>
+                <th style="width: 11%; text-align: right;">Subtotal</th>
+                <th style="width: 9%; text-align: right;">GST</th>
+                <th style="width: 11%; text-align: right;">Total Amount</th>
+                <th style="width: 6%; text-align: center;">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inv in invoices %}
+            <tr class="{% cycle 'odd' 'even' %}">
+                <td class="text-center font-mono">{{ forloop.counter }}</td>
+                <td class="text-left font-bold font-mono" style="color: #1e3a8a;">{{ inv.invoice_number }}</td>
+                <td class="text-center">{{ inv.invoice_date|date:"d M Y" }}</td>
+                <td class="text-left">
+                    <span class="font-bold">{{ inv.customer.name }}</span>
+                    {% if inv.customer.phone %}<div style="font-size: 7pt; color: #64748b;">{{ inv.customer.phone }}</div>{% endif %}
+                </td>
+                <td class="text-left" style="color: #475569;">
+                    {{ inv.distributor.distributor_profile.full_name|default:inv.distributor.username }}
+                </td>
+                <td class="text-right font-mono">{{ inv.subtotal|inr }}</td>
+                <td class="text-right font-mono" style="color: #64748b;">{{ inv.total_gst|inr }}</td>
+                <td class="text-right font-bold font-mono" style="color: #0f172a;">{{ inv.grand_total|inr }}</td>
+                <td class="text-center">
+                    <span class="status-badge">Finalized</span>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="9" class="empty-message">
+                    No invoices found for the selected date range.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Data Architecture & Payment Settlement Note -->
+    <div class="limitation-note">
+        <strong>Data Note:</strong> In the current database architecture, invoices are finalized upon creation.
+        Invoice totals reflect billed platform sales. Dedicated payment settlement tracking (Paid vs Pending vs Overdue installments) is not maintained in the database schema.
+    </div>
+
+    <!-- Running Page Footer Frame -->
+    <div id="footer_content">
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="text-align: left; width: 60%;">
+                    Advance Billing System &bull; Confidential Business Report &bull; Generated: {{ generated_at|date:"d M Y H:i" }}
+                </td>
+                <td style="text-align: right; width: 40%;">
+                    Page <pdf:pagenumber> of <pdf:pagecount>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+</body>
+</html>

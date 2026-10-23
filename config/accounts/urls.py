@@ -41,6 +41,7 @@ urlpatterns = [
     path("admin/dashboard/", views.admin_dashboard, name="admin_dashboard"),
     path("admin/reports/", views.admin_reports, name="admin_reports"),
     path("admin/reports/export/csv/", views.admin_reports_export_csv, name="admin_reports_export_csv"),
+    path("admin/reports/export/pdf/", views.admin_reports_export_pdf, name="admin_reports_export_pdf"),
     path("distributor/dashboard/", views.distributor_dashboard, name="distributor_dashboard"),
     path("distributor/profile/", views.distributor_profile, name="distributor_profile"),
     path("distributor/profile/edit/", views.edit_distributor_profile, name="edit_distributor_profile"),
