@@ -1,16 +1,23 @@
+import csv
+import json
 import secrets
-from datetime import timedelta
+from decimal import Decimal
+from datetime import datetime, date, timedelta
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User, Group
 from django.core.mail import send_mail
+from django.core.paginator import Paginator
 from django.db import transaction
-from django.http import JsonResponse
+from django.db.models import Sum, Count, Avg, F, Q, Value, DecimalField
+from django.db.models.functions import Coalesce
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from .models import OTPVerification, DistributorProfile
 from .forms import DistributorRegistrationForm, DistributorProfileUpdateForm
+from billing.models import Customer, Product, Invoice, InvoiceItem
 
 
 def is_distributor(user):
@@ -224,6 +231,367 @@ def admin_register_view(request):
         request,
         "adminpanel/admin_register.html"
     )
+
+
+# =========================
+# ADMIN REPORTS & EXPORT
+# =========================
+
+def parse_date_filters(request):
+    """
+    Parses date range filters from GET request.
+    Supports: 'all_time', 'today', 'last_7_days', 'this_month', 'this_year', 'custom'.
+    Returns (filter_preset, start_date, end_date, error_message).
+    """
+    filter_preset = request.GET.get("filter", "all_time").strip().lower()
+    today = timezone.localdate()
+    start_date = None
+    end_date = None
+    error_message = None
+
+    if filter_preset == "today":
+        start_date = today
+        end_date = today
+    elif filter_preset == "last_7_days":
+        start_date = today - timedelta(days=6)
+        end_date = today
+    elif filter_preset == "this_month":
+        start_date = today.replace(day=1)
+        end_date = today
+    elif filter_preset == "this_year":
+        start_date = today.replace(month=1, day=1)
+        end_date = today
+    elif filter_preset == "custom":
+        raw_start = request.GET.get("start_date", "").strip()
+        raw_end = request.GET.get("end_date", "").strip()
+        if raw_start:
+            try:
+                start_date = datetime.strptime(raw_start, "%Y-%m-%d").date()
+            except ValueError:
+                error_message = "Invalid start date format. Please use YYYY-MM-DD."
+        if raw_end:
+            try:
+                end_date = datetime.strptime(raw_end, "%Y-%m-%d").date()
+            except ValueError:
+                error_message = "Invalid end date format. Please use YYYY-MM-DD."
+
+        if start_date and end_date and start_date > end_date:
+            error_message = "Start date cannot be after end date."
+            start_date, end_date = end_date, start_date
+    else:
+        filter_preset = "all_time"
+
+    return filter_preset, start_date, end_date, error_message
+
+
+@login_required(login_url="/admin/login/")
+def admin_reports(request):
+    """
+    Dedicated Reports dashboard for authorized Admin users.
+    Displays comprehensive sales, invoices, customers, and product metrics,
+    with interactive date range filters, distributor filters, Chart.js visualizations,
+    and paginated data tables.
+    """
+    if not request.user.is_staff:
+        messages.error(request, "Access denied. Admin privileges required.")
+        return redirect("admin_login")
+
+    filter_preset, start_date, end_date, date_error = parse_date_filters(request)
+    if date_error:
+        messages.warning(request, date_error)
+
+    # Distributor filter
+    distributor_id_str = request.GET.get("distributor_id", "").strip()
+    selected_distributor = None
+    if distributor_id_str:
+        try:
+            selected_distributor = User.objects.get(id=int(distributor_id_str))
+        except (ValueError, User.DoesNotExist):
+            selected_distributor = None
+            distributor_id_str = ""
+
+    # Base querysets
+    invoices_qs = (
+        Invoice.objects.select_related("customer", "distributor", "distributor__distributor_profile")
+        .order_by("-invoice_date", "-created_at")
+    )
+
+    if start_date:
+        invoices_qs = invoices_qs.filter(invoice_date__gte=start_date)
+    if end_date:
+        invoices_qs = invoices_qs.filter(invoice_date__lte=end_date)
+    if selected_distributor:
+        invoices_qs = invoices_qs.filter(distributor=selected_distributor)
+
+    # Search filter on the invoices table
+    search_query = request.GET.get("q", "").strip()
+    table_invoices_qs = invoices_qs
+    if search_query:
+        table_invoices_qs = table_invoices_qs.filter(
+            Q(invoice_number__icontains=search_query) |
+            Q(customer__name__icontains=search_query) |
+            Q(customer__phone__icontains=search_query) |
+            Q(distributor__username__icontains=search_query) |
+            Q(distributor__distributor_profile__full_name__icontains=search_query)
+        )
+
+    # KPI Aggregations
+    invoice_aggregates = invoices_qs.aggregate(
+        total_sales=Coalesce(Sum("grand_total"), Value(Decimal("0.00"))),
+        total_subtotal=Coalesce(Sum("subtotal"), Value(Decimal("0.00"))),
+        total_gst=Coalesce(Sum("total_gst"), Value(Decimal("0.00"))),
+        total_invoices=Count("id")
+    )
+    total_sales = invoice_aggregates["total_sales"]
+    total_invoices = invoice_aggregates["total_invoices"]
+    total_subtotal = invoice_aggregates["total_subtotal"]
+    total_gst = invoice_aggregates["total_gst"]
+    avg_invoice_value = (total_sales / total_invoices) if total_invoices > 0 else Decimal("0.00")
+
+    # Catalog and customer stats
+    products_qs = Product.objects.all()
+    customers_qs = Customer.objects.all()
+    if selected_distributor:
+        products_qs = products_qs.filter(distributor=selected_distributor)
+        customers_qs = customers_qs.filter(distributor=selected_distributor)
+
+    total_products = products_qs.count()
+    active_products = products_qs.filter(is_active=True).count()
+    low_stock_products = products_qs.filter(stock__lte=5).count()
+    out_of_stock_products = products_qs.filter(stock=0).count()
+    total_customers = customers_qs.count()
+
+    # Chart 1: Daily Sales Trend
+    daily_sales_qs = (
+        invoices_qs.values("invoice_date")
+        .annotate(
+            revenue=Coalesce(Sum("grand_total"), Value(Decimal("0.00"))),
+            invoices_count=Count("id")
+        )
+        .order_by("invoice_date")
+    )
+    chart_labels = [entry["invoice_date"].strftime("%d %b %Y") for entry in daily_sales_qs]
+    chart_revenue = [float(entry["revenue"]) for entry in daily_sales_qs]
+    chart_invoices = [entry["invoices_count"] for entry in daily_sales_qs]
+
+    # Chart 2: Revenue by Distributor
+    distributor_sales_qs = (
+        invoices_qs.values("distributor_id", "distributor__username", "distributor__distributor_profile__full_name")
+        .annotate(
+            revenue=Coalesce(Sum("grand_total"), Value(Decimal("0.00"))),
+            invoices_count=Count("id")
+        )
+        .order_by("-revenue")[:6]
+    )
+    dist_labels = []
+    dist_revenue = []
+    for d in distributor_sales_qs:
+        name = d["distributor__distributor_profile__full_name"] or d["distributor__username"]
+        dist_labels.append(name)
+        dist_revenue.append(float(d["revenue"]))
+
+    # Chart 3 / Table: Top Selling Products
+    top_products_qs = (
+        InvoiceItem.objects.filter(invoice__in=invoices_qs)
+        .values("product_id", "product_name")
+        .annotate(
+            units_sold=Coalesce(Sum("quantity"), Value(0)),
+            revenue=Coalesce(Sum("line_total"), Value(Decimal("0.00")))
+        )
+        .order_by("-revenue")[:8]
+    )
+    top_product_names = [p["product_name"] for p in top_products_qs]
+    top_product_revenues = [float(p["revenue"]) for p in top_products_qs]
+    top_product_units = [p["units_sold"] for p in top_products_qs]
+
+    # Table: Top Customers
+    top_customers_qs = (
+        invoices_qs.values(
+            "customer_id",
+            "customer__name",
+            "customer__phone",
+            "customer__email",
+            "distributor__username",
+            "distributor__distributor_profile__full_name"
+        )
+        .annotate(
+            invoices_count=Count("id"),
+            total_spent=Coalesce(Sum("grand_total"), Value(Decimal("0.00")))
+        )
+        .order_by("-total_spent")[:8]
+    )
+
+    # Pagination for Invoices breakdown table
+    paginator = Paginator(table_invoices_qs, 10)
+    page_number = request.GET.get("page", 1)
+    page_obj = paginator.get_page(page_number)
+
+    # List of distributors for filter dropdown
+    distributors = (
+        User.objects.filter(Q(groups__name="Distributor") | Q(distributor_profile__isnull=False))
+        .distinct()
+        .select_related("distributor_profile")
+        .order_by("username")
+    )
+
+    context = {
+        "filter_preset": filter_preset,
+        "start_date": start_date.strftime("%Y-%m-%d") if start_date else "",
+        "end_date": end_date.strftime("%Y-%m-%d") if end_date else "",
+        "selected_distributor_id": int(distributor_id_str) if distributor_id_str else None,
+        "selected_distributor": selected_distributor,
+        "distributors": distributors,
+        "search_query": search_query,
+
+        # Metrics
+        "total_sales": total_sales,
+        "total_invoices": total_invoices,
+        "total_subtotal": total_subtotal,
+        "total_gst": total_gst,
+        "avg_invoice_value": avg_invoice_value,
+        "total_customers": total_customers,
+        "total_products": total_products,
+        "active_products": active_products,
+        "low_stock_products": low_stock_products,
+        "out_of_stock_products": out_of_stock_products,
+
+        # Tables
+        "page_obj": page_obj,
+        "top_products": top_products_qs,
+        "top_customers": top_customers_qs,
+
+        # Chart.js JSON data
+        "chart_labels_json": json.dumps(chart_labels),
+        "chart_revenue_json": json.dumps(chart_revenue),
+        "chart_invoices_json": json.dumps(chart_invoices),
+        "dist_labels_json": json.dumps(dist_labels),
+        "dist_revenue_json": json.dumps(dist_revenue),
+        "top_product_names_json": json.dumps(top_product_names),
+        "top_product_revenues_json": json.dumps(top_product_revenues),
+        "top_product_units_json": json.dumps(top_product_units),
+        "has_sales_data": total_invoices > 0,
+    }
+
+    return render(request, "adminpanel/admin_reports.html", context)
+
+
+@login_required(login_url="/admin/login/")
+def admin_reports_export_csv(request):
+    """
+    Exports filtered reports data to CSV.
+    Supported types: 'invoices' (default), 'products', 'customers'.
+    Includes formula sanitization and respects date & distributor filters.
+    """
+    if not request.user.is_staff:
+        messages.error(request, "Access denied. Admin privileges required.")
+        return redirect("admin_login")
+
+    report_type = request.GET.get("type", "invoices").strip().lower()
+    filter_preset, start_date, end_date, _ = parse_date_filters(request)
+
+    distributor_id_str = request.GET.get("distributor_id", "").strip()
+    selected_distributor = None
+    if distributor_id_str:
+        try:
+            selected_distributor = User.objects.get(id=int(distributor_id_str))
+        except (ValueError, User.DoesNotExist):
+            selected_distributor = None
+
+    invoices_qs = (
+        Invoice.objects.select_related("customer", "distributor", "distributor__distributor_profile")
+        .order_by("-invoice_date", "-created_at")
+    )
+    if start_date:
+        invoices_qs = invoices_qs.filter(invoice_date__gte=start_date)
+    if end_date:
+        invoices_qs = invoices_qs.filter(invoice_date__lte=end_date)
+    if selected_distributor:
+        invoices_qs = invoices_qs.filter(distributor=selected_distributor)
+
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
+
+    def sanitize_csv(value):
+        if value is None:
+            return ""
+        s = str(value)
+        if s and s[0] in ("=", "+", "-", "@", "\t", "\r"):
+            return "'" + s
+        return s
+
+    if report_type == "products":
+        response["Content-Disposition"] = f'attachment; filename="product_sales_report_{timestamp}.csv"'
+        writer = csv.writer(response)
+        writer.writerow(["Product Name", "Units Sold", "Total Revenue (INR)", "Distributor"])
+
+        items = (
+            InvoiceItem.objects.filter(invoice__in=invoices_qs)
+            .values("product_name", "invoice__distributor__username")
+            .annotate(
+                units_sold=Coalesce(Sum("quantity"), Value(0)),
+                total_revenue=Coalesce(Sum("line_total"), Value(Decimal("0.00")))
+            )
+            .order_by("-total_revenue")
+        )
+        for item in items:
+            writer.writerow([
+                sanitize_csv(item["product_name"]),
+                sanitize_csv(item["units_sold"]),
+                sanitize_csv(f"{item['total_revenue']:.2f}"),
+                sanitize_csv(item["invoice__distributor__username"]),
+            ])
+
+    elif report_type == "customers":
+        response["Content-Disposition"] = f'attachment; filename="customer_sales_report_{timestamp}.csv"'
+        writer = csv.writer(response)
+        writer.writerow(["Customer Name", "Phone", "Email", "Distributor", "Invoices Count", "Total Spent (INR)"])
+
+        customers = (
+            invoices_qs.values("customer_id", "customer__name", "customer__phone", "customer__email", "distributor__username")
+            .annotate(
+                inv_count=Count("id"),
+                total_spent=Coalesce(Sum("grand_total"), Value(Decimal("0.00")))
+            )
+            .order_by("-total_spent")
+        )
+        for cust in customers:
+            writer.writerow([
+                sanitize_csv(cust["customer__name"]),
+                sanitize_csv(cust["customer__phone"]),
+                sanitize_csv(cust["customer__email"] or "N/A"),
+                sanitize_csv(cust["distributor__username"]),
+                sanitize_csv(cust["inv_count"]),
+                sanitize_csv(f"{cust['total_spent']:.2f}"),
+            ])
+
+    else:  # 'invoices' default
+        response["Content-Disposition"] = f'attachment; filename="invoices_report_{timestamp}.csv"'
+        writer = csv.writer(response)
+        writer.writerow([
+            "Invoice Number",
+            "Date",
+            "Distributor",
+            "Customer Name",
+            "Customer Phone",
+            "Subtotal (INR)",
+            "Total GST (INR)",
+            "Grand Total (INR)"
+        ])
+        for inv in invoices_qs:
+            dist_profile = getattr(inv.distributor, "distributor_profile", None)
+            d_name = dist_profile.full_name if dist_profile and dist_profile.full_name else inv.distributor.username
+            writer.writerow([
+                sanitize_csv(inv.invoice_number),
+                sanitize_csv(inv.invoice_date.strftime("%Y-%m-%d") if inv.invoice_date else ""),
+                sanitize_csv(d_name),
+                sanitize_csv(inv.customer.name if inv.customer else "N/A"),
+                sanitize_csv(inv.customer.phone if inv.customer else "N/A"),
+                sanitize_csv(f"{inv.subtotal:.2f}"),
+                sanitize_csv(f"{inv.total_gst:.2f}"),
+                sanitize_csv(f"{inv.grand_total:.2f}"),
+            ])
+
+    return response
 
 
 

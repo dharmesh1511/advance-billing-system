@@ -457,3 +457,32 @@ body {
         padding: 20px;
     }
 }
+
+/* ===============================
+   Admin Reports & Analytics Styles
+   =============================== */
+.reports-container {
+    width: 100%;
+}
+
+.reports-container .card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.reports-container .table thead th {
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.reports-container .table tbody td {
+    font-size: 13.5px;
+    padding-top: 14px;
+    padding-bottom: 14px;
+}
+
+.reports-container .btn-primary-blue {
+    padding: 9px 18px;
+    font-size: 14px;
+}

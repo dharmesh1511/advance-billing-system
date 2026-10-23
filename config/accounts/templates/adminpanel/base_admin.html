@@ -37,6 +37,11 @@
                 <span>Dashboard</span>
             </a>
 
+            <a href="{% url 'admin_reports' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'admin_reports' %}active{% endif %}">
+                <i class="bi bi-bar-chart-line-fill"></i>
+                <span>Reports</span>
+            </a>
+
             {% if request.user.is_superuser or request.user.is_staff %}
             <a href="{% url 'admin_register' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'admin_register' %}active{% endif %}">
                 <i class="bi bi-person-plus-fill"></i>

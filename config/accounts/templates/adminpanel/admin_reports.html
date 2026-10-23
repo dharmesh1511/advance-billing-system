@@ -1,0 +1,762 @@
+{% extends 'adminpanel/base_admin.html' %}
+{% load static %}
+
+{% block title %}System Reports & Analytics | Advance Billing System{% endblock %}
+
+{% block page_heading %}Reports & Business Analytics{% endblock %}
+{% block page_subheading %}Comprehensive sales metrics, platform volume, catalog performance, and downloadable audit reports.{% endblock %}
+
+{% block content %}
+<div class="reports-container">
+
+    <!-- Top Filter & Control Panel -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: #ffffff;">
+        <div class="card-body p-4">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 pb-3 border-bottom">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill fw-semibold fs-6">
+                        <i class="bi bi-funnel-fill me-1"></i> Report Filters
+                    </span>
+                    {% if filter_preset != 'all_time' or selected_distributor %}
+                        <span class="badge bg-light text-secondary border px-3 py-2 rounded-pill small">
+                            <i class="bi bi-clock-history me-1"></i> Active Filter: <strong class="text-dark">{{ filter_preset|title }}</strong>
+                            {% if selected_distributor %} | Distributor: <strong class="text-dark">{{ selected_distributor.username }}</strong>{% endif %}
+                        </span>
+                    {% endif %}
+                </div>
+
+                <!-- Export CSV Dropdown -->
+                <div class="dropdown">
+                    <button class="btn btn-primary-blue dropdown-toggle" type="button" id="exportMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-download me-1"></i> Export Report (CSV)
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3" aria-labelledby="exportMenuButton">
+                        <li>
+                            <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{% url 'admin_reports_export_csv' %}?type=invoices&filter={{ filter_preset }}&start_date={{ start_date }}&end_date={{ end_date }}&distributor_id={{ selected_distributor_id|default:'' }}">
+                                <i class="bi bi-file-earmark-spreadsheet text-primary"></i> Export Invoices CSV
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{% url 'admin_reports_export_csv' %}?type=products&filter={{ filter_preset }}&start_date={{ start_date }}&end_date={{ end_date }}&distributor_id={{ selected_distributor_id|default:'' }}">
+                                <i class="bi bi-box-seam text-success"></i> Export Product Sales CSV
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{% url 'admin_reports_export_csv' %}?type=customers&filter={{ filter_preset }}&start_date={{ start_date }}&end_date={{ end_date }}&distributor_id={{ selected_distributor_id|default:'' }}">
+                                <i class="bi bi-people text-info"></i> Export Customer Spend CSV
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Filter Presets Form -->
+            <form method="GET" action="{% url 'admin_reports' %}" class="row g-3 align-items-end" id="reportsFilterForm">
+                <!-- Preset Pills -->
+                <div class="col-12 mb-2">
+                    <label class="form-label text-muted small fw-bold mb-2">Quick Date Ranges</label>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{% url 'admin_reports' %}?filter=all_time{% if selected_distributor_id %}&distributor_id={{ selected_distributor_id }}{% endif %}"
+                           class="btn btn-sm {% if filter_preset == 'all_time' %}btn-primary text-white fw-bold{% else %}btn-outline-secondary bg-white{% endif %} rounded-pill px-3 py-1">
+                            All Time
+                        </a>
+                        <a href="{% url 'admin_reports' %}?filter=today{% if selected_distributor_id %}&distributor_id={{ selected_distributor_id }}{% endif %}"
+                           class="btn btn-sm {% if filter_preset == 'today' %}btn-primary text-white fw-bold{% else %}btn-outline-secondary bg-white{% endif %} rounded-pill px-3 py-1">
+                            Today
+                        </a>
+                        <a href="{% url 'admin_reports' %}?filter=last_7_days{% if selected_distributor_id %}&distributor_id={{ selected_distributor_id }}{% endif %}"
+                           class="btn btn-sm {% if filter_preset == 'last_7_days' %}btn-primary text-white fw-bold{% else %}btn-outline-secondary bg-white{% endif %} rounded-pill px-3 py-1">
+                            Last 7 Days
+                        </a>
+                        <a href="{% url 'admin_reports' %}?filter=this_month{% if selected_distributor_id %}&distributor_id={{ selected_distributor_id }}{% endif %}"
+                           class="btn btn-sm {% if filter_preset == 'this_month' %}btn-primary text-white fw-bold{% else %}btn-outline-secondary bg-white{% endif %} rounded-pill px-3 py-1">
+                            This Month
+                        </a>
+                        <a href="{% url 'admin_reports' %}?filter=this_year{% if selected_distributor_id %}&distributor_id={{ selected_distributor_id }}{% endif %}"
+                           class="btn btn-sm {% if filter_preset == 'this_year' %}btn-primary text-white fw-bold{% else %}btn-outline-secondary bg-white{% endif %} rounded-pill px-3 py-1">
+                            This Year
+                        </a>
+                        <button type="button" id="customRangeToggle" class="btn btn-sm {% if filter_preset == 'custom' %}btn-primary text-white fw-bold{% else %}btn-outline-secondary bg-white{% endif %} rounded-pill px-3 py-1">
+                            <i class="bi bi-calendar-range me-1"></i> Custom Range
+                        </button>
+                    </div>
+                </div>
+
+                <input type="hidden" name="filter" id="filterPresetInput" value="{{ filter_preset }}">
+
+                <!-- Custom Date Inputs -->
+                <div class="col-md-3" id="startDateCol" style="{% if filter_preset != 'custom' %}display: none;{% endif %}">
+                    <label class="form-label text-muted small fw-bold mb-1">Start Date</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-calendar"></i></span>
+                        <input type="date" name="start_date" id="id_start_date" class="form-control border-start-0" value="{{ start_date }}">
+                    </div>
+                </div>
+
+                <div class="col-md-3" id="endDateCol" style="{% if filter_preset != 'custom' %}display: none;{% endif %}">
+                    <label class="form-label text-muted small fw-bold mb-1">End Date</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-calendar-check"></i></span>
+                        <input type="date" name="end_date" id="id_end_date" class="form-control border-start-0" value="{{ end_date }}">
+                    </div>
+                </div>
+
+                <!-- Distributor Selector -->
+                <div class="col-md-4">
+                    <label class="form-label text-muted small fw-bold mb-1">Filter by Distributor</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-shop"></i></span>
+                        <select name="distributor_id" class="form-select border-start-0" id="id_distributor_id">
+                            <option value="">All Distributors (Platform Wide)</option>
+                            {% for dist in distributors %}
+                                <option value="{{ dist.id }}" {% if selected_distributor_id == dist.id %}selected{% endif %}>
+                                    {{ dist.distributor_profile.full_name|default:dist.username }} ({{ dist.email }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary w-100 fw-semibold">
+                        <i class="bi bi-check-lg me-1"></i> Apply
+                    </button>
+                    <a href="{% url 'admin_reports' %}" class="btn btn-light border text-muted px-3" title="Reset Filters">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Summary KPI Cards -->
+    <div class="row g-3 mb-4">
+        <!-- Total Sales -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-3" style="background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%); border-left: 4px solid #10b981 !important;">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted fw-bold small text-uppercase">Total Sales</span>
+                    <div class="p-2 rounded-3 text-success bg-success bg-opacity-10 fs-4">
+                        <i class="bi bi-currency-rupee"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bold mb-1 text-dark">₹{{ total_sales|floatformat:2 }}</h3>
+                <div class="small text-muted d-flex align-items-center gap-1">
+                    <span>Taxable: <strong>₹{{ total_subtotal|floatformat:2 }}</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Invoices -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-3" style="background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%); border-left: 4px solid #2563eb !important;">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted fw-bold small text-uppercase">Total Invoices</span>
+                    <div class="p-2 rounded-3 text-primary bg-primary bg-opacity-10 fs-4">
+                        <i class="bi bi-receipt"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bold mb-1 text-dark">{{ total_invoices }}</h3>
+                <div class="small text-muted">
+                    <span>Avg Invoice Value: <strong>₹{{ avg_invoice_value|floatformat:2 }}</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- GST Collected -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-3" style="background: linear-gradient(135deg, #ffffff 0%, #faf5ff 100%); border-left: 4px solid #8b5cf6 !important;">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted fw-bold small text-uppercase">GST Collected</span>
+                    <div class="p-2 rounded-3 text-purple bg-opacity-10 fs-4" style="color: #8b5cf6; background: rgba(139, 92, 246, 0.1);">
+                        <i class="bi bi-percent"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bold mb-1 text-dark">₹{{ total_gst|floatformat:2 }}</h3>
+                <div class="small text-muted">
+                    <span>Total Tax Liability recorded</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Customers & Products -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-3" style="background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%); border-left: 4px solid #f59e0b !important;">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted fw-bold small text-uppercase">Catalog & Clients</span>
+                    <div class="p-2 rounded-3 text-warning bg-warning bg-opacity-10 fs-4">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                </div>
+                <div class="d-flex align-items-baseline gap-3 mb-1">
+                    <h4 class="fw-bold mb-0 text-dark">{{ total_customers }} <span class="fs-6 fw-normal text-muted">Customers</span></h4>
+                    <h4 class="fw-bold mb-0 text-dark">{{ total_products }} <span class="fs-6 fw-normal text-muted">Products</span></h4>
+                </div>
+                <div class="small text-muted">
+                    <span>Active: <strong>{{ active_products }}</strong> | Low Stock: <strong class="text-danger">{{ low_stock_products }}</strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Outstanding Payments Note Card -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: #ffffff; border-left: 4px solid #3b82f6 !important;">
+        <div class="card-body p-3 d-flex align-items-center justify-content-between flex-wrap gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="p-2 bg-info bg-opacity-10 text-info rounded-circle fs-4">
+                    <i class="bi bi-info-circle-fill"></i>
+                </div>
+                <div>
+                    <h6 class="fw-bold mb-0 text-dark">Payment Status & Settlement Tracking</h6>
+                    <p class="text-muted small mb-0">
+                        In the current database architecture, invoices are finalized upon creation. Dedicated payment settlement tracking (Paid vs Pending vs Overdue) is not yet supported in the database schema. All invoice amounts reflect billed platform sales.
+                    </p>
+                </div>
+            </div>
+            <div>
+                <span class="badge bg-secondary bg-opacity-10 text-secondary border px-3 py-2 rounded-pill small">
+                    <i class="bi bi-shield-check me-1"></i> Data-Accurate Reporting
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Visualizations Section -->
+    <div class="row g-4 mb-4">
+        <!-- Chart 1: Sales & Revenue Trend -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-4" style="background: #ffffff;">
+                <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-0"><i class="bi bi-graph-up text-primary me-2"></i>Sales & Invoicing Trend</h5>
+                        <small class="text-muted">Total billing revenue and invoice issuance over time</small>
+                    </div>
+                </div>
+                {% if has_sales_data %}
+                    <div style="position: relative; height: 320px; width: 100%;">
+                        <canvas id="salesTrendChart"></canvas>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-bar-chart-line text-muted fs-1 d-block mb-3 opacity-50"></i>
+                        <h6 class="fw-bold text-secondary">No Sales Records Found</h6>
+                        <p class="text-muted small mb-0">There are no invoices recorded for the selected filter range.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Chart 2: Revenue by Distributor -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-4" style="background: #ffffff;">
+                <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-0"><i class="bi bi-pie-chart text-success me-2"></i>Distributor Share</h5>
+                        <small class="text-muted">Revenue contribution by distributor</small>
+                    </div>
+                </div>
+                {% if has_sales_data %}
+                    <div style="position: relative; height: 320px; width: 100%;">
+                        <canvas id="distributorShareChart"></canvas>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-pie-chart text-muted fs-1 d-block mb-3 opacity-50"></i>
+                        <h6 class="fw-bold text-secondary">No Distribution Data</h6>
+                        <p class="text-muted small mb-0">No distributor sales found for this period.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Chart 3: Top Selling Products -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-4" style="background: #ffffff;">
+                <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-0"><i class="bi bi-trophy text-warning me-2"></i>Top Selling Products</h5>
+                        <small class="text-muted">Highest grossing products across invoices</small>
+                    </div>
+                </div>
+                {% if top_products %}
+                    <div style="position: relative; height: 260px; width: 100%;">
+                        <canvas id="topProductsChart"></canvas>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-box-seam text-muted fs-2 d-block mb-2 opacity-50"></i>
+                        <span class="text-muted small">No product sales in the selected period.</span>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Inventory Health Breakdown -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-4" style="background: #ffffff;">
+                <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-0"><i class="bi bi-boxes text-info me-2"></i>Catalog & Stock Status</h5>
+                        <small class="text-muted">Active products and inventory safety levels</small>
+                    </div>
+                </div>
+                <div class="row g-3 py-2">
+                    <div class="col-6">
+                        <div class="p-3 rounded-3 bg-light border text-center">
+                            <span class="text-muted small fw-semibold d-block">Active Products</span>
+                            <span class="fs-3 fw-bold text-primary">{{ active_products }}</span>
+                            <span class="d-block small text-muted">of {{ total_products }} total</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-3 rounded-3 bg-light border text-center">
+                            <span class="text-muted small fw-semibold d-block">Low Stock Alert</span>
+                            <span class="fs-3 fw-bold text-warning">{{ low_stock_products }}</span>
+                            <span class="d-block small text-muted">&le; 5 units remaining</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-3 rounded-3 bg-light border text-center">
+                            <span class="text-muted small fw-semibold d-block">Out of Stock</span>
+                            <span class="fs-3 fw-bold text-danger">{{ out_of_stock_products }}</span>
+                            <span class="d-block small text-muted">0 units available</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-3 rounded-3 bg-light border text-center">
+                            <span class="text-muted small fw-semibold d-block">Registered Clients</span>
+                            <span class="fs-3 fw-bold text-success">{{ total_customers }}</span>
+                            <span class="d-block small text-muted">Customer base</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Tables Section -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: #ffffff;">
+        <div class="card-header bg-transparent border-bottom p-4">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1"><i class="bi bi-table text-primary me-2"></i>Invoices Breakdown & Audit Log</h5>
+                    <p class="text-muted small mb-0">Detailed list of billing transactions matching the current filters.</p>
+                </div>
+                <!-- Search In Table Form -->
+                <form method="GET" action="{% url 'admin_reports' %}" class="d-flex gap-2">
+                    <input type="hidden" name="filter" value="{{ filter_preset }}">
+                    <input type="hidden" name="start_date" value="{{ start_date }}">
+                    <input type="hidden" name="end_date" value="{{ end_date }}">
+                    {% if selected_distributor_id %}<input type="hidden" name="distributor_id" value="{{ selected_distributor_id }}">{% endif %}
+                    <div class="input-group input-group-sm" style="max-width: 280px;">
+                        <input type="text" name="q" class="form-control" placeholder="Search invoice, customer, distributor..." value="{{ search_query }}">
+                        <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i></button>
+                    </div>
+                    {% if search_query %}
+                        <a href="{% url 'admin_reports' %}?filter={{ filter_preset }}&start_date={{ start_date }}&end_date={{ end_date }}{% if selected_distributor_id %}&distributor_id={{ selected_distributor_id }}{% endif %}" class="btn btn-sm btn-outline-secondary" title="Clear search">
+                            <i class="bi bi-x"></i>
+                        </a>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-muted small text-uppercase">
+                        <tr>
+                            <th class="ps-4">Invoice #</th>
+                            <th>Date</th>
+                            <th>Distributor</th>
+                            <th>Customer</th>
+                            <th>Phone</th>
+                            <th class="text-end">Taxable Subtotal</th>
+                            <th class="text-end">GST</th>
+                            <th class="text-end pe-4">Grand Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for invoice in page_obj %}
+                        <tr>
+                            <td class="ps-4 fw-bold text-primary font-monospace">
+                                {{ invoice.invoice_number }}
+                            </td>
+                            <td>
+                                {{ invoice.invoice_date|date:"d M Y" }}
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border">
+                                    {{ invoice.distributor.distributor_profile.full_name|default:invoice.distributor.username }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="fw-semibold text-dark">{{ invoice.customer.name }}</span>
+                            </td>
+                            <td class="small text-muted">
+                                {{ invoice.customer.phone|default:"-" }}
+                            </td>
+                            <td class="text-end font-monospace">
+                                ₹{{ invoice.subtotal|floatformat:2 }}
+                            </td>
+                            <td class="text-end font-monospace text-muted">
+                                ₹{{ invoice.total_gst|floatformat:2 }}
+                            </td>
+                            <td class="text-end pe-4 font-monospace fw-bold text-dark">
+                                ₹{{ invoice.grand_total|floatformat:2 }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5">
+                                <i class="bi bi-inbox text-muted fs-1 d-block mb-3 opacity-50"></i>
+                                <h6 class="fw-bold text-secondary">No Invoices Found</h6>
+                                <p class="text-muted small mb-0">No billing records match the current filter criteria.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+            <div class="p-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <span class="small text-muted">
+                    Showing page <strong>{{ page_obj.number }}</strong> of <strong>{{ page_obj.paginator.num_pages }}</strong> ({{ page_obj.paginator.count }} total records)
+                </span>
+                <nav>
+                    <ul class="pagination pagination-sm mb-0">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="{% url 'admin_reports' %}?page={{ page_obj.previous_page_number }}&filter={{ filter_preset }}&start_date={{ start_date }}&end_date={{ end_date }}&distributor_id={{ selected_distributor_id|default:'' }}&q={{ search_query }}">
+                                &laquo; Previous
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_obj.number }}</span>
+                        </li>
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{% url 'admin_reports' %}?page={{ page_obj.next_page_number }}&filter={{ filter_preset }}&start_date={{ start_date }}&end_date={{ end_date }}&distributor_id={{ selected_distributor_id|default:'' }}&q={{ search_query }}">
+                                Next &raquo;
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Secondary Insights: Top Products & Top Customers Grids -->
+    <div class="row g-4">
+        <!-- Top Products Table -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 p-4 h-100" style="background: #ffffff;">
+                <h6 class="fw-bold text-dark mb-3 pb-2 border-bottom">
+                    <i class="bi bi-trophy-fill text-warning me-2"></i>Top Products by Revenue
+                </h6>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light small text-uppercase">
+                            <tr>
+                                <th>Product</th>
+                                <th class="text-center">Units Sold</th>
+                                <th class="text-end">Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in top_products %}
+                            <tr>
+                                <td class="fw-semibold text-dark">{{ item.product_name }}</td>
+                                <td class="text-center"><span class="badge bg-secondary bg-opacity-10 text-dark">{{ item.units_sold }}</span></td>
+                                <td class="text-end font-monospace fw-bold text-success">₹{{ item.revenue|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center py-3 text-muted small">No product sales in this period.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Customers Table -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 p-4 h-100" style="background: #ffffff;">
+                <h6 class="fw-bold text-dark mb-3 pb-2 border-bottom">
+                    <i class="bi bi-star-fill text-primary me-2"></i>Top Customers by Volume
+                </h6>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light small text-uppercase">
+                            <tr>
+                                <th>Customer</th>
+                                <th>Distributor</th>
+                                <th class="text-center">Invoices</th>
+                                <th class="text-end">Total Spent</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cust in top_customers %}
+                            <tr>
+                                <td>
+                                    <span class="fw-semibold text-dark d-block">{{ cust.customer__name }}</span>
+                                    <small class="text-muted">{{ cust.customer__phone|default:cust.customer__email|default:"" }}</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark border">{{ cust.distributor__distributor_profile__full_name|default:cust.distributor__username }}</span>
+                                </td>
+                                <td class="text-center"><span class="badge bg-primary bg-opacity-10 text-primary">{{ cust.invoices_count }}</span></td>
+                                <td class="text-end font-monospace fw-bold text-dark">₹{{ cust.total_spent|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-3 text-muted small">No customer transactions in this period.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js 4.4.4 Library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // Toggle Custom Range Inputs
+    const customRangeToggle = document.getElementById("customRangeToggle");
+    const startDateCol = document.getElementById("startDateCol");
+    const endDateCol = document.getElementById("endDateCol");
+    const filterPresetInput = document.getElementById("filterPresetInput");
+
+    if (customRangeToggle) {
+        customRangeToggle.addEventListener("click", function () {
+            if (startDateCol.style.display === "none") {
+                startDateCol.style.display = "block";
+                endDateCol.style.display = "block";
+                filterPresetInput.value = "custom";
+                customRangeToggle.classList.remove("btn-outline-secondary", "bg-white");
+                customRangeToggle.classList.add("btn-primary", "text-white", "fw-bold");
+            } else {
+                startDateCol.style.display = "none";
+                endDateCol.style.display = "none";
+                filterPresetInput.value = "all_time";
+                customRangeToggle.classList.add("btn-outline-secondary", "bg-white");
+                customRangeToggle.classList.remove("btn-primary", "text-white", "fw-bold");
+            }
+        });
+    }
+
+    // Chart.js Default Palette
+    const primaryColor = "#2563eb";
+    const primaryLight = "rgba(37, 99, 235, 0.1)";
+    const successColor = "#10b981";
+    const warningColor = "#f59e0b";
+    const purpleColor = "#8b5cf6";
+    const cyanColor = "#06b6d4";
+
+    // 1. Sales Trend Chart
+    const salesLabels = {{ chart_labels_json|safe }};
+    const salesRevenue = {{ chart_revenue_json|safe }};
+    const salesCounts = {{ chart_invoices_json|safe }};
+
+    const salesCanvas = document.getElementById("salesTrendChart");
+    if (salesCanvas && salesLabels.length > 0) {
+        new Chart(salesCanvas, {
+            type: "line",
+            data: {
+                labels: salesLabels,
+                datasets: [
+                    {
+                        label: "Revenue (₹)",
+                        data: salesRevenue,
+                        borderColor: primaryColor,
+                        backgroundColor: primaryLight,
+                        fill: true,
+                        tension: 0.35,
+                        yAxisID: "y",
+                        borderWidth: 2.5,
+                        pointBackgroundColor: primaryColor,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                    },
+                    {
+                        label: "Invoices Count",
+                        data: salesCounts,
+                        borderColor: successColor,
+                        backgroundColor: "rgba(16, 185, 129, 0.2)",
+                        type: "bar",
+                        yAxisID: "y1",
+                        borderRadius: 4,
+                        barThickness: 16,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: "index",
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        position: "top",
+                        labels: { font: { family: "Inter", size: 12, weight: 600 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                if (context.dataset.yAxisID === "y") {
+                                    return " Revenue: ₹" + Number(context.raw).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                                } else {
+                                    return " Invoices: " + context.raw;
+                                }
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { family: "Inter", size: 11 } }
+                    },
+                    y: {
+                        type: "linear",
+                        display: true,
+                        position: "left",
+                        grid: { color: "#f1f5f9" },
+                        ticks: {
+                            font: { family: "Inter", size: 11 },
+                            callback: function (val) { return "₹" + val; }
+                        }
+                    },
+                    y1: {
+                        type: "linear",
+                        display: true,
+                        position: "right",
+                        grid: { drawOnChartArea: false },
+                        ticks: {
+                            font: { family: "Inter", size: 11 },
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 2. Distributor Revenue Doughnut Chart
+    const distLabels = {{ dist_labels_json|safe }};
+    const distRevenue = {{ dist_revenue_json|safe }};
+
+    const distCanvas = document.getElementById("distributorShareChart");
+    if (distCanvas && distLabels.length > 0) {
+        new Chart(distCanvas, {
+            type: "doughnut",
+            data: {
+                labels: distLabels,
+                datasets: [{
+                    data: distRevenue,
+                    backgroundColor: [
+                        primaryColor,
+                        successColor,
+                        warningColor,
+                        purpleColor,
+                        cyanColor,
+                        "#ec4899"
+                    ],
+                    borderWidth: 2,
+                    borderColor: "#ffffff"
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: "bottom",
+                        labels: { font: { family: "Inter", size: 11 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                const val = context.raw || 0;
+                                return " " + context.label + ": ₹" + Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                            }
+                        }
+                    }
+                },
+                cutout: "65%"
+            }
+        });
+    }
+
+    // 3. Top Selling Products Horizontal Bar Chart
+    const topProdNames = {{ top_product_names_json|safe }};
+    const topProdRevenues = {{ top_product_revenues_json|safe }};
+
+    const prodCanvas = document.getElementById("topProductsChart");
+    if (prodCanvas && topProdNames.length > 0) {
+        new Chart(prodCanvas, {
+            type: "bar",
+            data: {
+                labels: topProdNames,
+                datasets: [{
+                    label: "Revenue Generated (₹)",
+                    data: topProdRevenues,
+                    backgroundColor: "rgba(37, 99, 235, 0.8)",
+                    hoverBackgroundColor: primaryColor,
+                    borderRadius: 6,
+                    barThickness: 18,
+                }]
+            },
+            options: {
+                indexAxis: "y",
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                return " Revenue: ₹" + Number(context.raw).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: "#f1f5f9" },
+                        ticks: {
+                            font: { family: "Inter", size: 11 },
+                            callback: function (val) { return "₹" + val; }
+                        }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { font: { family: "Inter", size: 11 } }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

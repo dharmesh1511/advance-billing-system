@@ -2091,6 +2091,422 @@ class CustomerRegisterViewTests(APITestCase):
         ).exists())
 
 
+from django.test import TestCase, Client
+from decimal import Decimal
+from datetime import date, timedelta
+from billing.models import Customer, Product, Invoice, InvoiceItem
+from accounts.models import DistributorProfile
+
+
+class AdminReportsAccessAndSecurityTests(TestCase):
+    """
+    Test suite verifying access control, authentication, and security boundaries
+    for Admin Reports Dashboard and CSV Export endpoints.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.reports_url = reverse("admin_reports")
+        self.export_url = reverse("admin_reports_export_csv")
+
+        # Staff Admin User
+        self.staff_admin = User.objects.create_user(
+            username="staff_reports_admin",
+            email="staffadmin@example.com",
+            password="AdminPassword@123",
+            is_staff=True,
+            is_superuser=False
+        )
+
+        # Superuser
+        self.superuser = User.objects.create_superuser(
+            username="super_reports_admin",
+            email="superadmin@example.com",
+            password="SuperPassword@123"
+        )
+
+        # Regular Non-Staff Distributor
+        self.distributor_group, _ = Group.objects.get_or_create(name="Distributor")
+        self.distributor_user = User.objects.create_user(
+            username="dist_reports_user",
+            email="dist@example.com",
+            password="DistPassword@123"
+        )
+        self.distributor_user.groups.add(self.distributor_group)
+        self.profile = DistributorProfile.objects.create(
+            user=self.distributor_user,
+            full_name="Distributor Profile User",
+            email="dist@example.com",
+            phone="9876543210"
+        )
+
+        # Regular Unprivileged User
+        self.regular_user = User.objects.create_user(
+            username="regular_reports_user",
+            email="regular@example.com",
+            password="RegularPassword@123"
+        )
+
+    def test_unauthenticated_user_redirected_to_admin_login(self):
+        """Unauthenticated visitor accessing reports is redirected to /admin/login/."""
+        response = self.client.get(self.reports_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/admin/login/", response.url)
+
+    def test_unauthenticated_user_cannot_export_csv(self):
+        """Unauthenticated visitor cannot export CSV reports."""
+        response = self.client.get(self.export_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/admin/login/", response.url)
+
+    def test_distributor_user_denied_access_to_reports(self):
+        """Distributor user without staff flag is rejected with redirect to login."""
+        self.client.login(username="dist_reports_user", password="DistPassword@123")
+        response = self.client.get(self.reports_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/admin/login/", response.url)
+
+    def test_distributor_user_cannot_export_csv(self):
+        """Distributor user without staff flag cannot access CSV export."""
+        self.client.login(username="dist_reports_user", password="DistPassword@123")
+        response = self.client.get(self.export_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/admin/login/", response.url)
+
+    def test_regular_user_denied_access(self):
+        """Regular non-staff user is denied access."""
+        self.client.login(username="regular_reports_user", password="RegularPassword@123")
+        response = self.client.get(self.reports_url)
+        self.assertEqual(response.status_code, 302)
+
+    def test_staff_admin_can_access_reports_dashboard(self):
+        """Staff admin successfully accesses reports dashboard (200 OK) with correct template."""
+        self.client.login(username="staff_reports_admin", password="AdminPassword@123")
+        response = self.client.get(self.reports_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "adminpanel/admin_reports.html")
+        self.assertContains(response, "Reports & Business Analytics")
+        self.assertContains(response, "Report Filters")
+        self.assertContains(response, "Export Report (CSV)")
+
+    def test_superuser_can_access_reports_dashboard(self):
+        """Superuser successfully accesses reports dashboard (200 OK)."""
+        self.client.login(username="super_reports_admin", password="SuperPassword@123")
+        response = self.client.get(self.reports_url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_navigation_sidebar_highlights_active_reports_link(self):
+        """Reports link in sidebar includes active class when on reports page."""
+        self.client.login(username="staff_reports_admin", password="AdminPassword@123")
+        response = self.client.get(self.reports_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="/admin/reports/" class="admin-nav-item active"')
+
+
+class AdminReportsDataAndFilteringTests(TestCase):
+    """
+    Test suite validating accurate calculation of KPIs, date range filtering,
+    distributor filtering, and empty states.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.reports_url = reverse("admin_reports")
+        self.export_url = reverse("admin_reports_export_csv")
+
+        # Staff Admin
+        self.admin = User.objects.create_user(
+            username="admin_analytics",
+            password="AdminPassword@123",
+            is_staff=True
+        )
+
+        # Distributor 1 & Profile
+        self.distributor_group, _ = Group.objects.get_or_create(name="Distributor")
+        self.dist1 = User.objects.create_user(
+            username="dist1_analytics",
+            password="DistPassword@123"
+        )
+        self.dist1.groups.add(self.distributor_group)
+        DistributorProfile.objects.create(
+            user=self.dist1,
+            full_name="Alpha Distributors",
+            email="alpha@example.com",
+            phone="9876543201"
+        )
+
+        # Distributor 2 & Profile
+        self.dist2 = User.objects.create_user(
+            username="dist2_analytics",
+            password="DistPassword@123"
+        )
+        self.dist2.groups.add(self.distributor_group)
+        DistributorProfile.objects.create(
+            user=self.dist2,
+            full_name="Beta Enterprises",
+            email="beta@example.com",
+            phone="9876543202"
+        )
+
+        # Customers
+        self.cust1 = Customer.objects.create(
+            distributor=self.dist1,
+            name="Ramesh Kumar",
+            phone="9876543210"
+        )
+        self.cust2 = Customer.objects.create(
+            distributor=self.dist2,
+            name="Suresh Verma",
+            phone="9876543211"
+        )
+
+        # Products
+        self.prod1 = Product.objects.create(
+            distributor=self.dist1,
+            name="Wireless Mouse",
+            sku="WM-1",
+            price=Decimal("500.00"),
+            stock=45,
+            is_active=True
+        )
+        self.prod2 = Product.objects.create(
+            distributor=self.dist1,
+            name="Mechanical Keyboard",
+            sku="KB-2",
+            price=Decimal("2000.00"),
+            stock=3,
+            is_active=True
+        )
+        self.prod3 = Product.objects.create(
+            distributor=self.dist2,
+            name="USB Hub",
+            sku="HUB-3",
+            price=Decimal("800.00"),
+            stock=0,
+            is_active=False
+        )
+
+        # Invoices across different dates
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+        two_weeks_ago = today - timedelta(days=14)
+
+        # Invoice 1: Today, Dist1, Cust1 (Grand Total: 1180.00)
+        self.inv1 = Invoice.objects.create(
+            distributor=self.dist1,
+            customer=self.cust1,
+            invoice_number="INV-REP-001",
+            invoice_date=today,
+            subtotal=Decimal("1000.00"),
+            total_gst=Decimal("180.00"),
+            grand_total=Decimal("1180.00")
+        )
+        InvoiceItem.objects.create(
+            invoice=self.inv1,
+            product=self.prod1,
+            product_name="Wireless Mouse",
+            quantity=2,
+            unit_price=Decimal("500.00"),
+            taxable_amount=Decimal("1000.00"),
+            gst_amount=Decimal("180.00"),
+            line_total=Decimal("1180.00")
+        )
+
+        # Invoice 2: Yesterday, Dist1, Cust1 (Grand Total: 2360.00)
+        self.inv2 = Invoice.objects.create(
+            distributor=self.dist1,
+            customer=self.cust1,
+            invoice_number="INV-REP-002",
+            invoice_date=yesterday,
+            subtotal=Decimal("2000.00"),
+            total_gst=Decimal("360.00"),
+            grand_total=Decimal("2360.00")
+        )
+        InvoiceItem.objects.create(
+            invoice=self.inv2,
+            product=self.prod2,
+            product_name="Mechanical Keyboard",
+            quantity=1,
+            unit_price=Decimal("2000.00"),
+            taxable_amount=Decimal("2000.00"),
+            gst_amount=Decimal("360.00"),
+            line_total=Decimal("2360.00")
+        )
+
+        # Invoice 3: Two weeks ago, Dist2, Cust2 (Grand Total: 944.00)
+        self.inv3 = Invoice.objects.create(
+            distributor=self.dist2,
+            customer=self.cust2,
+            invoice_number="INV-REP-003",
+            invoice_date=two_weeks_ago,
+            subtotal=Decimal("800.00"),
+            total_gst=Decimal("144.00"),
+            grand_total=Decimal("944.00")
+        )
+        InvoiceItem.objects.create(
+            invoice=self.inv3,
+            product=self.prod3,
+            product_name="USB Hub",
+            quantity=1,
+            unit_price=Decimal("800.00"),
+            taxable_amount=Decimal("800.00"),
+            gst_amount=Decimal("144.00"),
+            line_total=Decimal("944.00")
+        )
+
+        self.client.login(username="admin_analytics", password="AdminPassword@123")
+
+    def test_all_time_kpis_aggregation(self):
+        """All-time report accurately aggregates total sales, invoices, subtotal, and tax."""
+        response = self.client.get(self.reports_url + "?filter=all_time")
+        self.assertEqual(response.status_code, 200)
+        ctx = response.context
+
+        # Total Sales = 1180 + 2360 + 944 = 4484.00
+        self.assertEqual(ctx["total_sales"], Decimal("4484.00"))
+        self.assertEqual(ctx["total_invoices"], 3)
+        self.assertEqual(ctx["total_subtotal"], Decimal("3800.00"))
+        self.assertEqual(ctx["total_gst"], Decimal("684.00"))
+        self.assertEqual(ctx["total_customers"], 2)
+        self.assertEqual(ctx["total_products"], 3)
+        self.assertEqual(ctx["active_products"], 2)
+        self.assertEqual(ctx["low_stock_products"], 2)
+        self.assertEqual(ctx["out_of_stock_products"], 1)
+
+    def test_filter_today(self):
+        """Filter 'today' only includes today's invoices."""
+        response = self.client.get(self.reports_url + "?filter=today")
+        self.assertEqual(response.status_code, 200)
+        ctx = response.context
+
+        self.assertEqual(ctx["total_sales"], Decimal("1180.00"))
+        self.assertEqual(ctx["total_invoices"], 1)
+        invoice_numbers = [inv.invoice_number for inv in ctx["page_obj"]]
+        self.assertIn("INV-REP-001", invoice_numbers)
+        self.assertNotIn("INV-REP-002", invoice_numbers)
+        self.assertNotIn("INV-REP-003", invoice_numbers)
+
+    def test_filter_last_7_days(self):
+        """Filter 'last_7_days' includes today and yesterday, excludes two weeks ago."""
+        response = self.client.get(self.reports_url + "?filter=last_7_days")
+        self.assertEqual(response.status_code, 200)
+        ctx = response.context
+
+        self.assertEqual(ctx["total_sales"], Decimal("3540.00"))
+        self.assertEqual(ctx["total_invoices"], 2)
+        invoice_numbers = [inv.invoice_number for inv in ctx["page_obj"]]
+        self.assertIn("INV-REP-001", invoice_numbers)
+        self.assertIn("INV-REP-002", invoice_numbers)
+        self.assertNotIn("INV-REP-003", invoice_numbers)
+
+    def test_custom_date_range_filter(self):
+        """Custom start and end date range filters data correctly."""
+        yesterday_str = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+        response = self.client.get(
+            f"{self.reports_url}?filter=custom&start_date={yesterday_str}&end_date={yesterday_str}"
+        )
+        self.assertEqual(response.status_code, 200)
+        ctx = response.context
+        self.assertEqual(ctx["total_invoices"], 1)
+        self.assertEqual(ctx["total_sales"], Decimal("2360.00"))
+
+    def test_invalid_date_range_handled_gracefully(self):
+        """When start_date > end_date, view does not 500 and swaps dates gracefully."""
+        today_str = date.today().strftime("%Y-%m-%d")
+        past_str = (date.today() - timedelta(days=10)).strftime("%Y-%m-%d")
+        response = self.client.get(
+            f"{self.reports_url}?filter=custom&start_date={today_str}&end_date={past_str}"
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_distributor_isolation_filter(self):
+        """Filtering by distributor narrows calculations to that distributor's invoices only."""
+        response = self.client.get(f"{self.reports_url}?distributor_id={self.dist2.id}")
+        self.assertEqual(response.status_code, 200)
+        ctx = response.context
+
+        self.assertEqual(ctx["total_sales"], Decimal("944.00"))
+        self.assertEqual(ctx["total_invoices"], 1)
+        self.assertEqual(ctx["total_products"], 1)
+        self.assertEqual(ctx["total_customers"], 1)
+
+    def test_invoices_table_search_query(self):
+        """Search query in table filters invoices by number or customer name."""
+        response = self.client.get(f"{self.reports_url}?q=Ramesh")
+        self.assertEqual(response.status_code, 200)
+        ctx = response.context
+        for inv in ctx["page_obj"]:
+            self.assertEqual(inv.customer.name, "Ramesh Kumar")
+
+    def test_empty_dataset_renders_without_error(self):
+        """Querying a date range with zero invoices renders clean empty states without error."""
+        far_future = (date.today() + timedelta(days=100)).strftime("%Y-%m-%d")
+        response = self.client.get(
+            f"{self.reports_url}?filter=custom&start_date={far_future}&end_date={far_future}"
+        )
+        self.assertEqual(response.status_code, 200)
+        ctx = response.context
+        self.assertEqual(ctx["total_sales"], Decimal("0.00"))
+        self.assertEqual(ctx["total_invoices"], 0)
+        self.assertFalse(ctx["has_sales_data"])
+        self.assertContains(response, "No Sales Records Found")
+        self.assertContains(response, "No Invoices Found")
+
+    def test_csv_export_invoices(self):
+        """Exporting invoices CSV returns text/csv with attachment header and rows."""
+        response = self.client.get(f"{self.export_url}?type=invoices&filter=all_time")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertIn("invoices_report_", response["Content-Disposition"])
+        content = response.content.decode("utf-8")
+        self.assertIn("Invoice Number,Date,Distributor,Customer Name", content)
+        self.assertIn("INV-REP-001", content)
+        self.assertIn("INV-REP-002", content)
+        self.assertIn("INV-REP-003", content)
+
+    def test_csv_export_products(self):
+        """Exporting products CSV returns product sales aggregates."""
+        response = self.client.get(f"{self.export_url}?type=products&filter=all_time")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertIn("product_sales_report_", response["Content-Disposition"])
+        content = response.content.decode("utf-8")
+        self.assertIn("Product Name,Units Sold,Total Revenue (INR)", content)
+        self.assertIn("Wireless Mouse", content)
+
+    def test_csv_export_customers(self):
+        """Exporting customers CSV returns customer spend aggregates."""
+        response = self.client.get(f"{self.export_url}?type=customers&filter=all_time")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertIn("customer_sales_report_", response["Content-Disposition"])
+        content = response.content.decode("utf-8")
+        self.assertIn("Customer Name,Phone,Email,Distributor,Invoices Count,Total Spent", content)
+        self.assertIn("Ramesh Kumar", content)
+
+    def test_csv_export_sanitizes_potential_formula_injection(self):
+        """Customer names or invoice numbers starting with =, +, -, @ are prepended with quote."""
+        c_malicious = Customer.objects.create(
+            distributor=self.dist1,
+            name="=cmd|' /C calc'!A0",
+            phone="9999999999"
+        )
+        Invoice.objects.create(
+            distributor=self.dist1,
+            customer=c_malicious,
+            invoice_number="@DANGEROUS-INV",
+            invoice_date=date.today(),
+            subtotal=Decimal("100.00"),
+            total_gst=Decimal("18.00"),
+            grand_total=Decimal("118.00")
+        )
+        response = self.client.get(f"{self.export_url}?type=invoices&filter=today")
+        content = response.content.decode("utf-8")
+        self.assertIn("'@DANGEROUS-INV", content)
+        self.assertIn("'=cmd|' /C calc'!A0", content)
+
+
+
 
 
 
