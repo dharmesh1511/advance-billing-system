@@ -146,3 +146,42 @@ class DistributorProfileUpdateForm(forms.Form):
             raise forms.ValidationError("Please enter a valid phone number.")
         return phone
 
+
+class InvoiceReportFilterForm(forms.Form):
+    """
+    Form for validating date range parameters in Invoice Reports, CSV exports, and PDF downloads.
+    Enforces mandatory Start Date and End Date, valid ISO-8601 YYYY-MM-DD formatting,
+    and Start Date <= End Date ordering constraint.
+    """
+    start_date = forms.DateField(
+        required=True,
+        input_formats=["%Y-%m-%d"],
+        error_messages={
+            "required": "Please select both start date and end date.",
+            "invalid": "Please enter a valid Start Date (YYYY-MM-DD).",
+        }
+    )
+    end_date = forms.DateField(
+        required=True,
+        input_formats=["%Y-%m-%d"],
+        error_messages={
+            "required": "Please select both start date and end date.",
+            "invalid": "Please enter a valid End Date (YYYY-MM-DD).",
+        }
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_date = cleaned_data.get("start_date")
+        end_date = cleaned_data.get("end_date")
+
+        if start_date and end_date:
+            if start_date > end_date:
+                error_msg = "Start date cannot be later than end date."
+                self.add_error("start_date", error_msg)
+                self.add_error("end_date", error_msg)
+                raise forms.ValidationError(error_msg)
+
+        return cleaned_data
+
+

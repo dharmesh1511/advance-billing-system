@@ -2373,10 +2373,13 @@ class AdminReportsDataAndFilteringTests(TestCase):
         )
 
         self.client.login(username="admin_analytics", password="AdminPassword@123")
+        self.all_time_start = (date.today() - timedelta(days=30)).strftime("%Y-%m-%d")
+        self.all_time_end = date.today().strftime("%Y-%m-%d")
+        self.full_range_query = f"start_date={self.all_time_start}&end_date={self.all_time_end}"
 
     def test_all_time_kpis_aggregation(self):
         """All-time report accurately aggregates total sales, invoices, subtotal, and tax."""
-        response = self.client.get(self.reports_url + "?filter=all_time")
+        response = self.client.get(f"{self.reports_url}?{self.full_range_query}")
         self.assertEqual(response.status_code, 200)
         ctx = response.context
 
@@ -2438,13 +2441,13 @@ class AdminReportsDataAndFilteringTests(TestCase):
         self.assertEqual(response.status_code, 200)
         ctx = response.context
         self.assertIn("start_date", ctx["field_errors"])
-        self.assertEqual(ctx["field_errors"]["start_date"], "Start Date must not be later than End Date.")
-        self.assertEqual(ctx["field_errors"]["end_date"], "End Date must not be earlier than Start Date.")
+        self.assertEqual(ctx["field_errors"]["start_date"], "Start date cannot be later than end date.")
+        self.assertEqual(ctx["field_errors"]["end_date"], "Start date cannot be later than end date.")
         # Preserves user's entered values
         self.assertEqual(ctx["start_date"], today_str)
         self.assertEqual(ctx["end_date"], past_str)
         self.assertEqual(ctx["total_invoices"], 0)
-        self.assertContains(response, "Start Date must not be later than End Date.")
+        self.assertContains(response, "Start date cannot be later than end date.")
 
     def test_boundary_dates_inclusivity(self):
         """Invoices exactly on the start date and end date boundaries are inclusively returned."""
@@ -2474,18 +2477,18 @@ class AdminReportsDataAndFilteringTests(TestCase):
 
     def test_status_filter_options(self):
         """Status filter 'all' or 'paid' returns billed invoices; 'pending' returns zero."""
-        response_all = self.client.get(f"{self.reports_url}?status=all")
+        response_all = self.client.get(f"{self.reports_url}?status=all&{self.full_range_query}")
         self.assertEqual(response_all.context["total_invoices"], 3)
 
-        response_paid = self.client.get(f"{self.reports_url}?status=paid")
+        response_paid = self.client.get(f"{self.reports_url}?status=paid&{self.full_range_query}")
         self.assertEqual(response_paid.context["total_invoices"], 3)
 
-        response_pending = self.client.get(f"{self.reports_url}?status=pending")
+        response_pending = self.client.get(f"{self.reports_url}?status=pending&{self.full_range_query}")
         self.assertEqual(response_pending.context["total_invoices"], 0)
 
     def test_distributor_isolation_filter(self):
         """Filtering by distributor narrows calculations to that distributor's invoices only."""
-        response = self.client.get(f"{self.reports_url}?distributor_id={self.dist2.id}")
+        response = self.client.get(f"{self.reports_url}?distributor_id={self.dist2.id}&{self.full_range_query}")
         self.assertEqual(response.status_code, 200)
         ctx = response.context
 
@@ -2496,7 +2499,7 @@ class AdminReportsDataAndFilteringTests(TestCase):
 
     def test_invoices_table_search_query(self):
         """Search query in table filters invoices by number or customer name."""
-        response = self.client.get(f"{self.reports_url}?q=Ramesh")
+        response = self.client.get(f"{self.reports_url}?q=Ramesh&{self.full_range_query}")
         self.assertEqual(response.status_code, 200)
         ctx = response.context
         for inv in ctx["page_obj"]:
@@ -2531,7 +2534,7 @@ class AdminReportsDataAndFilteringTests(TestCase):
 
     def test_csv_export_invoices(self):
         """Exporting invoices CSV returns text/csv with attachment header and rows."""
-        response = self.client.get(f"{self.export_url}?type=invoices&filter=all_time")
+        response = self.client.get(f"{self.export_url}?type=invoices&{self.full_range_query}")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
         self.assertIn("invoices_report_", response["Content-Disposition"])
@@ -2543,7 +2546,7 @@ class AdminReportsDataAndFilteringTests(TestCase):
 
     def test_csv_export_products(self):
         """Exporting products CSV returns product sales aggregates."""
-        response = self.client.get(f"{self.export_url}?type=products&filter=all_time")
+        response = self.client.get(f"{self.export_url}?type=products&{self.full_range_query}")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
         self.assertIn("product_sales_report_", response["Content-Disposition"])
@@ -2553,7 +2556,7 @@ class AdminReportsDataAndFilteringTests(TestCase):
 
     def test_csv_export_customers(self):
         """Exporting customers CSV returns customer spend aggregates."""
-        response = self.client.get(f"{self.export_url}?type=customers&filter=all_time")
+        response = self.client.get(f"{self.export_url}?type=customers&{self.full_range_query}")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
         self.assertIn("customer_sales_report_", response["Content-Disposition"])
@@ -2584,7 +2587,7 @@ class AdminReportsDataAndFilteringTests(TestCase):
 
     def test_summary_cards_rendered_with_correct_metrics(self):
         """Total Invoices and Amount Collected cards render with accurate figures."""
-        response = self.client.get(self.reports_url + "?filter=all_time")
+        response = self.client.get(f"{self.reports_url}?{self.full_range_query}")
         self.assertEqual(response.status_code, 200)
         ctx = response.context
 
@@ -2658,7 +2661,7 @@ class AdminReportsDataAndFilteringTests(TestCase):
 
     def test_pdf_export_invoices_returns_pdf_response(self):
         """PDF export returns application/pdf with valid PDF header and attachment filename."""
-        response = self.client.get(self.export_pdf_url + "?filter=all_time")
+        response = self.client.get(f"{self.export_pdf_url}?{self.full_range_query}")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/pdf")
         self.assertIn("invoices_report_", response["Content-Disposition"])
@@ -2694,19 +2697,225 @@ class AdminReportsDataAndFilteringTests(TestCase):
 
     def test_pdf_export_with_status_filter_pending_yields_zero_invoices(self):
         """PDF export with status=pending yields zero invoices in generated PDF."""
-        response = self.client.get(f"{self.export_pdf_url}?status=pending")
+        response = self.client.get(f"{self.export_pdf_url}?status=pending&{self.full_range_query}")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/pdf")
         self.assertTrue(response.content.startswith(b"%PDF"))
 
     def test_pdf_export_invalid_date_range_handled_gracefully(self):
-        """When start_date > end_date, PDF generation handles it safely without crashing."""
+        """When start_date > end_date, PDF generation rejects and redirects without generating PDF."""
         today_str = date.today().strftime("%Y-%m-%d")
         past_str = (date.today() - timedelta(days=10)).strftime("%Y-%m-%d")
         response = self.client.get(f"{self.export_pdf_url}?start_date={today_str}&end_date={past_str}")
+        self.assertEqual(response.status_code, 302)
+        self.assertNotEqual(response.get("Content-Type"), "application/pdf")
+        self.assertFalse(response.content.startswith(b"%PDF"))
+
+
+class InvoiceReportDateValidationTests(TestCase):
+    """
+    Dedicated test suite validating all 10 required date validation scenarios:
+    1. Both dates provided with a valid range — report generation succeeds.
+    2. Start Date is missing — validation error.
+    3. End Date is missing — validation error.
+    4. Both dates are missing — validation error.
+    5. Start Date is later than End Date — validation error.
+    6. Malformed date values — validation error.
+    7. Start Date equals End Date — valid single-day report.
+    8. Invalid dates submitted to PDF download — no PDF generated.
+    9. Valid dates submitted to PDF download — PDF generation works.
+    10. Unauthorized access — denied according to the existing permission system.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.reports_url = reverse("admin_reports")
+        self.export_pdf_url = reverse("admin_reports_export_pdf")
+        self.export_csv_url = reverse("admin_reports_export_csv")
+
+        # Staff Admin
+        self.admin = User.objects.create_user(
+            username="report_validator_admin",
+            password="AdminPassword@123",
+            is_staff=True
+        )
+
+        # Non-staff Distributor
+        self.distributor_group, _ = Group.objects.get_or_create(name="Distributor")
+        self.distributor = User.objects.create_user(
+            username="report_validator_dist",
+            password="DistPassword@123"
+        )
+        self.distributor.groups.add(self.distributor_group)
+
+        # Customer & Invoices
+        self.customer = Customer.objects.create(
+            distributor=self.distributor,
+            name="Test Customer",
+            phone="9876543210"
+        )
+        self.target_date = date.today() - timedelta(days=5)
+        self.invoice = Invoice.objects.create(
+            distributor=self.distributor,
+            customer=self.customer,
+            invoice_number="INV-VAL-001",
+            invoice_date=self.target_date,
+            subtotal=Decimal("1000.00"),
+            total_gst=Decimal("180.00"),
+            grand_total=Decimal("1180.00")
+        )
+
+    def test_01_both_dates_valid_range_succeeds(self):
+        """1. Both dates provided with a valid range — report generation succeeds."""
+        self.client.login(username="report_validator_admin", password="AdminPassword@123")
+        start_str = (self.target_date - timedelta(days=1)).strftime("%Y-%m-%d")
+        end_str = (self.target_date + timedelta(days=1)).strftime("%Y-%m-%d")
+
+        response = self.client.get(f"{self.reports_url}?start_date={start_str}&end_date={end_str}")
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "adminpanel/admin_reports.html")
+        ctx = response.context
+        self.assertEqual(len(ctx["field_errors"]), 0)
+        self.assertEqual(ctx["total_invoices"], 1)
+        self.assertEqual(ctx["total_sales"], Decimal("1180.00"))
+        self.assertEqual(ctx["start_date"], start_str)
+        self.assertEqual(ctx["end_date"], end_str)
+
+    def test_02_start_date_missing_validation_error(self):
+        """2. Start Date is missing — validation error."""
+        self.client.login(username="report_validator_admin", password="AdminPassword@123")
+        end_str = date.today().strftime("%Y-%m-%d")
+
+        response = self.client.get(f"{self.reports_url}?end_date={end_str}")
+        self.assertEqual(response.status_code, 200)
+        ctx = response.context
+        self.assertIn("start_date", ctx["field_errors"])
+        self.assertEqual(ctx["field_errors"]["start_date"], "Please select both start date and end date.")
+        self.assertEqual(ctx["total_invoices"], 0)
+        self.assertContains(response, "Please select both start date and end date.")
+
+    def test_03_end_date_missing_validation_error(self):
+        """3. End Date is missing — validation error."""
+        self.client.login(username="report_validator_admin", password="AdminPassword@123")
+        start_str = date.today().strftime("%Y-%m-%d")
+
+        response = self.client.get(f"{self.reports_url}?start_date={start_str}")
+        self.assertEqual(response.status_code, 200)
+        ctx = response.context
+        self.assertIn("end_date", ctx["field_errors"])
+        self.assertEqual(ctx["field_errors"]["end_date"], "Please select both start date and end date.")
+        self.assertEqual(ctx["total_invoices"], 0)
+        self.assertContains(response, "Please select both start date and end date.")
+
+    def test_04_both_dates_missing_validation_error(self):
+        """4. Both dates are missing — validation error."""
+        self.client.login(username="report_validator_admin", password="AdminPassword@123")
+        response = self.client.get(self.reports_url)
+        self.assertEqual(response.status_code, 200)
+        ctx = response.context
+        self.assertTrue(len(ctx["field_errors"]) > 0)
+        self.assertIn("Please select both start date and end date.", ctx["field_errors"].values())
+        self.assertEqual(ctx["total_invoices"], 0)
+        self.assertContains(response, "Please select both start date and end date.")
+
+    def test_05_start_date_later_than_end_date_validation_error(self):
+        """5. Start Date is later than End Date — validation error."""
+        self.client.login(username="report_validator_admin", password="AdminPassword@123")
+        start_str = date.today().strftime("%Y-%m-%d")
+        end_str = (date.today() - timedelta(days=7)).strftime("%Y-%m-%d")
+
+        response = self.client.get(f"{self.reports_url}?start_date={start_str}&end_date={end_str}")
+        self.assertEqual(response.status_code, 200)
+        ctx = response.context
+        self.assertIn("start_date", ctx["field_errors"])
+        self.assertEqual(ctx["field_errors"]["start_date"], "Start date cannot be later than end date.")
+        self.assertEqual(ctx["field_errors"]["end_date"], "Start date cannot be later than end date.")
+        self.assertEqual(ctx["field_errors"]["general"], "Start date cannot be later than end date.")
+        # Preserves user input
+        self.assertEqual(ctx["start_date"], start_str)
+        self.assertEqual(ctx["end_date"], end_str)
+        self.assertEqual(ctx["total_invoices"], 0)
+        self.assertContains(response, "Start date cannot be later than end date.")
+
+    def test_06_malformed_date_values_validation_error(self):
+        """6. Malformed date values — validation error."""
+        self.client.login(username="report_validator_admin", password="AdminPassword@123")
+        response = self.client.get(f"{self.reports_url}?start_date=not-a-date&end_date=2026-99-99")
+        self.assertEqual(response.status_code, 200)
+        ctx = response.context
+        self.assertTrue(len(ctx["field_errors"]) > 0)
+        self.assertEqual(ctx["total_invoices"], 0)
+        self.assertEqual(ctx["start_date"], "not-a-date")
+        self.assertEqual(ctx["end_date"], "2026-99-99")
+
+    def test_07_start_date_equals_end_date_valid_single_day_report(self):
+        """7. Start Date equals End Date — valid single-day report."""
+        self.client.login(username="report_validator_admin", password="AdminPassword@123")
+        target_str = self.target_date.strftime("%Y-%m-%d")
+
+        response = self.client.get(f"{self.reports_url}?start_date={target_str}&end_date={target_str}")
+        self.assertEqual(response.status_code, 200)
+        ctx = response.context
+        self.assertEqual(len(ctx["field_errors"]), 0)
+        self.assertEqual(ctx["total_invoices"], 1)
+        self.assertEqual(ctx["total_sales"], Decimal("1180.00"))
+        self.assertEqual(ctx["report_period_label"], self.target_date.strftime("%d %b %Y"))
+
+    def test_08_invalid_dates_submitted_to_pdf_download_no_pdf_generated(self):
+        """8. Invalid dates submitted to PDF download — no PDF generated."""
+        self.client.login(username="report_validator_admin", password="AdminPassword@123")
+        start_str = date.today().strftime("%Y-%m-%d")
+        end_str = (date.today() - timedelta(days=5)).strftime("%Y-%m-%d")
+
+        response = self.client.get(f"{self.export_pdf_url}?start_date={start_str}&end_date={end_str}")
+        # Must redirect or deny, never generate PDF
+        self.assertEqual(response.status_code, 302)
+        self.assertNotEqual(response.get("Content-Type"), "application/pdf")
+        self.assertFalse(response.content.startswith(b"%PDF"))
+
+        # Also test with missing dates
+        resp_missing = self.client.get(self.export_pdf_url)
+        self.assertEqual(resp_missing.status_code, 302)
+        self.assertNotEqual(resp_missing.get("Content-Type"), "application/pdf")
+        self.assertFalse(resp_missing.content.startswith(b"%PDF"))
+
+    def test_09_valid_dates_submitted_to_pdf_download_pdf_generation_works(self):
+        """9. Valid dates submitted to PDF download — PDF generation works."""
+        self.client.login(username="report_validator_admin", password="AdminPassword@123")
+        start_str = (self.target_date - timedelta(days=1)).strftime("%Y-%m-%d")
+        end_str = (self.target_date + timedelta(days=1)).strftime("%Y-%m-%d")
+
+        response = self.client.get(f"{self.export_pdf_url}?start_date={start_str}&end_date={end_str}")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/pdf")
         self.assertTrue(response.content.startswith(b"%PDF"))
+        expected_attachment = f'attachment; filename="invoices_report_{start_str}_to_{end_str}.pdf"'
+        self.assertEqual(response["Content-Disposition"], expected_attachment)
+
+    def test_10_unauthorized_access_denied(self):
+        """10. Unauthorized access — denied according to the existing permission system."""
+        start_str = date.today().strftime("%Y-%m-%d")
+        end_str = date.today().strftime("%Y-%m-%d")
+
+        # 1. Anonymous user cannot access reports
+        anon_resp = self.client.get(f"{self.reports_url}?start_date={start_str}&end_date={end_str}")
+        self.assertEqual(anon_resp.status_code, 302)
+        self.assertIn("/admin/login/", anon_resp.url)
+
+        # 2. Anonymous user cannot access PDF export
+        anon_pdf_resp = self.client.get(f"{self.export_pdf_url}?start_date={start_str}&end_date={end_str}")
+        self.assertEqual(anon_pdf_resp.status_code, 302)
+        self.assertIn("/admin/login/", anon_pdf_resp.url)
+
+        # 3. Non-staff distributor user is denied access
+        self.client.login(username="report_validator_dist", password="DistPassword@123")
+        dist_resp = self.client.get(f"{self.reports_url}?start_date={start_str}&end_date={end_str}")
+        self.assertEqual(dist_resp.status_code, 302)
+        self.assertIn("/admin/login/", dist_resp.url)
+
+        dist_pdf_resp = self.client.get(f"{self.export_pdf_url}?start_date={start_str}&end_date={end_str}")
+        self.assertEqual(dist_pdf_resp.status_code, 302)
+        self.assertIn("/admin/login/", dist_pdf_resp.url)
 
 
 
