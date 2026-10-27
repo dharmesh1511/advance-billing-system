@@ -219,14 +219,67 @@ def generate_invoice_qr_base64(invoice):
 def decode_qr_from_image(image):
     """
     Decodes QR code(s) from a PIL Image instance.
-    Uses pyzbar as primary decoder, with OpenCV QRCodeDetector as fallback.
-    Supports single or multiple QR codes within the image.
-    Returns a list of dicts: [{'data': str, 'type': str}, ...].
+    Preferred Decoder: OpenCV (cv2.QRCodeDetector).
+    - Uses detectAndDecodeMulti() for multiple and single QR codes.
+    - Falls back to detectAndDecode() if detectAndDecodeMulti returns empty or is unavailable.
+    - Alternative: pyzbar decoder if OpenCV is unavailable or yields no codes.
+    Returns a list of dicts: [{'data': str, 'type': 'QRCODE'}, ...].
     Security Note: Content is returned as plain strings; never executed or followed.
     """
     results = []
+    seen_data = set()
 
-    # Primary Decoder: pyzbar
+    # 1. Preferred Decoder: OpenCV QRCodeDetector
+    try:
+        import cv2
+        import numpy as np
+
+        img_rgb = image.convert("RGB")
+        np_arr = np.array(img_rgb)
+        img_bgr = cv2.cvtColor(np_arr, cv2.COLOR_RGB2BGR)
+
+        detector = cv2.QRCodeDetector()
+
+        # Try multi-detection first
+        if hasattr(detector, "detectAndDecodeMulti"):
+            try:
+                retval, decoded_info, points, straight_qrcode = detector.detectAndDecodeMulti(img_bgr)
+                if retval and decoded_info:
+                    for text in decoded_info:
+                        clean_text = text.strip() if isinstance(text, str) else ""
+                        if clean_text and clean_text not in seen_data:
+                            seen_data.add(clean_text)
+                            results.append({
+                                "data": clean_text,
+                                "type": "QRCODE"
+                            })
+            except Exception as e:
+                logger.debug(f"OpenCV detectAndDecodeMulti encountered an issue: {e}")
+
+        # If multi-detection yielded no results, try single detectAndDecode
+        if not results and hasattr(detector, "detectAndDecode"):
+            try:
+                text, points, straight_qrcode = detector.detectAndDecode(img_bgr)
+                clean_text = text.strip() if isinstance(text, str) else ""
+                if clean_text and clean_text not in seen_data:
+                    seen_data.add(clean_text)
+                    results.append({
+                        "data": clean_text,
+                        "type": "QRCODE"
+                    })
+            except Exception as e:
+                logger.debug(f"OpenCV detectAndDecode encountered an issue: {e}")
+
+        # If OpenCV successfully detected QR codes, return them
+        if results:
+            return results
+
+    except ImportError:
+        logger.debug("OpenCV is not installed; attempting alternative decoder.")
+    except Exception as e:
+        logger.error(f"Error during OpenCV QR decoding: {e}")
+
+    # 2. Alternative Decoder: pyzbar
     try:
         from pyzbar.pyzbar import decode as pyzbar_decode, ZBarSymbol
         decoded_objs = pyzbar_decode(image, symbols=[ZBarSymbol.QRCODE])
@@ -240,38 +293,16 @@ def decode_qr_from_image(image):
             except UnicodeDecodeError:
                 decoded_str = raw_data.decode("latin-1", errors="replace")
 
-            results.append({
-                "data": decoded_str,
-                "type": obj.type or "QRCODE"
-            })
+            if decoded_str and decoded_str not in seen_data:
+                seen_data.add(decoded_str)
+                results.append({
+                    "data": decoded_str,
+                    "type": obj.type or "QRCODE"
+                })
         return results
     except ImportError:
-        logger.warning("pyzbar is not installed or available; attempting fallback.")
+        logger.debug("pyzbar is not installed or available.")
     except Exception as e:
         logger.error(f"Error during pyzbar QR decoding: {e}")
-
-    # Secondary Decoder: OpenCV QRCodeDetector
-    try:
-        import cv2
-        import numpy as np
-
-        img_rgb = image.convert("RGB")
-        np_arr = np.array(img_rgb)
-        img_bgr = cv2.cvtColor(np_arr, cv2.COLOR_RGB2BGR)
-
-        detector = cv2.QRCodeDetector()
-        retval, decoded_info, points, straight_qrcode = detector.detectAndDecodeMulti(img_bgr)
-        if retval:
-            for text in decoded_info:
-                if text:
-                    results.append({
-                        "data": text,
-                        "type": "QRCODE"
-                    })
-        return results
-    except ImportError:
-        pass
-    except Exception as e:
-        logger.error(f"Error during cv2 QR decoding: {e}")
 
     return results

@@ -5,3 +5,4 @@ reportlab>=5.0.1
 qrcode[pil]>=7.4.2
 djangorestframework>=3.18.3
 pyzbar>=0.1.9
+opencv-python-headless>=4.8.0

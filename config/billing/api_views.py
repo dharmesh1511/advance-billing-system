@@ -389,7 +389,7 @@ class QRCodeDecodeAPIView(APIView):
         if results:
             msg = "QR code decoded successfully." if len(results) == 1 else f"{len(results)} QR codes decoded successfully."
         else:
-            msg = "No QR code found in the uploaded image."
+            msg = "No QR code detected."
 
         return Response(
             {

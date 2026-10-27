@@ -128,7 +128,7 @@ class QRCodeDecoderAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
         self.assertTrue(data.get("success"))
-        self.assertEqual(data.get("message"), "No QR code found in the uploaded image.")
+        self.assertEqual(data.get("message"), "No QR code detected.")
         self.assertEqual(data.get("results"), [])
 
     def test_multiple_qr_codes_in_one_image(self):
@@ -136,12 +136,12 @@ class QRCodeDecoderAPITests(TestCase):
         payload1 = "https://example.com/qr1"
         payload2 = "https://example.com/qr2"
 
-        qr1 = qrcode.make(payload1).get_image()
-        qr2 = qrcode.make(payload2).get_image()
+        qr1 = qrcode.make(payload1, box_size=6, border=4).get_image()
+        qr2 = qrcode.make(payload2, box_size=6, border=4).get_image()
 
-        combined = Image.new("RGB", (qr1.width * 2 + 50, qr1.height + 20), color="white")
-        combined.paste(qr1, (10, 10))
-        combined.paste(qr2, (qr1.width + 30, 10))
+        combined = Image.new("RGB", (qr1.width, qr1.height * 2 + 50), color="white")
+        combined.paste(qr1, (0, 0))
+        combined.paste(qr2, (0, qr1.height + 50))
 
         buf = io.BytesIO()
         combined.save(buf, format="PNG")
