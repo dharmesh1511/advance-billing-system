@@ -16,12 +16,11 @@ from django.db.models import Sum, Count, Avg, F, Q, Value, DecimalField
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect
-from django.urls import reverse
 from django.template.loader import render_to_string
 from django.utils import timezone
 from xhtml2pdf import pisa
 from .models import OTPVerification, DistributorProfile
-from .forms import DistributorRegistrationForm, DistributorProfileUpdateForm, InvoiceReportFilterForm
+from .forms import DistributorRegistrationForm, DistributorProfileUpdateForm
 from billing.models import Customer, Product, Invoice, InvoiceItem
 from billing.utils import link_callback
 
@@ -247,10 +246,9 @@ def admin_register_view(request):
 
 def parse_date_filters(request):
     """
-    Parses and validates date range filters from GET request using InvoiceReportFilterForm.
-    Supports preset shortcuts: 'today', 'last_7_days', 'this_month', 'this_year'.
+    Parses and validates date range filters from GET request.
+    Supports preset shortcuts: 'all_time', 'today', 'last_7_days', 'this_month', 'this_year'.
     Or custom start_date and end_date inputs.
-    Both Start Date and End Date are mandatory, must be valid dates, and start_date <= end_date.
     Returns:
         filter_preset (str)
         start_date (date or None)
@@ -268,52 +266,54 @@ def parse_date_filters(request):
     start_date = None
     end_date = None
 
-    # Handle preset shortcuts if dates were not explicitly provided
-    if filter_preset == "today" and not (raw_start or raw_end):
+    if filter_preset == "today":
         start_date = today
         end_date = today
         raw_start = start_date.strftime("%Y-%m-%d")
         raw_end = end_date.strftime("%Y-%m-%d")
-    elif filter_preset == "last_7_days" and not (raw_start or raw_end):
+    elif filter_preset == "last_7_days":
         start_date = today - timedelta(days=6)
         end_date = today
         raw_start = start_date.strftime("%Y-%m-%d")
         raw_end = end_date.strftime("%Y-%m-%d")
-    elif filter_preset == "this_month" and not (raw_start or raw_end):
+    elif filter_preset == "this_month":
         start_date = today.replace(day=1)
         end_date = today
         raw_start = start_date.strftime("%Y-%m-%d")
         raw_end = end_date.strftime("%Y-%m-%d")
-    elif filter_preset == "this_year" and not (raw_start or raw_end):
+    elif filter_preset == "this_year":
         start_date = today.replace(month=1, day=1)
         end_date = today
         raw_start = start_date.strftime("%Y-%m-%d")
         raw_end = end_date.strftime("%Y-%m-%d")
-
-    form = InvoiceReportFilterForm(data={"start_date": raw_start, "end_date": raw_end})
-    if form.is_valid():
-        start_date = form.cleaned_data["start_date"]
-        end_date = form.cleaned_data["end_date"]
-        filter_preset = filter_preset or "custom"
+    elif filter_preset == "all_time":
+        start_date = None
+        end_date = None
+        raw_start = ""
+        raw_end = ""
     else:
-        for field, err_list in form.errors.items():
-            if field == "__all__":
-                field_errors["general"] = err_list[0]
-            else:
-                field_errors[field] = err_list[0]
+        # Custom or direct input from form
+        if raw_start:
+            try:
+                start_date = datetime.strptime(raw_start, "%Y-%m-%d").date()
+            except ValueError:
+                field_errors["start_date"] = "Please enter a valid Start Date (YYYY-MM-DD)."
+        if raw_end:
+            try:
+                end_date = datetime.strptime(raw_end, "%Y-%m-%d").date()
+            except ValueError:
+                field_errors["end_date"] = "Please enter a valid End Date (YYYY-MM-DD)."
 
-        if "general" not in field_errors:
-            if "start_date" in field_errors and "end_date" in field_errors:
-                if field_errors["start_date"] == field_errors["end_date"]:
-                    field_errors["general"] = field_errors["start_date"]
-                else:
-                    field_errors["general"] = "Please select both start date and end date."
-            elif "start_date" in field_errors:
-                field_errors["general"] = field_errors["start_date"]
-            elif "end_date" in field_errors:
-                field_errors["general"] = field_errors["end_date"]
-
-        filter_preset = filter_preset or "custom"
+        if start_date and end_date:
+            if start_date > end_date:
+                field_errors["start_date"] = "Start Date must not be later than End Date."
+                field_errors["end_date"] = "End Date must not be earlier than Start Date."
+                field_errors["general"] = "Start Date must not be later than End Date."
+            filter_preset = "custom"
+        elif start_date or end_date:
+            filter_preset = "custom"
+        else:
+            filter_preset = "all_time"
 
     return filter_preset, start_date, end_date, field_errors, raw_start, raw_end
 
@@ -325,7 +325,6 @@ def admin_reports(request):
     Displays comprehensive sales, invoices, customers, and product metrics,
     with interactive date range filters, distributor filters, Chart.js visualizations,
     and paginated data tables.
-    Validates Start Date and End Date. When validation fails, does not execute invoice queries.
     """
     if not request.user.is_staff:
         messages.error(request, "Access denied. Admin privileges required.")
@@ -353,141 +352,62 @@ def admin_reports(request):
             selected_distributor = None
             distributor_id_str = ""
 
-    # Search filter on the invoices table
-    search_query = request.GET.get("q", "").strip()
+    # Base querysets
+    invoices_qs = (
+        Invoice.objects.select_related("customer", "distributor", "distributor__distributor_profile")
+        .order_by("-invoice_date", "-created_at")
+    )
 
     if field_errors:
         invoices_qs = Invoice.objects.none()
-        table_invoices_qs = Invoice.objects.none()
-        total_sales = Decimal("0.00")
-        total_subtotal = Decimal("0.00")
-        total_gst = Decimal("0.00")
-        total_invoices = 0
-        amount_collected = Decimal("0.00")
-        avg_invoice_value = Decimal("0.00")
-        chart_labels = []
-        chart_revenue = []
-        chart_invoices = []
-        dist_labels = []
-        dist_revenue = []
-        top_products_qs = []
-        top_product_names = []
-        top_product_revenues = []
-        top_product_units = []
-        top_customers_qs = []
-        report_period_label = (
-            "Start date cannot be later than end date"
-            if ("general" in field_errors and "Start date cannot be later than end date" in field_errors["general"])
-            else "Please select both start date and end date"
-        )
-        paginator = Paginator(table_invoices_qs, 10)
-        page_obj = paginator.get_page(1)
     else:
-        # Base querysets
-        invoices_qs = (
-            Invoice.objects.select_related("customer", "distributor", "distributor__distributor_profile")
-            .filter(invoice_date__gte=start_date, invoice_date__lte=end_date)
-            .order_by("-invoice_date", "-created_at")
-        )
-
+        if start_date:
+            invoices_qs = invoices_qs.filter(invoice_date__gte=start_date)
+        if end_date:
+            invoices_qs = invoices_qs.filter(invoice_date__lte=end_date)
         if selected_distributor:
             invoices_qs = invoices_qs.filter(distributor=selected_distributor)
         if status_filter == "pending":
             invoices_qs = invoices_qs.none()
 
-        table_invoices_qs = invoices_qs
-        if search_query:
-            table_invoices_qs = table_invoices_qs.filter(
-                Q(invoice_number__icontains=search_query) |
-                Q(customer__name__icontains=search_query) |
-                Q(customer__phone__icontains=search_query) |
-                Q(distributor__username__icontains=search_query) |
-                Q(distributor__distributor_profile__full_name__icontains=search_query)
-            )
+    # Search filter on the invoices table
+    search_query = request.GET.get("q", "").strip()
+    table_invoices_qs = invoices_qs
+    if search_query and not field_errors:
+        table_invoices_qs = table_invoices_qs.filter(
+            Q(invoice_number__icontains=search_query) |
+            Q(customer__name__icontains=search_query) |
+            Q(customer__phone__icontains=search_query) |
+            Q(distributor__username__icontains=search_query) |
+            Q(distributor__distributor_profile__full_name__icontains=search_query)
+        )
 
-        # Human-readable report period label
+    # Human-readable report period label
+    if start_date and end_date:
         if start_date == end_date:
             report_period_label = start_date.strftime("%d %b %Y")
         else:
             report_period_label = f"{start_date.strftime('%d %b %Y')} to {end_date.strftime('%d %b %Y')}"
+    elif start_date:
+        report_period_label = f"From {start_date.strftime('%d %b %Y')}"
+    elif end_date:
+        report_period_label = f"Up to {end_date.strftime('%d %b %Y')}"
+    else:
+        report_period_label = "All Time"
 
-        # KPI Aggregations
-        invoice_aggregates = invoices_qs.aggregate(
-            total_sales=Coalesce(Sum("grand_total"), Value(Decimal("0.00"))),
-            total_subtotal=Coalesce(Sum("subtotal"), Value(Decimal("0.00"))),
-            total_gst=Coalesce(Sum("total_gst"), Value(Decimal("0.00"))),
-            total_invoices=Count("id", distinct=True)
-        )
-        total_sales = invoice_aggregates["total_sales"]
-        total_invoices = invoice_aggregates["total_invoices"]
-        amount_collected = total_sales if status_filter != "pending" else Decimal("0.00")
-        total_subtotal = invoice_aggregates["total_subtotal"]
-        total_gst = invoice_aggregates["total_gst"]
-        avg_invoice_value = (total_sales / total_invoices) if total_invoices > 0 else Decimal("0.00")
-
-        # Chart 1: Daily Sales Trend
-        daily_sales_qs = (
-            invoices_qs.values("invoice_date")
-            .annotate(
-                revenue=Coalesce(Sum("grand_total"), Value(Decimal("0.00"))),
-                invoices_count=Count("id")
-            )
-            .order_by("invoice_date")
-        )
-        chart_labels = [entry["invoice_date"].strftime("%d %b %Y") for entry in daily_sales_qs]
-        chart_revenue = [float(entry["revenue"]) for entry in daily_sales_qs]
-        chart_invoices = [entry["invoices_count"] for entry in daily_sales_qs]
-
-        # Chart 2: Revenue by Distributor
-        distributor_sales_qs = (
-            invoices_qs.values("distributor_id", "distributor__username", "distributor__distributor_profile__full_name")
-            .annotate(
-                revenue=Coalesce(Sum("grand_total"), Value(Decimal("0.00"))),
-                invoices_count=Count("id")
-            )
-            .order_by("-revenue")[:6]
-        )
-        dist_labels = []
-        dist_revenue = []
-        for d in distributor_sales_qs:
-            name = d["distributor__distributor_profile__full_name"] or d["distributor__username"]
-            dist_labels.append(name)
-            dist_revenue.append(float(d["revenue"]))
-
-        # Chart 3 / Table: Top Selling Products
-        top_products_qs = (
-            InvoiceItem.objects.filter(invoice__in=invoices_qs)
-            .values("product_id", "product_name")
-            .annotate(
-                units_sold=Coalesce(Sum("quantity"), Value(0)),
-                revenue=Coalesce(Sum("line_total"), Value(Decimal("0.00")))
-            )
-            .order_by("-revenue")[:8]
-        )
-        top_product_names = [p["product_name"] for p in top_products_qs]
-        top_product_revenues = [float(p["revenue"]) for p in top_products_qs]
-        top_product_units = [p["units_sold"] for p in top_products_qs]
-
-        # Table: Top Customers
-        top_customers_qs = (
-            invoices_qs.values(
-                "customer_id",
-                "customer__name",
-                "customer__phone",
-                "customer__email",
-                "distributor__username",
-                "distributor__distributor_profile__full_name"
-            )
-            .annotate(
-                invoices_count=Count("id"),
-                total_spent=Coalesce(Sum("grand_total"), Value(Decimal("0.00")))
-            )
-            .order_by("-total_spent")[:8]
-        )
-
-        paginator = Paginator(table_invoices_qs, 10)
-        page_number = request.GET.get("page", 1)
-        page_obj = paginator.get_page(page_number)
+    # KPI Aggregations
+    invoice_aggregates = invoices_qs.aggregate(
+        total_sales=Coalesce(Sum("grand_total"), Value(Decimal("0.00"))),
+        total_subtotal=Coalesce(Sum("subtotal"), Value(Decimal("0.00"))),
+        total_gst=Coalesce(Sum("total_gst"), Value(Decimal("0.00"))),
+        total_invoices=Count("id", distinct=True)
+    )
+    total_sales = invoice_aggregates["total_sales"]
+    total_invoices = invoice_aggregates["total_invoices"]
+    amount_collected = total_sales if status_filter != "pending" else Decimal("0.00")
+    total_subtotal = invoice_aggregates["total_subtotal"]
+    total_gst = invoice_aggregates["total_gst"]
+    avg_invoice_value = (total_sales / total_invoices) if total_invoices > 0 else Decimal("0.00")
 
     # Catalog and customer stats
     products_qs = Product.objects.all()
@@ -502,6 +422,72 @@ def admin_reports(request):
     out_of_stock_products = products_qs.filter(stock=0).count()
     total_customers = customers_qs.count()
 
+    # Chart 1: Daily Sales Trend
+    daily_sales_qs = (
+        invoices_qs.values("invoice_date")
+        .annotate(
+            revenue=Coalesce(Sum("grand_total"), Value(Decimal("0.00"))),
+            invoices_count=Count("id")
+        )
+        .order_by("invoice_date")
+    )
+    chart_labels = [entry["invoice_date"].strftime("%d %b %Y") for entry in daily_sales_qs]
+    chart_revenue = [float(entry["revenue"]) for entry in daily_sales_qs]
+    chart_invoices = [entry["invoices_count"] for entry in daily_sales_qs]
+
+    # Chart 2: Revenue by Distributor
+    distributor_sales_qs = (
+        invoices_qs.values("distributor_id", "distributor__username", "distributor__distributor_profile__full_name")
+        .annotate(
+            revenue=Coalesce(Sum("grand_total"), Value(Decimal("0.00"))),
+            invoices_count=Count("id")
+        )
+        .order_by("-revenue")[:6]
+    )
+    dist_labels = []
+    dist_revenue = []
+    for d in distributor_sales_qs:
+        name = d["distributor__distributor_profile__full_name"] or d["distributor__username"]
+        dist_labels.append(name)
+        dist_revenue.append(float(d["revenue"]))
+
+    # Chart 3 / Table: Top Selling Products
+    top_products_qs = (
+        InvoiceItem.objects.filter(invoice__in=invoices_qs)
+        .values("product_id", "product_name")
+        .annotate(
+            units_sold=Coalesce(Sum("quantity"), Value(0)),
+            revenue=Coalesce(Sum("line_total"), Value(Decimal("0.00")))
+        )
+        .order_by("-revenue")[:8]
+    )
+    top_product_names = [p["product_name"] for p in top_products_qs]
+    top_product_revenues = [float(p["revenue"]) for p in top_products_qs]
+    top_product_units = [p["units_sold"] for p in top_products_qs]
+
+    # Table: Top Customers
+    top_customers_qs = (
+        invoices_qs.values(
+            "customer_id",
+            "customer__name",
+            "customer__phone",
+            "customer__email",
+            "distributor__username",
+            "distributor__distributor_profile__full_name"
+        )
+        .annotate(
+            invoices_count=Count("id"),
+            total_spent=Coalesce(Sum("grand_total"), Value(Decimal("0.00")))
+        )
+        .order_by("-total_spent")[:8]
+    )
+
+    # Pagination for Invoices breakdown table
+    paginator = Paginator(table_invoices_qs, 10)
+    page_number = request.GET.get("page", 1)
+    page_obj = paginator.get_page(page_number)
+
+    # List of distributors for filter dropdown
     distributors = (
         User.objects.filter(Q(groups__name="Distributor") | Q(distributor_profile__isnull=False))
         .distinct()
@@ -559,7 +545,7 @@ def admin_reports_export_csv(request):
     """
     Exports filtered reports data to CSV.
     Supported types: 'invoices' (default), 'products', 'customers'.
-    Includes formula sanitization and strictly validates mandatory start_date and end_date.
+    Includes formula sanitization and respects date & distributor filters.
     """
     if not request.user.is_staff:
         messages.error(request, "Access denied. Admin privileges required.")
@@ -567,15 +553,6 @@ def admin_reports_export_csv(request):
 
     report_type = request.GET.get("type", "invoices").strip().lower()
     filter_preset, start_date, end_date, field_errors, raw_start, raw_end = parse_date_filters(request)
-    if field_errors:
-        error_msg = field_errors.get("general") or next(iter(field_errors.values()))
-        messages.error(request, error_msg)
-        redirect_url = reverse("admin_reports")
-        query_string = request.META.get("QUERY_STRING", "")
-        if query_string:
-            redirect_url = f"{redirect_url}?{query_string}"
-        return redirect(redirect_url)
-
     status_filter = request.GET.get("status", "all").strip().lower()
 
     distributor_id_str = request.GET.get("distributor_id", "").strip()
@@ -588,16 +565,32 @@ def admin_reports_export_csv(request):
 
     invoices_qs = (
         Invoice.objects.select_related("customer", "distributor", "distributor__distributor_profile")
-        .filter(invoice_date__gte=start_date, invoice_date__lte=end_date)
         .order_by("-invoice_date", "-created_at")
     )
-    if selected_distributor:
-        invoices_qs = invoices_qs.filter(distributor=selected_distributor)
-    if status_filter == "pending":
-        invoices_qs = invoices_qs.none()
+    if field_errors:
+        invoices_qs = Invoice.objects.none()
+    else:
+        if start_date:
+            invoices_qs = invoices_qs.filter(invoice_date__gte=start_date)
+        if end_date:
+            invoices_qs = invoices_qs.filter(invoice_date__lte=end_date)
+        if selected_distributor:
+            invoices_qs = invoices_qs.filter(distributor=selected_distributor)
+        if status_filter == "pending":
+            invoices_qs = invoices_qs.none()
 
     response = HttpResponse(content_type="text/csv; charset=utf-8")
-    date_filename_part = f"{start_date.strftime('%Y-%m-%d')}_to_{end_date.strftime('%Y-%m-%d')}"
+    timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
+
+    # Safe filename containing date range
+    if start_date and end_date:
+        date_filename_part = f"{start_date.strftime('%Y-%m-%d')}_to_{end_date.strftime('%Y-%m-%d')}"
+    elif start_date:
+        date_filename_part = f"from_{start_date.strftime('%Y-%m-%d')}"
+    elif end_date:
+        date_filename_part = f"until_{end_date.strftime('%Y-%m-%d')}"
+    else:
+        date_filename_part = f"all_time_{timestamp}"
 
     def sanitize_csv(value):
         if value is None:
@@ -688,24 +681,14 @@ def admin_reports_export_csv(request):
 def admin_reports_export_pdf(request):
     """
     Exports filtered invoice reports data to PDF using xhtml2pdf.pisa.CreatePDF.
-    Requires valid Start Date and End Date.
+    Reuses date validation, invoice filtering, and summary calculations.
     Returns HTTP response with application/pdf and Content-Disposition attachment.
-    If validation fails, does not generate a PDF and redirects to admin reports dashboard with error.
     """
     if not request.user.is_staff:
         messages.error(request, "Access denied. Admin privileges required.")
         return redirect("admin_login")
 
     filter_preset, start_date, end_date, field_errors, raw_start, raw_end = parse_date_filters(request)
-    if field_errors:
-        error_msg = field_errors.get("general") or next(iter(field_errors.values()))
-        messages.error(request, error_msg)
-        redirect_url = reverse("admin_reports")
-        query_string = request.META.get("QUERY_STRING", "")
-        if query_string:
-            redirect_url = f"{redirect_url}?{query_string}"
-        return redirect(redirect_url)
-
     status_filter = request.GET.get("status", "all").strip().lower()
 
     distributor_id_str = request.GET.get("distributor_id", "").strip()
@@ -718,18 +701,32 @@ def admin_reports_export_pdf(request):
 
     invoices_qs = (
         Invoice.objects.select_related("customer", "distributor", "distributor__distributor_profile")
-        .filter(invoice_date__gte=start_date, invoice_date__lte=end_date)
         .order_by("-invoice_date", "-created_at")
     )
-    if selected_distributor:
-        invoices_qs = invoices_qs.filter(distributor=selected_distributor)
-    if status_filter == "pending":
-        invoices_qs = invoices_qs.none()
-
-    if start_date == end_date:
-        report_period_label = start_date.strftime("%d %b %Y")
+    if field_errors:
+        invoices_qs = Invoice.objects.none()
     else:
-        report_period_label = f"{start_date.strftime('%d %b %Y')} to {end_date.strftime('%d %b %Y')}"
+        if start_date:
+            invoices_qs = invoices_qs.filter(invoice_date__gte=start_date)
+        if end_date:
+            invoices_qs = invoices_qs.filter(invoice_date__lte=end_date)
+        if selected_distributor:
+            invoices_qs = invoices_qs.filter(distributor=selected_distributor)
+        if status_filter == "pending":
+            invoices_qs = invoices_qs.none()
+
+    # Human-readable report period label
+    if start_date and end_date:
+        if start_date == end_date:
+            report_period_label = start_date.strftime("%d %b %Y")
+        else:
+            report_period_label = f"{start_date.strftime('%d %b %Y')} to {end_date.strftime('%d %b %Y')}"
+    elif start_date:
+        report_period_label = f"From {start_date.strftime('%d %b %Y')}"
+    elif end_date:
+        report_period_label = f"Up to {end_date.strftime('%d %b %Y')}"
+    else:
+        report_period_label = "All Time"
 
     # Aggregates
     invoice_aggregates = invoices_qs.aggregate(
@@ -745,7 +742,15 @@ def admin_reports_export_pdf(request):
     total_gst = invoice_aggregates["total_gst"]
     avg_invoice_value = (total_sales / total_invoices) if total_invoices > 0 else Decimal("0.00")
 
-    date_filename_part = f"{start_date.strftime('%Y-%m-%d')}_to_{end_date.strftime('%Y-%m-%d')}"
+    timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
+    if start_date and end_date:
+        date_filename_part = f"{start_date.strftime('%Y-%m-%d')}_to_{end_date.strftime('%Y-%m-%d')}"
+    elif start_date:
+        date_filename_part = f"from_{start_date.strftime('%Y-%m-%d')}"
+    elif end_date:
+        date_filename_part = f"until_{end_date.strftime('%Y-%m-%d')}"
+    else:
+        date_filename_part = f"all_time_{timestamp}"
 
     context = {
         "report_period_label": report_period_label,

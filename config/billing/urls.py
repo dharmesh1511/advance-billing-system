@@ -5,6 +5,7 @@ from . import api_views
 urlpatterns = [
     path("api/products/", api_views.ProductListCreateAPIView.as_view(), name="billing_api_product_list_create"),
     path("api/products/<int:pk>/", api_views.ProductDetailAPIView.as_view(), name="billing_api_product_detail"),
+    path("api/qr/decode/", api_views.QRCodeDecodeAPIView.as_view(), name="billing_api_qr_decode"),
     path("distributor/customers/", views.customer_list, name="billing_customer_list"),
     path("distributor/customers/register/", views.customer_register_view, name="billing_customer_register"),
     path("distributor/customers/add/", views.add_customer, name="billing_add_customer"),

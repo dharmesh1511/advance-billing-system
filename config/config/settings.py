@@ -170,3 +170,10 @@ EMAIL_HOST_USER = os.environ["EMAIL_HOST_USER"]
 EMAIL_HOST_PASSWORD = os.environ["EMAIL_HOST_PASSWORD"]
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# QR Code Decoder Settings
+QR_DECODER_MAX_IMAGE_SIZE = 5 * 1024 * 1024       # 5 MB
+QR_DECODER_MAX_IMAGE_PIXELS = 16_000_000          # 16 Megapixels
+QR_DECODER_MAX_IMAGE_DIMENSION = 4096             # Max width or height
+QR_DECODER_ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}
+QR_DECODER_ALLOWED_FORMATS = {"PNG", "JPEG", "WEBP", "BMP", "TIFF"}

@@ -142,3 +142,27 @@ class ProductSerializer(serializers.ModelSerializer):
         # Prevent tampering with distributor
         validated_data.pop("distributor", None)
         return super().update(instance, validated_data)
+
+
+class QRCodeUploadSerializer(serializers.Serializer):
+    """
+    Serializer to validate incoming QR code image upload request.
+    """
+    image = serializers.FileField(required=True)
+
+
+class QRCodeResultItemSerializer(serializers.Serializer):
+    """
+    Serializer representing a single decoded QR code result.
+    """
+    data = serializers.CharField()
+    type = serializers.CharField(default="QRCODE")
+
+
+class QRCodeDecodeResponseSerializer(serializers.Serializer):
+    """
+    Serializer for the QR code decoder JSON response.
+    """
+    success = serializers.BooleanField()
+    message = serializers.CharField()
+    results = QRCodeResultItemSerializer(many=True)

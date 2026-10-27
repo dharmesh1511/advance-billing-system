@@ -29,17 +29,15 @@
                 <!-- Export Quick Actions -->
                 <div class="d-flex align-items-center gap-2">
                     <a href="{% url 'admin_reports_export_pdf' %}?start_date={{ start_date }}&end_date={{ end_date }}&status={{ status_filter }}&distributor_id={{ selected_distributor_id|default:'' }}"
-                       class="btn btn-outline-danger fw-semibold shadow-sm d-flex align-items-center gap-2 {% if not start_date or not end_date or field_errors %}disabled{% endif %}"
+                       class="btn btn-outline-danger fw-semibold shadow-sm d-flex align-items-center gap-2"
                        id="btnDownloadPdf"
-                       title="Download invoice report as PDF"
-                       {% if not start_date or not end_date or field_errors %}aria-disabled="true" tabindex="-1"{% endif %}>
+                       title="Download invoice report as PDF">
                         <i class="bi bi-file-earmark-pdf-fill"></i> Download PDF
                     </a>
                     <a href="{% url 'admin_reports_export_csv' %}?type=invoices&start_date={{ start_date }}&end_date={{ end_date }}&status={{ status_filter }}&distributor_id={{ selected_distributor_id|default:'' }}"
-                       class="btn btn-outline-success fw-semibold shadow-sm d-flex align-items-center gap-2 {% if not start_date or not end_date or field_errors %}disabled{% endif %}"
+                       class="btn btn-outline-success fw-semibold shadow-sm d-flex align-items-center gap-2"
                        id="btnExportCsv"
-                       title="Export filtered invoices to CSV"
-                       {% if not start_date or not end_date or field_errors %}aria-disabled="true" tabindex="-1"{% endif %}>
+                       title="Export filtered invoices to CSV">
                         <i class="bi bi-file-earmark-spreadsheet-fill"></i> Export Report (CSV)
                     </a>
                 </div>
@@ -91,12 +89,15 @@
                     <button type="button" class="btn btn-sm {% if filter_preset == 'this_year' %}btn-primary text-white fw-bold shadow-sm{% else %}btn-outline-secondary bg-light text-dark{% endif %} rounded-pill px-3 py-1 shortcut-btn" data-preset="this_year">
                         <i class="bi bi-calendar3 me-1"></i> This Year
                     </button>
+                    <button type="button" class="btn btn-sm {% if filter_preset == 'all_time' or not filter_preset %}btn-primary text-white fw-bold shadow-sm{% else %}btn-outline-secondary bg-light text-dark{% endif %} rounded-pill px-3 py-1 shortcut-btn" data-preset="all_time">
+                        <i class="bi bi-infinity me-1"></i> All Time
+                    </button>
                 </div>
             </div>
 
             <!-- Dedicated Filter Form -->
             <form method="GET" action="{% url 'admin_reports' %}" id="invoiceReportForm" novalidate>
-                <input type="hidden" name="filter" id="filterPresetInput" value="{{ filter_preset|default:'' }}">
+                <input type="hidden" name="filter" id="filterPresetInput" value="{{ filter_preset|default:'all_time' }}">
 
                 <div class="row g-3 align-items-start">
                     <!-- Start Date Picker -->
@@ -111,7 +112,6 @@
                                    id="id_start_date"
                                    class="form-control border-start-0 {% if field_errors.start_date %}is-invalid{% endif %}"
                                    value="{{ start_date }}"
-                                   required
                                    aria-describedby="startDateError">
                         </div>
                         <div class="invalid-feedback d-block text-danger small mt-1" id="startDateError">
@@ -131,7 +131,6 @@
                                    id="id_end_date"
                                    class="form-control border-start-0 {% if field_errors.end_date %}is-invalid{% endif %}"
                                    value="{{ end_date }}"
-                                   required
                                    aria-describedby="endDateError">
                         </div>
                         <div class="invalid-feedback d-block text-danger small mt-1" id="endDateError">
@@ -184,10 +183,9 @@
                     <div class="col-12 d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2 border-top mt-3">
                         <div class="d-flex align-items-center gap-2">
                             <a href="{% url 'admin_reports_export_pdf' %}?start_date={{ start_date }}&end_date={{ end_date }}&status={{ status_filter }}&distributor_id={{ selected_distributor_id|default:'' }}"
-                               class="btn btn-outline-danger fw-semibold shadow-sm d-flex align-items-center gap-2 {% if not start_date or not end_date or field_errors %}disabled{% endif %}"
+                               class="btn btn-outline-danger fw-semibold shadow-sm d-flex align-items-center gap-2"
                                id="btnDownloadPdfForm"
-                               title="Download invoice report as PDF"
-                               {% if not start_date or not end_date or field_errors %}aria-disabled="true" tabindex="-1"{% endif %}>
+                               title="Download invoice report as PDF">
                                 <i class="bi bi-file-earmark-pdf-fill"></i> Download PDF
                             </a>
                         </div>
@@ -720,9 +718,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const endDateError = document.getElementById("endDateError");
     const clientAlert = document.getElementById("clientValidationAlert");
     const clientMsg = document.getElementById("clientValidationMessage");
-    const btnDownloadPdf = document.getElementById("btnDownloadPdf");
-    const btnDownloadPdfForm = document.getElementById("btnDownloadPdfForm");
-    const btnExportCsv = document.getElementById("btnExportCsv");
     const shortcutButtons = document.querySelectorAll(".shortcut-btn");
 
     function formatDate(d) {
@@ -731,122 +726,6 @@ document.addEventListener("DOMContentLoaded", function () {
         const day = String(d.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     }
-
-    function showClientError(msg, fields) {
-        if (clientMsg) {
-            clientMsg.innerHTML = `<strong>Validation Error:</strong> ${msg}`;
-        }
-        if (clientAlert) {
-            clientAlert.classList.remove("d-none");
-            clientAlert.classList.add("d-flex");
-        }
-        if (fields.includes("start") && startDateInput) {
-            startDateInput.classList.add("is-invalid");
-            if (startDateError) {
-                startDateError.innerHTML = `<i class="bi bi-exclamation-circle me-1"></i>${msg}`;
-            }
-        }
-        if (fields.includes("end") && endDateInput) {
-            endDateInput.classList.add("is-invalid");
-            if (endDateError) {
-                endDateError.innerHTML = `<i class="bi bi-exclamation-circle me-1"></i>${msg}`;
-            }
-        }
-    }
-
-    function clearClientErrors() {
-        if (clientAlert) {
-            clientAlert.classList.add("d-none");
-            clientAlert.classList.remove("d-flex");
-        }
-        if (startDateInput) startDateInput.classList.remove("is-invalid");
-        if (endDateInput) endDateInput.classList.remove("is-invalid");
-        if (startDateError) startDateError.textContent = "";
-        if (endDateError) endDateError.textContent = "";
-    }
-
-    function validateDates(isSubmitting) {
-        const startVal = startDateInput ? startDateInput.value.trim() : "";
-        const endVal = endDateInput ? endDateInput.value.trim() : "";
-
-        clearClientErrors();
-
-        // 1. Missing either or both dates
-        if (!startVal || !endVal) {
-            if (isSubmitting) {
-                const missingFields = [];
-                if (!startVal) missingFields.push("start");
-                if (!endVal) missingFields.push("end");
-                showClientError("Please select both start date and end date.", missingFields);
-            }
-            return false;
-        }
-
-        // 2. Format / validity
-        const startDateObj = new Date(startVal + "T00:00:00");
-        const endDateObj = new Date(endVal + "T00:00:00");
-
-        if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
-            const malformedFields = [];
-            if (isNaN(startDateObj.getTime())) malformedFields.push("start");
-            if (isNaN(endDateObj.getTime())) malformedFields.push("end");
-            showClientError("Please enter valid dates.", malformedFields);
-            return false;
-        }
-
-        // 3. Start Date later than End Date
-        if (startDateObj > endDateObj) {
-            showClientError("Start date cannot be later than end date.", ["start", "end"]);
-            return false;
-        }
-
-        return true;
-    }
-
-    function updateActionLinks() {
-        const startVal = startDateInput ? startDateInput.value.trim() : "";
-        const endVal = endDateInput ? endDateInput.value.trim() : "";
-        const isValid = validateDates(false);
-
-        [btnDownloadPdf, btnDownloadPdfForm, btnExportCsv].forEach(btn => {
-            if (!btn) return;
-            if (startVal && endVal && isValid) {
-                btn.classList.remove("disabled");
-                btn.removeAttribute("aria-disabled");
-                btn.removeAttribute("tabindex");
-                try {
-                    const currentHref = new URL(btn.href, window.location.origin);
-                    currentHref.searchParams.set("start_date", startVal);
-                    currentHref.searchParams.set("end_date", endVal);
-                    btn.href = currentHref.toString();
-                } catch (e) {
-                    // Ignore URL parse error
-                }
-            } else {
-                btn.classList.add("disabled");
-                btn.setAttribute("aria-disabled", "true");
-                btn.setAttribute("tabindex", "-1");
-            }
-        });
-    }
-
-    // Direct click intercept on Download PDF & Export CSV
-    [btnDownloadPdf, btnDownloadPdfForm, btnExportCsv].forEach(btn => {
-        if (!btn) return;
-        btn.addEventListener("click", function (e) {
-            if (!validateDates(true)) {
-                e.preventDefault();
-                if (startDateInput && !startDateInput.value.trim()) {
-                    startDateInput.focus();
-                } else if (endDateInput && !endDateInput.value.trim()) {
-                    endDateInput.focus();
-                } else if (startDateInput) {
-                    startDateInput.focus();
-                }
-                return false;
-            }
-        });
-    });
 
     // 1. Interactive Date Range Shortcuts
     shortcutButtons.forEach(function (btn) {
@@ -872,6 +751,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 const yearStart = new Date(now.getFullYear(), 0, 1);
                 start = formatDate(yearStart);
                 end = formatDate(now);
+            } else if (preset === "all_time") {
+                start = "";
+                end = "";
             }
 
             if (startDateInput) startDateInput.value = start;
@@ -886,8 +768,15 @@ document.addEventListener("DOMContentLoaded", function () {
             this.classList.remove("btn-outline-secondary", "bg-light", "text-dark");
             this.classList.add("btn-primary", "text-white", "fw-bold", "shadow-sm");
 
-            clearClientErrors();
-            updateActionLinks();
+            // Clear any lingering validation errors
+            if (startDateInput) startDateInput.classList.remove("is-invalid");
+            if (endDateInput) endDateInput.classList.remove("is-invalid");
+            if (startDateError) startDateError.textContent = "";
+            if (endDateError) endDateError.textContent = "";
+            if (clientAlert) {
+                clientAlert.classList.add("d-none");
+                clientAlert.classList.remove("d-flex");
+            }
 
             // Automatically submit to fetch results
             if (reportForm) {
@@ -900,32 +789,60 @@ document.addEventListener("DOMContentLoaded", function () {
     [startDateInput, endDateInput].forEach(function (inputEl) {
         if (!inputEl) return;
         inputEl.addEventListener("input", function () {
-            validateDates(false);
+            this.classList.remove("is-invalid");
+            if (this.id === "id_start_date" && startDateError) startDateError.textContent = "";
+            if (this.id === "id_end_date" && endDateError) endDateError.textContent = "";
+            if (clientAlert) {
+                clientAlert.classList.add("d-none");
+                clientAlert.classList.remove("d-flex");
+            }
             if (filterPresetInput) filterPresetInput.value = "custom";
             shortcutButtons.forEach(btn => {
                 btn.classList.remove("btn-primary", "text-white", "fw-bold", "shadow-sm");
                 btn.classList.add("btn-outline-secondary", "bg-light", "text-dark");
             });
-            updateActionLinks();
-        });
-        inputEl.addEventListener("change", function () {
-            validateDates(false);
-            updateActionLinks();
         });
     });
 
     // 3. Client-Side Form Submission Validation
     if (reportForm) {
         reportForm.addEventListener("submit", function (e) {
-            if (!validateDates(true)) {
-                e.preventDefault();
-                if (startDateInput && !startDateInput.value.trim()) {
-                    startDateInput.focus();
-                } else if (endDateInput && !endDateInput.value.trim()) {
-                    endDateInput.focus();
-                } else if (startDateInput) {
-                    startDateInput.focus();
+            const startVal = startDateInput ? startDateInput.value.trim() : "";
+            const endVal = endDateInput ? endDateInput.value.trim() : "";
+
+            let hasError = false;
+
+            if (startVal && endVal) {
+                const startDateObj = new Date(startVal + "T00:00:00");
+                const endDateObj = new Date(endVal + "T00:00:00");
+
+                if (isNaN(startDateObj.getTime())) {
+                    if (startDateInput) startDateInput.classList.add("is-invalid");
+                    if (startDateError) startDateError.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>Please enter a valid Start Date.';
+                    hasError = true;
                 }
+                if (isNaN(endDateObj.getTime())) {
+                    if (endDateInput) endDateInput.classList.add("is-invalid");
+                    if (endDateError) endDateError.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>Please enter a valid End Date.';
+                    hasError = true;
+                }
+                if (!hasError && startDateObj > endDateObj) {
+                    if (startDateInput) startDateInput.classList.add("is-invalid");
+                    if (endDateInput) endDateInput.classList.add("is-invalid");
+                    if (startDateError) startDateError.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>Start Date must not be later than End Date.';
+                    if (endDateError) endDateError.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>End Date must not be earlier than Start Date.';
+                    if (clientMsg) clientMsg.innerHTML = '<strong>Validation Error:</strong> Start Date cannot be later than End Date.';
+                    if (clientAlert) {
+                        clientAlert.classList.remove("d-none");
+                        clientAlert.classList.add("d-flex");
+                    }
+                    hasError = true;
+                }
+            }
+
+            if (hasError) {
+                e.preventDefault();
+                if (startDateInput) startDateInput.focus();
                 return false;
             }
         });

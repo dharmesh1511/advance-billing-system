@@ -214,3 +214,64 @@ def generate_invoice_qr_base64(invoice):
     except Exception as e:
         logger.error(f"Error generating base64 QR code for invoice {getattr(invoice, 'invoice_number', '')}: {e}")
         return ""
+
+
+def decode_qr_from_image(image):
+    """
+    Decodes QR code(s) from a PIL Image instance.
+    Uses pyzbar as primary decoder, with OpenCV QRCodeDetector as fallback.
+    Supports single or multiple QR codes within the image.
+    Returns a list of dicts: [{'data': str, 'type': str}, ...].
+    Security Note: Content is returned as plain strings; never executed or followed.
+    """
+    results = []
+
+    # Primary Decoder: pyzbar
+    try:
+        from pyzbar.pyzbar import decode as pyzbar_decode, ZBarSymbol
+        decoded_objs = pyzbar_decode(image, symbols=[ZBarSymbol.QRCODE])
+        if not decoded_objs and image.mode not in ("RGB", "L"):
+            decoded_objs = pyzbar_decode(image.convert("RGB"), symbols=[ZBarSymbol.QRCODE])
+
+        for obj in decoded_objs:
+            raw_data = obj.data
+            try:
+                decoded_str = raw_data.decode("utf-8")
+            except UnicodeDecodeError:
+                decoded_str = raw_data.decode("latin-1", errors="replace")
+
+            results.append({
+                "data": decoded_str,
+                "type": obj.type or "QRCODE"
+            })
+        return results
+    except ImportError:
+        logger.warning("pyzbar is not installed or available; attempting fallback.")
+    except Exception as e:
+        logger.error(f"Error during pyzbar QR decoding: {e}")
+
+    # Secondary Decoder: OpenCV QRCodeDetector
+    try:
+        import cv2
+        import numpy as np
+
+        img_rgb = image.convert("RGB")
+        np_arr = np.array(img_rgb)
+        img_bgr = cv2.cvtColor(np_arr, cv2.COLOR_RGB2BGR)
+
+        detector = cv2.QRCodeDetector()
+        retval, decoded_info, points, straight_qrcode = detector.detectAndDecodeMulti(img_bgr)
+        if retval:
+            for text in decoded_info:
+                if text:
+                    results.append({
+                        "data": text,
+                        "type": "QRCODE"
+                    })
+        return results
+    except ImportError:
+        pass
+    except Exception as e:
+        logger.error(f"Error during cv2 QR decoding: {e}")
+
+    return results
