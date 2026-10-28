@@ -71,6 +71,9 @@ urlpatterns = [
     path("distributor/invoices/<int:pk>/details/", billing_views.invoice_detail, name="invoice_details"),
     path("distributor/invoices/<int:pk>/qr/", billing_views.invoice_qr_view, name="invoice_qr"),
     path("distributor/invoices/<int:pk>/qr/", billing_views.invoice_qr_view, name="invoice_qr_view"),
+    path("distributor/qr/decode/", billing_views.qr_decoder_view, name="qr_decoder"),
+    path("distributor/qr-decoder/", billing_views.qr_decoder_view, name="qr_decoder_page"),
+    path("distributor/invoices/qr-decoder/", billing_views.qr_decoder_view, name="invoice_qr_decoder"),
 
 
 

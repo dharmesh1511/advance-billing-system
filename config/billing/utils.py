@@ -1,8 +1,11 @@
 import os
+import re
 import logging
 import json
 import base64
 from io import BytesIO
+from urllib.parse import urlparse, parse_qs
+
 from django.conf import settings
 from django.contrib.staticfiles import finders
 from django.template.loader import get_template, TemplateDoesNotExist
@@ -306,3 +309,269 @@ def decode_qr_from_image(image):
         logger.error(f"Error during pyzbar QR decoding: {e}")
 
     return results
+
+
+# =====================================================================
+# QR Code Invoice Data Parsing & Resolution Utilities
+# =====================================================================
+
+class InvalidQRPayloadError(Exception):
+    """Raised when decoded QR data cannot be resolved to a valid invoice identifier."""
+    pass
+
+
+class InvoiceNotFoundError(Exception):
+    """Raised when an invoice identifier was extracted but does not exist in the database."""
+    pass
+
+
+class InvoicePermissionDeniedError(Exception):
+    """Raised when the requesting user is not authorized to access the resolved invoice."""
+    pass
+
+
+def extract_invoice_identifier_from_qr(decoded_text):
+    """
+    Validates and normalizes untrusted decoded QR text to extract an invoice identifier.
+    Supports:
+    1. Structured JSON payloads containing invoice references
+       (e.g., project standard `{"invoice_number": "INV-1001", ...}`, `{"invoice_no": ...}`, `{"invoice_id": ...}`, `{"id": ...}`).
+    2. Recognized invoice URLs
+       (e.g., `https://.../invoice/INV-1001`, `.../distributor/invoices/12/`, `...?invoice=INV-1001`).
+    3. Plain-text invoice numbers / identifiers matching safe naming conventions
+       (e.g., `INV-2026-0001`, `INV-1001`).
+
+    Rejects malformed, arbitrary, executable, or unrecognized payloads.
+    """
+    if not decoded_text or not isinstance(decoded_text, str):
+        raise InvalidQRPayloadError("QR code content is empty or invalid.")
+
+    raw = decoded_text.strip()
+    if not raw:
+        raise InvalidQRPayloadError("QR code content is empty.")
+
+    # 1. Attempt JSON Payload parsing
+    if (raw.startswith("{") and raw.endswith("}")) or ("{" in raw and "}" in raw):
+        try:
+            # Extract the JSON substring if surrounded by accidental whitespace or quotes
+            start = raw.find("{")
+            end = raw.rfind("}") + 1
+            payload = json.loads(raw[start:end])
+            if isinstance(payload, dict):
+                # Check for standard invoice reference keys
+                ref_keys = ["invoice_number", "invoice_no", "invoiceId", "invoice_id", "invoice", "id"]
+                for k in ref_keys:
+                    val = payload.get(k)
+                    if val is not None:
+                        val_str = str(val).strip()
+                        if val_str:
+                            return val_str
+                raise InvalidQRPayloadError("The QR code JSON payload does not contain a recognized invoice reference.")
+        except json.JSONDecodeError:
+            pass  # Fall through to URL or plain-text checks
+
+    # 2. Attempt URL parsing
+    is_url = raw.startswith("http://") or raw.startswith("https://") or raw.startswith("//") or raw.startswith("/")
+    if is_url:
+        from urllib.parse import urlparse, parse_qs
+        try:
+            parsed = urlparse(raw)
+            # Check URL query parameters first
+            if parsed.query:
+                query_params = parse_qs(parsed.query)
+                for q_key in ["invoice_number", "invoice_no", "invoice_id", "invoice", "inv", "id"]:
+                    if q_key in query_params and query_params[q_key]:
+                        candidate = str(query_params[q_key][0]).strip()
+                        if candidate:
+                            return candidate
+
+            # Check URL path patterns
+            path = parsed.path.rstrip("/")
+            # Regex for /distributor/invoices/<ref> or /billing/distributor/invoices/<ref>
+            dist_match = re.search(r'/(?:billing/)?distributor/invoices/(?P<ref>[^/]+)', path, re.IGNORECASE)
+            if dist_match:
+                ref = dist_match.group("ref").strip()
+                if ref and ref.lower() not in ("create", "add", "list"):
+                    return ref
+
+            # Regex for /invoice/<ref> or /invoices/<ref>
+            inv_match = re.search(r'/invoices?/(?P<ref>[^/]+)', path, re.IGNORECASE)
+            if inv_match:
+                ref = inv_match.group("ref").strip()
+                if ref and ref.lower() not in ("create", "add", "list"):
+                    return ref
+
+            # URL didn't match any known invoice pattern
+            raise InvalidQRPayloadError("The QR code URL does not match a recognized invoice reference.")
+        except InvalidQRPayloadError:
+            raise
+        except Exception as e:
+            raise InvalidQRPayloadError(f"Failed to parse QR code URL: {e}")
+
+    # 3. Plain Text Invoice Identifier
+    # Validate against safe alphanumeric pattern with hyphens, underscores, slashes (length 2 to 50)
+    # Reject arbitrary strings containing spaces, control characters, or script tags
+    if re.search(r'[\s<>"\'\\]', raw):
+        raise InvalidQRPayloadError("Invalid QR code format: content contains invalid characters.")
+
+    if re.match(r'^[A-Za-z0-9][A-Za-z0-9\-_/]{1,49}$', raw):
+        return raw
+
+    raise InvalidQRPayloadError("The decoded QR content does not match a recognized invoice format.")
+
+
+def resolve_invoice_from_identifier(identifier, user=None):
+    """
+    Queries the Invoice model using Django ORM by invoice_number or database ID.
+    Enforces user authorization and distributor isolation:
+    - Admin/Staff users can access any invoice.
+    - Authenticated Distributors can only access invoices belonging to their distributor account.
+    - Unauthorized users or cross-distributor access raises InvoicePermissionDeniedError.
+    - Nonexistent records raise InvoiceNotFoundError.
+    """
+    from decimal import Decimal
+    from .models import Invoice
+
+    clean_id = str(identifier).strip()
+    if not clean_id:
+        raise InvalidQRPayloadError("Invoice identifier cannot be empty.")
+
+    qs = Invoice.objects.select_related("customer", "distributor").prefetch_related("items", "items__product")
+
+    # 1. Exact or case-insensitive invoice_number match
+    invoice = qs.filter(invoice_number__iexact=clean_id).first()
+
+    # 2. Fall back to numeric primary key lookup if identifier is purely digits
+    if not invoice and clean_id.isdigit():
+        invoice = qs.filter(pk=int(clean_id)).first()
+
+    if not invoice:
+        raise InvoiceNotFoundError(f"Invoice '{clean_id}' not found in the database.")
+
+    # 3. Enforce authorization & distributor isolation
+    if user and user.is_authenticated:
+        if user.is_superuser or user.is_staff:
+            return invoice
+        if invoice.distributor_id == user.id:
+            return invoice
+        # Requesting user is authenticated but does not own this invoice
+        raise InvoicePermissionDeniedError("You do not have permission to access this invoice.")
+
+    return invoice
+
+
+def format_invoice_for_response(invoice, user=None):
+    """
+    Serializes an Invoice model instance and its line items into a structured dictionary
+    safe for API JSON responses and template rendering.
+    Calculates subtotal, gross total, taxes, discounts, amount paid, and payment status.
+    """
+    from decimal import Decimal
+
+    items_data = []
+    gross_total = Decimal("0.00")
+    total_discount = Decimal("0.00")
+
+    for item in invoice.items.all():
+        line_gross = Decimal(item.quantity) * item.unit_price
+        gross_total += line_gross
+        line_discount = line_gross - item.taxable_amount
+        total_discount += line_discount
+
+        items_data.append({
+            "id": item.id,
+            "product_name": item.product_name,
+            "sku": (item.product.sku if (item.product and item.product.sku) else "") or "",
+            "quantity": item.quantity,
+            "unit_price": f"{item.unit_price:.2f}",
+            "discount_percent": f"{item.discount_percent:.2f}",
+            "taxable_amount": f"{item.taxable_amount:.2f}",
+            "gst_rate": f"{item.gst_rate:.2f}",
+            "gst_amount": f"{item.gst_amount:.2f}",
+            "line_total": f"{item.line_total:.2f}",
+        })
+
+    subtotal_val = invoice.subtotal or Decimal("0.00")
+    gst_val = invoice.total_gst or Decimal("0.00")
+    grand_total_val = invoice.grand_total or Decimal("0.00")
+
+    # In this billing system, finalized invoices are considered settled/paid
+    # unless custom partial payment attributes exist.
+    amount_paid_val = getattr(invoice, "amount_paid", grand_total_val)
+    balance_due_val = getattr(invoice, "balance_due", Decimal("0.00"))
+    if balance_due_val < Decimal("0.00"):
+        balance_due_val = Decimal("0.00")
+
+    payment_status = getattr(invoice, "payment_status", None)
+    if not payment_status:
+        if balance_due_val == Decimal("0.00"):
+            payment_status = "Paid"
+        elif amount_paid_val > Decimal("0.00"):
+            payment_status = "Partially Paid"
+        else:
+            payment_status = "Unpaid"
+
+    customer = invoice.customer
+    customer_info = {
+        "name": customer.name if customer else "N/A",
+        "email": customer.email if customer else "",
+        "phone": customer.phone if customer else "",
+        "address": customer.address if customer else "",
+        "city": customer.city if customer else "",
+        "state": customer.state if customer else "",
+        "pincode": customer.pincode if customer else "",
+    }
+
+    inv_date_str = invoice.invoice_date.strftime("%Y-%m-%d") if invoice.invoice_date else ""
+    inv_date_formatted = invoice.invoice_date.strftime("%d %b %Y") if invoice.invoice_date else ""
+
+    return {
+        "id": invoice.pk,
+        "invoice_number": invoice.invoice_number,
+        "invoice_date": inv_date_str,
+        "invoice_date_formatted": inv_date_formatted,
+        "customer_name": customer_info["name"],
+        "customer_phone": customer_info["phone"],
+        "customer_email": customer_info["email"],
+        "customer_address": customer_info["address"],
+        "customer_city": customer_info["city"],
+        "customer_state": customer_info["state"],
+        "customer_pincode": customer_info["pincode"],
+        "subtotal": f"{subtotal_val:.2f}",
+        "tax_amount": f"{gst_val:.2f}",
+        "total_gst": f"{gst_val:.2f}",
+        "gross_total": f"{gross_total:.2f}",
+        "total_discount": f"{total_discount:.2f}",
+        "total_amount": f"{grand_total_val:.2f}",
+        "grand_total": f"{grand_total_val:.2f}",
+        "amount_paid": f"{amount_paid_val:.2f}",
+        "balance_due": f"{balance_due_val:.2f}",
+        "outstanding_balance": f"{balance_due_val:.2f}",
+        "payment_status": payment_status,
+        "total_items": len(items_data),
+        "total_quantity": sum(i["quantity"] for i in items_data),
+        "items": items_data,
+        "detail_url": f"/billing/distributor/invoices/{invoice.pk}/",
+        "pdf_url": f"/billing/distributor/invoices/{invoice.pk}/pdf/",
+        "download_pdf_url": f"/billing/distributor/invoices/{invoice.pk}/download-pdf/",
+    }
+
+
+def parse_and_resolve_invoice_from_qr(decoded_text, user=None):
+    """
+    Parses untrusted QR content, extracts the invoice reference,
+    and resolves the matching invoice record from the database with authorization checks.
+
+    Returns:
+        tuple: (invoice_instance, formatted_invoice_dict)
+
+    Raises:
+        InvalidQRPayloadError: If content format is not recognized.
+        InvoiceNotFoundError: If no invoice matches the extracted reference.
+        InvoicePermissionDeniedError: If the user is unauthorized to view the invoice.
+    """
+    identifier = extract_invoice_identifier_from_qr(decoded_text)
+    invoice = resolve_invoice_from_identifier(identifier, user=user)
+    formatted = format_invoice_for_response(invoice, user=user)
+    return invoice, formatted
+

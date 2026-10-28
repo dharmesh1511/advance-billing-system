@@ -23,10 +23,13 @@ from .utils import (
 def is_distributor(user):
     if not (user and user.is_authenticated):
         return False
+    if user.is_superuser or user.is_staff:
+        return True
     if user.groups.filter(name="Distributor").exists():
         return True
     if hasattr(user, "distributor_profile"):
         return True
+
     from accounts.models import DistributorProfile
     return DistributorProfile.objects.filter(user=user).exists()
 
@@ -687,6 +690,27 @@ def invoice_qr_view(request, pk):
     response = HttpResponse(png_bytes, content_type="image/png")
     response["Content-Disposition"] = f'inline; filename="Invoice_{invoice.invoice_number}_QR.png"'
     return response
+
+
+@login_required(login_url="/distributor/login/")
+def qr_decoder_view(request):
+    """
+    Renders the modern QR Code Decoder & Invoice Inspection interface.
+    Allows distributors and admins to upload/scan invoice QR codes,
+    decoding their payloads and displaying rich database-verified invoice details.
+    """
+    if not is_distributor(request.user):
+        return redirect("distributor_login")
+
+    return render(
+        request,
+        "billing/qr_decoder.html",
+        {
+            "distributor": request.user,
+            "profile": getattr(request.user, "distributor_profile", None),
+        }
+    )
+
 
 
 

@@ -26,4 +26,6 @@ urlpatterns = [
     path("distributor/invoices/<int:pk>/download-pdf/", views.invoice_pdf_download, name="billing_invoice_pdf_download"),
     path("distributor/invoices/<int:pk>/download-pdf/", views.invoice_pdf_download, name="invoice_pdf_download"),
     path("distributor/invoices/<int:pk>/qr/", views.invoice_qr_view, name="billing_invoice_qr"),
+    path("distributor/qr/decode/", views.qr_decoder_view, name="billing_qr_decoder"),
+    path("distributor/qr-decoder/", views.qr_decoder_view, name="billing_qr_decoder_page"),
 ]

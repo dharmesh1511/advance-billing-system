@@ -22,7 +22,14 @@ from .serializers import (
     QRCodeUploadSerializer,
     QRCodeDecodeResponseSerializer,
 )
-from .utils import decode_qr_from_image
+from .utils import (
+    decode_qr_from_image,
+    parse_and_resolve_invoice_from_qr,
+    InvalidQRPayloadError,
+    InvoiceNotFoundError,
+    InvoicePermissionDeniedError,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -386,16 +393,85 @@ class QRCodeDecodeAPIView(APIView):
         # Log decode count securely without exposing raw data
         logger.info("QR code decode request processed: %d code(s) found.", len(results))
 
-        if results:
-            msg = "QR code decoded successfully." if len(results) == 1 else f"{len(results)} QR codes decoded successfully."
-        else:
-            msg = "No QR code detected."
+        if not results:
+            return Response(
+                {
+                    "success": True,
+                    "message": "No QR code detected.",
+                    "results": [],
+                    "invoice": None
+                },
+                status=status.HTTP_200_OK
+            )
 
-        return Response(
-            {
-                "success": True,
-                "message": msg,
-                "results": results
-            },
-            status=status.HTTP_200_OK
-        )
+        # If decode_only parameter is explicitly requested, return raw decoded items without resolving invoice
+        if request.query_params.get("decode_only") == "true":
+            msg = "QR code decoded successfully." if len(results) == 1 else f"{len(results)} QR codes decoded successfully."
+            return Response(
+                {
+                    "success": True,
+                    "message": msg,
+                    "results": results
+                },
+                status=status.HTTP_200_OK
+            )
+
+        # Standard Workflow: Parse decoded QR payload and resolve invoice
+        raw_code = results[0]["data"]
+        try:
+            invoice_obj, invoice_data = parse_and_resolve_invoice_from_qr(raw_code, user=request.user)
+            return Response(
+                {
+                    "success": True,
+                    "message": "Invoice retrieved successfully.",
+                    "results": results,
+                    "invoice": invoice_data
+                },
+                status=status.HTTP_200_OK
+            )
+        except InvalidQRPayloadError as e:
+            return Response(
+                {
+                    "success": False,
+                    "error": str(e),
+                    "code": "invalid_qr_payload",
+                    "results": results,
+                    "invoice": None
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except InvoiceNotFoundError as e:
+            return Response(
+                {
+                    "success": False,
+                    "error": str(e),
+                    "code": "invoice_not_found",
+                    "results": results,
+                    "invoice": None
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except InvoicePermissionDeniedError as e:
+            return Response(
+                {
+                    "success": False,
+                    "error": str(e),
+                    "code": "permission_denied",
+                    "results": results,
+                    "invoice": None
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error resolving invoice from QR code: {e}")
+            return Response(
+                {
+                    "success": False,
+                    "error": "An unexpected error occurred while resolving invoice details.",
+                    "code": "server_error",
+                    "results": results,
+                    "invoice": None
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+

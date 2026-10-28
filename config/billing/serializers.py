@@ -164,5 +164,8 @@ class QRCodeDecodeResponseSerializer(serializers.Serializer):
     Serializer for the QR code decoder JSON response.
     """
     success = serializers.BooleanField()
-    message = serializers.CharField()
-    results = QRCodeResultItemSerializer(many=True)
+    message = serializers.CharField(required=False)
+    results = QRCodeResultItemSerializer(many=True, required=False)
+    invoice = serializers.DictField(required=False, allow_null=True)
+    error = serializers.CharField(required=False)
+
