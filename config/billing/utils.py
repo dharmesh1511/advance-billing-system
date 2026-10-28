@@ -247,15 +247,21 @@ def decode_qr_from_image(image):
         if hasattr(detector, "detectAndDecodeMulti"):
             try:
                 retval, decoded_info, points, straight_qrcode = detector.detectAndDecodeMulti(img_bgr)
-                if retval and decoded_info:
-                    for text in decoded_info:
-                        clean_text = text.strip() if isinstance(text, str) else ""
-                        if clean_text and clean_text not in seen_data:
-                            seen_data.add(clean_text)
-                            results.append({
-                                "data": clean_text,
-                                "type": "QRCODE"
-                            })
+                if retval:
+                    if decoded_info is not None and len(decoded_info) > 0:
+                        for text in decoded_info:
+                            raw_text = text if isinstance(text, str) else ""
+                            if raw_text not in seen_data:
+                                seen_data.add(raw_text)
+                                results.append({
+                                    "data": raw_text,
+                                    "type": "QRCODE"
+                                })
+                    elif points is not None and len(points) > 0:
+                        results.append({
+                            "data": "",
+                            "type": "QRCODE"
+                        })
             except Exception as e:
                 logger.debug(f"OpenCV detectAndDecodeMulti encountered an issue: {e}")
 
@@ -263,13 +269,14 @@ def decode_qr_from_image(image):
         if not results and hasattr(detector, "detectAndDecode"):
             try:
                 text, points, straight_qrcode = detector.detectAndDecode(img_bgr)
-                clean_text = text.strip() if isinstance(text, str) else ""
-                if clean_text and clean_text not in seen_data:
-                    seen_data.add(clean_text)
-                    results.append({
-                        "data": clean_text,
-                        "type": "QRCODE"
-                    })
+                if points is not None and len(points) > 0:
+                    raw_text = text if isinstance(text, str) else ""
+                    if raw_text not in seen_data:
+                        seen_data.add(raw_text)
+                        results.append({
+                            "data": raw_text,
+                            "type": "QRCODE"
+                        })
             except Exception as e:
                 logger.debug(f"OpenCV detectAndDecode encountered an issue: {e}")
 
@@ -296,7 +303,7 @@ def decode_qr_from_image(image):
             except UnicodeDecodeError:
                 decoded_str = raw_data.decode("latin-1", errors="replace")
 
-            if decoded_str and decoded_str not in seen_data:
+            if decoded_str not in seen_data:
                 seen_data.add(decoded_str)
                 results.append({
                     "data": decoded_str,
@@ -344,18 +351,17 @@ def extract_invoice_identifier_from_qr(decoded_text):
     Rejects malformed, arbitrary, executable, or unrecognized payloads.
     """
     if not decoded_text or not isinstance(decoded_text, str):
-        raise InvalidQRPayloadError("QR code content is empty or invalid.")
+        raise InvalidQRPayloadError("The QR code contains no readable data.")
 
     raw = decoded_text.strip()
     if not raw:
-        raise InvalidQRPayloadError("QR code content is empty.")
+        raise InvalidQRPayloadError("The QR code contains no readable data.")
 
     # 1. Attempt JSON Payload parsing
-    if (raw.startswith("{") and raw.endswith("}")) or ("{" in raw and "}" in raw):
+    if raw.startswith("{") or raw.endswith("}"):
         try:
-            # Extract the JSON substring if surrounded by accidental whitespace or quotes
             start = raw.find("{")
-            end = raw.rfind("}") + 1
+            end = raw.rfind("}") + 1 if "}" in raw else len(raw)
             payload = json.loads(raw[start:end])
             if isinstance(payload, dict):
                 # Check for standard invoice reference keys
@@ -367,8 +373,10 @@ def extract_invoice_identifier_from_qr(decoded_text):
                         if val_str:
                             return val_str
                 raise InvalidQRPayloadError("The QR code JSON payload does not contain a recognized invoice reference.")
+            else:
+                raise InvalidQRPayloadError("The QR code JSON payload must be an object.")
         except json.JSONDecodeError:
-            pass  # Fall through to URL or plain-text checks
+            raise InvalidQRPayloadError("The QR code contains malformed JSON.")
 
     # 2. Attempt URL parsing
     is_url = raw.startswith("http://") or raw.startswith("https://") or raw.startswith("//") or raw.startswith("/")

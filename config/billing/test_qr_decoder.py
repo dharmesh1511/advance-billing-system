@@ -1,6 +1,7 @@
 import io
 import json
 from decimal import Decimal
+from unittest.mock import patch
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -232,17 +233,19 @@ class QRCodeDecoderAPITests(TestCase):
         data = response.json()
         self.assertFalse(data.get("success"))
         self.assertEqual(data.get("code"), "invoice_not_found")
+        self.assertEqual(data.get("message"), "No invoice was found for this QR code.")
         self.assertIn("INV-9999-NOTFOUND", data.get("error", ""))
 
     # ------------------------------------------------------------------
     # Test 3: Malformed or unsupported QR payloads
     # ------------------------------------------------------------------
     def test_malformed_or_unsupported_qr_payloads(self):
-        """QR codes with arbitrary text, invalid characters, or unmapped URLs return 400 Bad Request."""
+        """QR codes with arbitrary text, invalid characters, malformed JSON, or unmapped URLs return 400 Bad Request."""
         malformed_samples = [
             "This is just random plain text with spaces",
             "https://www.google.com/search?q=test",
             "{\"unrelated_key\": \"some_data\"}",
+            "{\"invoice_number\": \"INV-1001\", malformed",
             "<script>alert('xss')</script>",
         ]
 
@@ -419,6 +422,9 @@ class QRCodeDecoderAPITests(TestCase):
         uploaded = SimpleUploadedFile("large_qr.png", large_bytes, content_type="image/png")
         response = self.client.post(self.endpoint, {"image": uploaded}, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
+        data = response.json()
+        self.assertFalse(data.get("success"))
+        self.assertEqual(data.get("message"), "The uploaded image exceeds the allowed file size.")
 
     @override_settings(QR_DECODER_MAX_IMAGE_DIMENSION=100)
     def test_excessive_dimensions_rejected_400(self):
@@ -440,7 +446,7 @@ class QRCodeDecoderAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         data = response.json()
         self.assertFalse(data.get("success"))
-        self.assertIn("No image file provided", data.get("error", ""))
+        self.assertEqual(data.get("message"), "Please select an image to upload.")
 
     def test_empty_image_file_returns_400(self):
         """Uploading a 0-byte file returns 400 Bad Request."""
@@ -449,7 +455,7 @@ class QRCodeDecoderAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         data = response.json()
         self.assertFalse(data.get("success"))
-        self.assertIn("empty", data.get("error", "").lower())
+        self.assertEqual(data.get("message"), "The uploaded image file is empty.")
 
     def test_image_with_no_qr_code_detected(self):
         """A valid image with no QR code returns 200 OK with empty results and null invoice."""
@@ -460,9 +466,52 @@ class QRCodeDecoderAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
         self.assertTrue(data.get("success"))
-        self.assertEqual(data.get("message"), "No QR code detected.")
+        self.assertEqual(data.get("message"), "No QR code detected. Please upload a clear image containing a QR code.")
         self.assertEqual(data.get("results"), [])
         self.assertIsNone(data.get("invoice"))
+
+    def test_empty_decoded_content_returns_422(self):
+        """A QR code that decodes to empty or whitespace-only content returns HTTP 422 Unprocessable Entity."""
+        # 1. Image with whitespace-only QR content
+        qr_bytes = self._generate_qr_image_bytes("   ", fmt="PNG")
+        uploaded = SimpleUploadedFile("whitespace_qr.png", qr_bytes, content_type="image/png")
+        response = self.client.post(self.endpoint, {"image": uploaded}, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
+        data = response.json()
+        self.assertFalse(data.get("success"))
+        self.assertEqual(data.get("message"), "The QR code contains no readable data.")
+        self.assertEqual(data.get("code"), "empty_qr_payload")
+
+        # 2. Mocking decoder returning empty string result
+        blank_bytes = self._generate_blank_image_bytes(fmt="PNG")
+        uploaded2 = SimpleUploadedFile("empty_decoded.png", blank_bytes, content_type="image/png")
+        with patch("billing.api_views.decode_qr_from_image", return_value=[{"data": "", "type": "QRCODE"}]):
+            response2 = self.client.post(self.endpoint, {"image": uploaded2}, format="multipart")
+            self.assertEqual(response2.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
+            data2 = response2.json()
+            self.assertFalse(data2.get("success"))
+            self.assertEqual(data2.get("message"), "The QR code contains no readable data.")
+
+    def test_upload_valid_image_after_failed_upload(self):
+        """Uploading a valid QR image after a failed upload succeeds and retrieves invoice data."""
+        # Step 1: upload a corrupted image file (fails with 400)
+        corrupted_bytes = b"NOT_A_VALID_IMAGE_DATA_STREAM"
+        bad_upload = SimpleUploadedFile("corrupted.png", corrupted_bytes, content_type="image/png")
+        failed_response = self.client.post(self.endpoint, {"image": bad_upload}, format="multipart")
+        self.assertEqual(failed_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(failed_response.json().get("success"))
+
+        # Step 2: immediately upload a valid QR code without breaking session or endpoint
+        qr_bytes = self._generate_qr_image_bytes(self.invoice.invoice_number, fmt="PNG")
+        valid_upload = SimpleUploadedFile("valid_qr.png", qr_bytes, content_type="image/png")
+        success_response = self.client.post(self.endpoint, {"image": valid_upload}, format="multipart")
+        self.assertEqual(success_response.status_code, status.HTTP_200_OK)
+
+        data = success_response.json()
+        self.assertTrue(data.get("success"))
+        self.assertEqual(data.get("message"), "Invoice retrieved successfully.")
+        self.assertIsNotNone(data.get("invoice"))
+        self.assertEqual(data["invoice"]["invoice_number"], self.invoice.invoice_number)
 
     def test_decode_only_mode_returns_raw_results(self):
         """When ?decode_only=true is passed, raw decoded QR text is returned without invoice lookup."""

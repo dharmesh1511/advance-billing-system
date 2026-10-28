@@ -336,6 +336,37 @@
         line-height: 1.4;
     }
 
+    /* Warning Alert */
+    .warning-card {
+        display: none;
+        background-color: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 12px;
+        padding: 16px 20px;
+        color: #92400e;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .warning-icon {
+        width: 24px;
+        height: 24px;
+        color: #d97706;
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+
+    .warning-title {
+        font-weight: 700;
+        font-size: 14px;
+        margin-bottom: 2px;
+    }
+
+    .warning-message {
+        font-size: 13px;
+        line-height: 1.4;
+    }
+
     /* Success Card / Verified Invoice Section */
     .invoice-card {
         display: none;
@@ -710,7 +741,7 @@
             <div class="results-container">
 
                 <!-- Error Alert Banner -->
-                <div class="error-card" id="errorCard" role="alert">
+                <div class="error-card" id="errorCard" role="alert" aria-live="assertive">
                     <div class="error-icon" aria-hidden="true">
                         <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -719,6 +750,19 @@
                     <div>
                         <div class="error-title" id="errorTitle">Unable to Process QR Code</div>
                         <div class="error-message" id="errorMessage">An unexpected error occurred.</div>
+                    </div>
+                </div>
+
+                <!-- Warning Alert Banner (No QR code detected) -->
+                <div class="warning-card" id="warningCard" role="status" aria-live="polite">
+                    <div class="warning-icon" aria-hidden="true">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="warning-title" id="warningTitle">No QR Code Detected</div>
+                        <div class="warning-message" id="warningMessage">No QR code detected. Please upload a clear image containing a QR code.</div>
                     </div>
                 </div>
 
@@ -923,6 +967,9 @@
         const errorCard = document.getElementById("errorCard");
         const errorTitle = document.getElementById("errorTitle");
         const errorMessage = document.getElementById("errorMessage");
+        const warningCard = document.getElementById("warningCard");
+        const warningTitle = document.getElementById("warningTitle");
+        const warningMessage = document.getElementById("warningMessage");
         const invoiceCard = document.getElementById("invoiceCard");
 
         // Invoice Result Fields
@@ -983,34 +1030,89 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
         }
 
+        // Clear Stale Invoice Details completely
+        function clearInvoiceDetails() {
+            if (resInvoiceNumber) resInvoiceNumber.textContent = "";
+            if (resInvoiceDate) resInvoiceDate.textContent = "";
+            if (resPaymentBadge) {
+                resPaymentBadge.textContent = "";
+                resPaymentBadge.className = "badge-status";
+            }
+            if (resCustomerName) resCustomerName.textContent = "";
+            if (resCustomerPhone) resCustomerPhone.textContent = "";
+            if (resCustomerEmail) resCustomerEmail.textContent = "";
+            if (resCustomerAddress) resCustomerAddress.textContent = "";
+            if (resCustomerPhoneRow) resCustomerPhoneRow.style.display = "none";
+            if (resCustomerEmailRow) resCustomerEmailRow.style.display = "none";
+            if (resCustomerAddressRow) resCustomerAddressRow.style.display = "none";
+            if (resSubtotal) resSubtotal.textContent = "₹0.00";
+            if (resDiscount) resDiscount.textContent = "₹0.00";
+            if (resDiscountRow) resDiscountRow.style.display = "none";
+            if (resTotalGst) resTotalGst.textContent = "₹0.00";
+            if (resGrandTotal) resGrandTotal.textContent = "₹0.00";
+            if (resAmountPaid) resAmountPaid.textContent = "₹0.00";
+            if (resBalanceDue) resBalanceDue.textContent = "₹0.00";
+            if (resItemCount) resItemCount.textContent = "0";
+            if (itemsTableBody) {
+                while (itemsTableBody.firstChild) {
+                    itemsTableBody.removeChild(itemsTableBody.firstChild);
+                }
+            }
+            if (resFooterTotalQty) resFooterTotalQty.textContent = "0";
+            if (resFooterGrandTotal) resFooterGrandTotal.textContent = "₹0.00";
+            if (resRawPayload) resRawPayload.textContent = "";
+            if (resDetailLink) resDetailLink.style.display = "none";
+            if (resPdfLink) resPdfLink.style.display = "none";
+        }
+
         // Display States
         function showEmptyState() {
             emptyCard.style.display = "flex";
             loadingCard.style.display = "none";
             errorCard.style.display = "none";
+            if (warningCard) warningCard.style.display = "none";
             invoiceCard.style.display = "none";
+            clearInvoiceDetails();
         }
 
         function showLoadingState() {
             emptyCard.style.display = "none";
             loadingCard.style.display = "flex";
             errorCard.style.display = "none";
+            if (warningCard) warningCard.style.display = "none";
             invoiceCard.style.display = "none";
+            clearInvoiceDetails();
         }
 
         function showErrorState(title, message) {
             emptyCard.style.display = "none";
             loadingCard.style.display = "none";
+            if (warningCard) warningCard.style.display = "none";
             errorTitle.textContent = title || "QR Decoding Error";
             errorMessage.textContent = message || "An unexpected error occurred while processing the QR code.";
             errorCard.style.display = "flex";
             invoiceCard.style.display = "none";
+            clearInvoiceDetails();
+        }
+
+        function showWarningState(title, message) {
+            emptyCard.style.display = "none";
+            loadingCard.style.display = "none";
+            errorCard.style.display = "none";
+            if (warningCard) {
+                warningTitle.textContent = title || "No QR Code Detected";
+                warningMessage.textContent = message || "No readable QR code was detected in the uploaded image.";
+                warningCard.style.display = "flex";
+            }
+            invoiceCard.style.display = "none";
+            clearInvoiceDetails();
         }
 
         function showSuccessState() {
             emptyCard.style.display = "none";
             loadingCard.style.display = "none";
             errorCard.style.display = "none";
+            if (warningCard) warningCard.style.display = "none";
             invoiceCard.style.display = "block";
         }
 
@@ -1030,6 +1132,11 @@
         // Handle File Selection
         function handleFile(file) {
             if (!file) return;
+
+            // Clear previous alerts and stale details immediately
+            errorCard.style.display = "none";
+            if (warningCard) warningCard.style.display = "none";
+            clearInvoiceDetails();
 
             // Validate extension / MIME
             const validExtensions = [".png", ".jpg", ".jpeg", ".webp", ".bmp"];
@@ -1065,7 +1172,7 @@
                 filePreviewBox.style.display = "flex";
                 dropZone.style.display = "none";
                 decodeBtn.disabled = false;
-                errorCard.style.display = "none";
+                emptyCard.style.display = "flex";
             };
             reader.readAsDataURL(file);
         }
@@ -1111,7 +1218,11 @@
         decodeBtn.addEventListener("click", performDecode);
 
         async function performDecode() {
-            if (!currentFile || isProcessing) return;
+            if (isProcessing) return;
+            if (!currentFile) {
+                showErrorState("No Image Selected", "Please select an image to upload.");
+                return;
+            }
 
             isProcessing = true;
             decodeBtn.disabled = true;
@@ -1139,21 +1250,24 @@
                         : response.status === 403 ? "Access Restricted"
                         : response.status === 413 ? "File Too Large"
                         : response.status === 415 ? "Unsupported Image Format"
-                        : "QR Decoding Issue";
+                        : response.status === 422 ? "Empty QR Code Content"
+                        : (data.code === "corrupted_image" ? "Corrupted Image"
+                           : data.code === "missing_image" ? "No Image Selected"
+                           : "Invalid QR Code");
 
-                    const errMsg = data.error || data.detail || "Unable to decode QR code or retrieve invoice.";
+                    const errMsg = data.message || data.error || data.detail || "Unable to decode QR code or retrieve invoice.";
                     showErrorState(errTitle, errMsg);
                     return;
                 }
 
                 // Response was 200 OK
                 if (!data.results || data.results.length === 0) {
-                    showErrorState("No QR Code Detected", "No readable QR code was detected in the uploaded image. Please ensure the QR code is clearly visible and try again.");
+                    showWarningState("No QR Code Detected", data.message || "No QR code detected. Please upload a clear image containing a QR code.");
                     return;
                 }
 
                 if (!data.invoice) {
-                    showErrorState("Invoice Not Resolved", "QR code decoded successfully, but no matching invoice was found.");
+                    showErrorState("Invoice Not Found", data.message || "No invoice was found for this QR code.");
                     return;
                 }
 
@@ -1165,7 +1279,7 @@
                 showErrorState("Network Connection Error", "Could not connect to the billing server. Please check your internet connection and try again.");
             } finally {
                 isProcessing = false;
-                decodeBtn.disabled = false;
+                decodeBtn.disabled = !currentFile;
                 decodeBtnText.textContent = "Decode & Verify Invoice";
             }
         }

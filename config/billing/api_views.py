@@ -198,7 +198,9 @@ class QRCodeDecodeAPIView(APIView):
             return Response(
                 {
                     "success": False,
-                    "error": "No image file provided. Please provide an image using the 'image' field."
+                    "message": "Please select an image to upload.",
+                    "error": "No image file provided. Please select an image to upload using the 'image' field.",
+                    "code": "missing_image"
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
@@ -210,7 +212,9 @@ class QRCodeDecodeAPIView(APIView):
             return Response(
                 {
                     "success": False,
-                    "error": "The uploaded image file is empty."
+                    "message": "The uploaded image file is empty.",
+                    "error": "The uploaded image file is empty.",
+                    "code": "empty_file"
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
@@ -222,7 +226,9 @@ class QRCodeDecodeAPIView(APIView):
             return Response(
                 {
                     "success": False,
-                    "error": f"Image file size exceeds the maximum allowed limit of {max_mb:.1f} MB."
+                    "message": "The uploaded image exceeds the allowed file size.",
+                    "error": f"Image file size exceeds the maximum allowed limit of {max_mb:.1f} MB.",
+                    "code": "image_too_large"
                 },
                 status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
             )
@@ -233,20 +239,26 @@ class QRCodeDecodeAPIView(APIView):
         ext = os.path.splitext(file_name)[1].lower()
 
         if ext and ext not in allowed_exts:
+            msg = "Unsupported file format. Supported formats are PNG, JPEG, WEBP, and BMP."
             return Response(
                 {
                     "success": False,
-                    "error": "Unsupported file format. Supported formats are PNG, JPEG, WEBP, and BMP."
+                    "message": msg,
+                    "error": msg,
+                    "code": "unsupported_media_type"
                 },
                 status=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
             )
 
         content_type = (uploaded_file.content_type or "").lower().split(";")[0].strip()
         if content_type and not content_type.startswith("image/") and content_type not in ALLOWED_MIME_TYPES:
+            msg = "Unsupported media type. Supported formats are PNG, JPEG, WEBP, and BMP."
             return Response(
                 {
                     "success": False,
-                    "error": "Unsupported media type. Supported formats are PNG, JPEG, WEBP, and BMP."
+                    "message": msg,
+                    "error": msg,
+                    "code": "unsupported_media_type"
                 },
                 status=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
             )
@@ -255,11 +267,13 @@ class QRCodeDecodeAPIView(APIView):
         try:
             file_bytes = uploaded_file.read()
         except Exception as e:
-            logger.error(f"Failed to read uploaded file into memory: {e}")
+            logger.error("Failed to read uploaded file into memory: %s", type(e).__name__)
             return Response(
                 {
                     "success": False,
-                    "error": "Unable to read uploaded file."
+                    "message": "Unable to read uploaded file.",
+                    "error": "Unable to read uploaded file.",
+                    "code": "unreadable_file"
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
@@ -277,14 +291,18 @@ class QRCodeDecodeAPIView(APIView):
                 return Response(
                     {
                         "success": False,
-                        "error": "The uploaded file is corrupted or not a valid image."
+                        "message": "The uploaded file is corrupted or not a valid image.",
+                        "error": "The uploaded file is corrupted or not a valid image.",
+                        "code": "corrupted_image"
                     },
                     status=status.HTTP_400_BAD_REQUEST
                 )
             return Response(
                 {
                     "success": False,
-                    "error": "Unsupported media type. Supported formats are PNG, JPEG, WEBP, and BMP."
+                    "message": "Unsupported media type. Supported formats are PNG, JPEG, WEBP, and BMP.",
+                    "error": "Unsupported media type. Supported formats are PNG, JPEG, WEBP, and BMP.",
+                    "code": "unsupported_media_type"
                 },
                 status=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
             )
@@ -292,15 +310,20 @@ class QRCodeDecodeAPIView(APIView):
             return Response(
                 {
                     "success": False,
-                    "error": "Image decompression bomb detected or image is too large to safely process."
+                    "message": "Image decompression bomb detected or image is too large to safely process.",
+                    "error": "Image decompression bomb detected or image is too large to safely process.",
+                    "code": "decompression_bomb"
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
-        except Exception:
+        except Exception as e:
+            logger.error("Failed to parse uploaded image: %s", type(e).__name__)
             return Response(
                 {
                     "success": False,
-                    "error": "The uploaded file is corrupted or not a valid image."
+                    "message": "The uploaded file is corrupted or not a valid image.",
+                    "error": "The uploaded file is corrupted or not a valid image.",
+                    "code": "corrupted_image"
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
@@ -312,7 +335,9 @@ class QRCodeDecodeAPIView(APIView):
             return Response(
                 {
                     "success": False,
-                    "error": f"Unsupported image format '{detected_format}'. Supported formats are PNG, JPEG, WEBP, and BMP."
+                    "message": f"Unsupported image format '{detected_format}'. Supported formats are PNG, JPEG, WEBP, and BMP.",
+                    "error": f"Unsupported image format '{detected_format}'. Supported formats are PNG, JPEG, WEBP, and BMP.",
+                    "code": "unsupported_image_format"
                 },
                 status=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
             )
@@ -324,7 +349,9 @@ class QRCodeDecodeAPIView(APIView):
             return Response(
                 {
                     "success": False,
-                    "error": "The uploaded image file is corrupted."
+                    "message": "The uploaded image file is corrupted or unreadable.",
+                    "error": "The uploaded image file is corrupted.",
+                    "code": "corrupted_image"
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
@@ -338,15 +365,20 @@ class QRCodeDecodeAPIView(APIView):
             return Response(
                 {
                     "success": False,
-                    "error": "Image decompression bomb detected or image is too large to safely process."
+                    "message": "Image decompression bomb detected or image is too large to safely process.",
+                    "error": "Image decompression bomb detected or image is too large to safely process.",
+                    "code": "decompression_bomb"
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
-        except Exception:
+        except Exception as e:
+            logger.error("Failed to load image pixels: %s", type(e).__name__)
             return Response(
                 {
                     "success": False,
-                    "error": "The uploaded image file is corrupted or incomplete."
+                    "message": "The uploaded image file is corrupted or incomplete.",
+                    "error": "The uploaded image file is corrupted or incomplete.",
+                    "code": "corrupted_image"
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
@@ -357,7 +389,9 @@ class QRCodeDecodeAPIView(APIView):
             return Response(
                 {
                     "success": False,
-                    "error": f"Image dimensions ({pil_image.width}x{pil_image.height}) exceed the maximum allowed limit of {max_dim}x{max_dim} pixels."
+                    "message": f"Image dimensions ({pil_image.width}x{pil_image.height}) exceed the maximum allowed limit of {max_dim}x{max_dim} pixels.",
+                    "error": f"Image dimensions ({pil_image.width}x{pil_image.height}) exceed the maximum allowed limit of {max_dim}x{max_dim} pixels.",
+                    "code": "dimension_limit_exceeded"
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
@@ -366,7 +400,9 @@ class QRCodeDecodeAPIView(APIView):
             return Response(
                 {
                     "success": False,
-                    "error": f"Image pixel count exceeds the maximum safe limit of {max_pixels} pixels."
+                    "message": f"Image pixel count exceeds the maximum safe limit of {max_pixels} pixels.",
+                    "error": f"Image pixel count exceeds the maximum safe limit of {max_pixels} pixels.",
+                    "code": "pixel_limit_exceeded"
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
@@ -381,11 +417,13 @@ class QRCodeDecodeAPIView(APIView):
         try:
             results = decode_qr_from_image(pil_image)
         except Exception as e:
-            logger.error(f"Unexpected error in QR code decoding: {e}")
+            logger.error("Unexpected error in QR code decoding: %s", type(e).__name__)
             return Response(
                 {
                     "success": False,
-                    "error": "An error occurred while decoding the QR code."
+                    "message": "An error occurred while decoding the QR code.",
+                    "error": "An error occurred while decoding the QR code.",
+                    "code": "decoding_error"
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -397,11 +435,26 @@ class QRCodeDecodeAPIView(APIView):
             return Response(
                 {
                     "success": True,
-                    "message": "No QR code detected.",
+                    "message": "No QR code detected. Please upload a clear image containing a QR code.",
                     "results": [],
                     "invoice": None
                 },
                 status=status.HTTP_200_OK
+            )
+
+        # 10. Check whether the decoded result is missing, empty, or whitespace-only (HTTP 422)
+        non_empty_results = [r for r in results if r.get("data") and str(r.get("data")).strip()]
+        if not non_empty_results:
+            return Response(
+                {
+                    "success": False,
+                    "message": "The QR code contains no readable data.",
+                    "error": "The QR code contains no readable data.",
+                    "code": "empty_qr_payload",
+                    "results": results,
+                    "invoice": None
+                },
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY
             )
 
         # If decode_only parameter is explicitly requested, return raw decoded items without resolving invoice
@@ -417,7 +470,7 @@ class QRCodeDecodeAPIView(APIView):
             )
 
         # Standard Workflow: Parse decoded QR payload and resolve invoice
-        raw_code = results[0]["data"]
+        raw_code = non_empty_results[0]["data"].strip()
         try:
             invoice_obj, invoice_data = parse_and_resolve_invoice_from_qr(raw_code, user=request.user)
             return Response(
@@ -433,6 +486,7 @@ class QRCodeDecodeAPIView(APIView):
             return Response(
                 {
                     "success": False,
+                    "message": str(e),
                     "error": str(e),
                     "code": "invalid_qr_payload",
                     "results": results,
@@ -444,6 +498,7 @@ class QRCodeDecodeAPIView(APIView):
             return Response(
                 {
                     "success": False,
+                    "message": "No invoice was found for this QR code.",
                     "error": str(e),
                     "code": "invoice_not_found",
                     "results": results,
@@ -455,6 +510,7 @@ class QRCodeDecodeAPIView(APIView):
             return Response(
                 {
                     "success": False,
+                    "message": str(e),
                     "error": str(e),
                     "code": "permission_denied",
                     "results": results,
@@ -463,10 +519,11 @@ class QRCodeDecodeAPIView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         except Exception as e:
-            logger.error(f"Unexpected error resolving invoice from QR code: {e}")
+            logger.error("Unexpected error resolving invoice from QR code: %s", type(e).__name__)
             return Response(
                 {
                     "success": False,
+                    "message": "An unexpected error occurred while resolving invoice details.",
                     "error": "An unexpected error occurred while resolving invoice details.",
                     "code": "server_error",
                     "results": results,
