@@ -525,7 +525,7 @@ class SessionBasedAuthenticationTests(TestCase):
         self.assertIn(reverse("distributor_login"), res_dist.url)
 
     def test_post_logout_clears_session(self):
-        """POST logout clears session from DB and redirects correctly."""
+        """POST logout clears session from DB, redirects correctly, and denies access to dashboards afterwards."""
         self.client.login(username="admin_sess", password="AdminPassword@123")
         admin_sess_key = self.client.session.session_key
         self.assertTrue(Session.objects.filter(session_key=admin_sess_key).exists())
@@ -535,6 +535,11 @@ class SessionBasedAuthenticationTests(TestCase):
         self.assertIn(reverse("admin_login"), res_admin.url)
         self.assertNotIn("_auth_user_id", self.client.session)
 
+        # Dashboard cannot be accessed after logout
+        after_admin_res = self.client.get(reverse("admin_dashboard"))
+        self.assertEqual(after_admin_res.status_code, 302)
+        self.assertIn(reverse("admin_login"), after_admin_res.url)
+
         self.client.login(username="dist_sess", password="DistPassword@123")
         dist_sess_key = self.client.session.session_key
         self.assertTrue(Session.objects.filter(session_key=dist_sess_key).exists())
@@ -543,6 +548,31 @@ class SessionBasedAuthenticationTests(TestCase):
         self.assertEqual(res_dist.status_code, 302)
         self.assertIn(reverse("distributor_login"), res_dist.url)
         self.assertNotIn("_auth_user_id", self.client.session)
+
+        # Dashboard cannot be accessed after logout
+        after_dist_res = self.client.get(reverse("distributor_dashboard"))
+        self.assertEqual(after_dist_res.status_code, 302)
+        self.assertIn(reverse("distributor_login"), after_dist_res.url)
+
+    def test_post_logout_with_csrf_protection(self):
+        """POST logout enforces CSRF protection."""
+        csrf_client = Client(enforce_csrf_checks=True)
+        # Fetch login page first to establish CSRF cookie from rendered form
+        csrf_client.get(reverse("admin_login"))
+        csrf_token = csrf_client.cookies["csrftoken"].value
+
+        # Log in the user
+        csrf_client.login(username="admin_sess", password="AdminPassword@123")
+
+        # POST without CSRF token should be rejected (403 Forbidden)
+        no_csrf_res = csrf_client.post(reverse("logout"))
+        self.assertEqual(no_csrf_res.status_code, 403)
+
+        # POST with valid CSRF token succeeds
+        valid_csrf_res = csrf_client.post(reverse("logout"), {"csrfmiddlewaretoken": csrf_token})
+        self.assertEqual(valid_csrf_res.status_code, 302)
+        self.assertIn(reverse("admin_login"), valid_csrf_res.url)
+        self.assertNotIn("_auth_user_id", csrf_client.session)
 
     def test_dashboard_and_logout_never_cache_headers(self):
         """Dashboard views and logout endpoint return Cache-Control: no-cache, no-store headers."""
