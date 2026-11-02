@@ -338,3 +338,68 @@ class AdminAndDistributorAuthBackendTests(TestCase):
         self.assertIn("/distributor/login/", response.url)
         self.assertNotIn("_auth_user_id", self.client.session)
 
+    # -------------------------------------------------------------
+    # 10. Login UI Element Verification Tests
+    # -------------------------------------------------------------
+    def test_admin_login_ui_elements(self):
+        """Verify Admin login template renders all required professional UI elements."""
+        response = self.client.get(reverse("admin_login"))
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+
+        # Headings & branding
+        self.assertIn("Admin Login", content)
+        self.assertIn("Admin Console", content)
+        self.assertIn("Sign in to access admin controls", content)
+
+        # Inputs with attributes
+        self.assertIn('name="username"', content)
+        self.assertIn('name="password"', content)
+        self.assertIn('id="togglePassword"', content)
+        self.assertIn('id="eyeIcon"', content)
+        self.assertIn('id="eyeOffIcon"', content)
+
+        # Remember Me & Forgot Password
+        self.assertIn('name="remember_me"', content)
+        self.assertIn(reverse("forgot_password"), content)
+
+        # Submit button & loading spinner
+        self.assertIn('id="submitBtn"', content)
+        self.assertIn('id="btnSpinner"', content)
+        self.assertIn('id="btnText"', content)
+
+        # Switch link to distributor login
+        self.assertIn(reverse("distributor_login"), content)
+
+    def test_distributor_login_ui_elements(self):
+        """Verify Distributor login template renders all required professional UI elements."""
+        response = self.client.get(reverse("distributor_login"))
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+
+        # Headings & branding
+        self.assertIn("Distributor Login", content)
+        self.assertIn("Distributor Portal", content)
+        self.assertIn("Sign in to manage customers, products", content)
+
+        # Inputs with attributes
+        self.assertIn('name="username"', content)
+        self.assertIn('name="password"', content)
+        self.assertIn('id="togglePassword"', content)
+        self.assertIn('id="eyeIcon"', content)
+        self.assertIn('id="eyeOffIcon"', content)
+
+        # Remember Me & Forgot Password
+        self.assertIn('name="remember_me"', content)
+        self.assertIn(reverse("forgot_password"), content)
+
+        # Submit button & loading spinner
+        self.assertIn('id="submitBtn"', content)
+        self.assertIn('id="btnSpinner"', content)
+        self.assertIn('id="btnText"', content)
+
+        # Switch links to register and admin login
+        self.assertIn(reverse("distributor_register"), content)
+        self.assertIn(reverse("admin_login"), content)
+
+
