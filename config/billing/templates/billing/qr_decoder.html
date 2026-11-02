@@ -668,10 +668,127 @@
         max-height: 180px;
         overflow-y: auto;
     }
+
+    /* Toast Notification System */
+    .toast-container {
+        position: fixed;
+        top: 24px;
+        right: 24px;
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-width: 420px;
+        width: calc(100% - 48px);
+        pointer-events: none;
+    }
+
+    @media (max-width: 576px) {
+        .toast-container {
+            top: 16px;
+            right: 16px;
+            left: 16px;
+            width: auto;
+            max-width: none;
+        }
+    }
+
+    .custom-toast {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 14px 16px;
+        border-radius: 10px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        background-color: #ffffff;
+        pointer-events: auto;
+        font-size: 14px;
+        line-height: 1.5;
+        opacity: 0;
+        transform: translateX(100%);
+        transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        box-sizing: border-box;
+        word-break: break-word;
+    }
+
+    .custom-toast.toast-visible {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    .custom-toast.toast-hiding {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.96);
+    }
+
+    /* Success: green notification with check icon */
+    .custom-toast.toast-success {
+        background-color: #f0fdf4;
+        border: 1px solid #86efac;
+        color: #166534;
+    }
+
+    .custom-toast.toast-success .toast-icon {
+        color: #16a34a;
+    }
+
+    /* Error: red notification with error icon */
+    .custom-toast.toast-error {
+        background-color: #fef2f2;
+        border: 1px solid #fca5a5;
+        color: #991b1b;
+    }
+
+    .custom-toast.toast-error .toast-icon {
+        color: #dc2626;
+    }
+
+    .toast-icon {
+        flex-shrink: 0;
+        width: 20px;
+        height: 20px;
+        margin-top: 1px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .toast-message {
+        flex: 1;
+        font-weight: 500;
+    }
+
+    .toast-close-btn {
+        flex-shrink: 0;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 2px;
+        margin-left: 8px;
+        margin-top: -2px;
+        color: currentColor;
+        opacity: 0.6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: opacity 0.15s ease, background-color 0.15s ease;
+    }
+
+    .toast-close-btn:hover {
+        opacity: 1;
+        background-color: rgba(0, 0, 0, 0.06);
+    }
+
+    .toast-close-btn:focus {
+        outline: 2px solid currentColor;
+        opacity: 1;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
+<div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 <div class="decoder-container">
     <div class="decoder-grid">
         <!-- Left Column: Upload Box -->
@@ -1030,6 +1147,96 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
         }
 
+        // Reusable Toast Notification System
+        const activeToasts = new Set();
+
+        function showToast(message, type) {
+            if (!message) return null;
+            const cleanType = (type === "success") ? "success" : "error";
+            const toastKey = `${cleanType}:${message}`;
+
+            if (activeToasts.has(toastKey)) {
+                return null; // Prevent duplicate notifications
+            }
+            activeToasts.add(toastKey);
+
+            let container = document.getElementById("toastContainer");
+            if (!container) {
+                container = document.createElement("div");
+                container.id = "toastContainer";
+                container.className = "toast-container";
+                container.setAttribute("aria-live", "polite");
+                container.setAttribute("aria-atomic", "true");
+                document.body.appendChild(container);
+            }
+
+            const toast = document.createElement("div");
+            toast.className = `custom-toast toast-${cleanType}`;
+            toast.setAttribute("role", cleanType === "error" ? "alert" : "status");
+
+            // Accessible Icon
+            const iconContainer = document.createElement("div");
+            iconContainer.className = "toast-icon";
+            iconContainer.setAttribute("aria-hidden", "true");
+            if (cleanType === "success") {
+                iconContainer.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>';
+            } else {
+                iconContainer.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+            }
+
+            // Message element (Always safe text rendering, never innerHTML!)
+            const messageEl = document.createElement("div");
+            messageEl.className = "toast-message";
+            messageEl.textContent = String(message);
+
+            // Close button
+            const closeBtn = document.createElement("button");
+            closeBtn.type = "button";
+            closeBtn.className = "toast-close-btn";
+            closeBtn.setAttribute("aria-label", "Close notification");
+            closeBtn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+
+            toast.appendChild(iconContainer);
+            toast.appendChild(messageEl);
+            toast.appendChild(closeBtn);
+
+            container.appendChild(toast);
+
+            // Animate in smoothly
+            requestAnimationFrame(() => {
+                toast.classList.add("toast-visible");
+            });
+
+            let dismissTimer = null;
+            let isDismissed = false;
+
+            function dismiss() {
+                if (isDismissed) return;
+                isDismissed = true;
+                if (dismissTimer) {
+                    clearTimeout(dismissTimer);
+                    dismissTimer = null;
+                }
+                activeToasts.delete(toastKey);
+
+                toast.classList.remove("toast-visible");
+                toast.classList.add("toast-hiding");
+
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }
+
+            closeBtn.addEventListener("click", dismiss);
+            dismissTimer = setTimeout(dismiss, 4000);
+
+            return toast;
+        }
+
+        window.showToast = showToast;
+
         // Clear Stale Invoice Details completely
         function clearInvoiceDetails() {
             if (resInvoiceNumber) resInvoiceNumber.textContent = "";
@@ -1144,19 +1351,25 @@
             const isValidExt = validExtensions.some(ext => nameLower.endsWith(ext));
 
             if (!isValidExt) {
-                showErrorState("Unsupported File Format", "Please select a supported image file (.PNG, .JPG, .JPEG, .WEBP, or .BMP).");
+                const msg = "Unsupported file format. Please select a supported image file (.PNG, .JPG, .JPEG, .WEBP, or .BMP).";
+                showErrorState("Unsupported File Format", msg);
+                showToast(msg, "error");
                 return;
             }
 
             // Validate Size (5 MB limit)
             const maxSize = 5 * 1024 * 1024;
             if (file.size > maxSize) {
-                showErrorState("File Size Exceeded", "The selected image exceeds the maximum allowed limit of 5 MB.");
+                const msg = "The selected image exceeds the maximum allowed limit of 5 MB.";
+                showErrorState("File Size Exceeded", msg);
+                showToast(msg, "error");
                 return;
             }
 
             if (file.size === 0) {
-                showErrorState("Empty File", "The selected file is empty (0 bytes). Please choose a valid image file.");
+                const msg = "The selected file is empty (0 bytes). Please choose a valid image file.";
+                showErrorState("Empty File", msg);
+                showToast(msg, "error");
                 return;
             }
 
@@ -1173,6 +1386,7 @@
                 dropZone.style.display = "none";
                 decodeBtn.disabled = false;
                 emptyCard.style.display = "flex";
+                showToast("QR image uploaded successfully.", "success");
             };
             reader.readAsDataURL(file);
         }
@@ -1220,7 +1434,9 @@
         async function performDecode() {
             if (isProcessing) return;
             if (!currentFile) {
-                showErrorState("No Image Selected", "Please select an image to upload.");
+                const msg = "Please select an image to upload.";
+                showErrorState("No Image Selected", msg);
+                showToast(msg, "error");
                 return;
             }
 
@@ -1257,26 +1473,37 @@
 
                     const errMsg = data.message || data.error || data.detail || "Unable to decode QR code or retrieve invoice.";
                     showErrorState(errTitle, errMsg);
+                    showToast(errMsg, "error");
                     return;
                 }
 
                 // Response was 200 OK
                 if (!data.results || data.results.length === 0) {
-                    showWarningState("No QR Code Detected", data.message || "No QR code detected. Please upload a clear image containing a QR code.");
+                    const msg = data.message || "No QR code detected. Please upload a clear image containing a QR code.";
+                    showWarningState("No QR Code Detected", msg);
+                    showToast(msg, "error");
                     return;
                 }
 
                 if (!data.invoice) {
-                    showErrorState("Invoice Not Found", data.message || "No invoice was found for this QR code.");
+                    const msg = data.message || "No invoice was found for this QR code.";
+                    showErrorState("Invoice Not Found", msg);
+                    showToast(msg, "error");
                     return;
                 }
 
                 // Successfully retrieved invoice
                 renderInvoice(data);
                 showSuccessState();
+                showToast("QR code decoded successfully.", "success");
+                setTimeout(() => {
+                    showToast(data.message || "Invoice information retrieved and displayed successfully.", "success");
+                }, 200);
 
             } catch (err) {
-                showErrorState("Network Connection Error", "Could not connect to the billing server. Please check your internet connection and try again.");
+                const msg = "Could not connect to the billing server. Please check your internet connection and try again.";
+                showErrorState("Network Connection Error", msg);
+                showToast(msg, "error");
             } finally {
                 isProcessing = false;
                 decodeBtn.disabled = !currentFile;
@@ -1469,6 +1696,13 @@
                 resRawPayload.textContent = "N/A";
             }
         }
+
+        // Display existing Django messages as toasts if any
+        {% if messages %}
+        {% for message in messages %}
+        showToast("{{ message|escapejs }}", "{% if 'error' in message.tags %}error{% else %}success{% endif %}");
+        {% endfor %}
+        {% endif %}
 
     })();
 </script>

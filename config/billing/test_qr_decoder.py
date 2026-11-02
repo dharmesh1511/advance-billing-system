@@ -537,3 +537,72 @@ class QRCodeDecoderAPITests(TestCase):
 
         response = unauthenticated_client.post(self.endpoint, {"image": uploaded}, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class QRCodeToastNotificationTemplateTests(TestCase):
+    """
+    Tests for Toast Notification UI elements, scripts, styles, and configurations
+    rendered in the QR Code Decoder & Invoice Verification template.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.distributor = User.objects.create_user(
+            username="distributor_toast_tester",
+            email="distributor_toast@example.com",
+            password="SecurePassword123!"
+        )
+        from accounts.models import DistributorProfile
+        DistributorProfile.objects.create(
+            user=self.distributor,
+            full_name="Toast Tester",
+            email="distributor_toast@example.com",
+            phone="9876543299"
+        )
+        self.client.force_login(self.distributor)
+
+    def test_toast_container_and_styles_rendered(self):
+        """Verify toast container, CSS classes, animations, and responsive styles are in template."""
+        response = self.client.get("/billing/distributor/qr/decode/")
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+
+        # Container
+        self.assertIn('id="toastContainer"', content)
+        self.assertIn('class="toast-container"', content)
+
+        # Styles
+        self.assertIn('.toast-container', content)
+        self.assertIn('.custom-toast', content)
+        self.assertIn('.custom-toast.toast-success', content)
+        self.assertIn('.custom-toast.toast-error', content)
+        self.assertIn('.toast-visible', content)
+        self.assertIn('.toast-hiding', content)
+        self.assertIn('.toast-close-btn', content)
+
+    def test_show_toast_js_function_and_logic_rendered(self):
+        """Verify showToast function, duplicate prevention, safe text rendering, and auto-dismiss exist."""
+        response = self.client.get("/billing/distributor/qr/decode/")
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+
+        # showToast function and duplicate prevention
+        self.assertIn("function showToast(message, type)", content)
+        self.assertIn("activeToasts", content)
+        self.assertIn("window.showToast = showToast", content)
+
+        # Safe text rendering (no innerHTML on untrusted message)
+        self.assertIn("messageEl.textContent = String(message)", content)
+
+        # 4-second auto-dismiss and close button handler
+        self.assertIn("setTimeout(dismiss, 4000)", content)
+        self.assertIn("closeBtn.addEventListener(\"click\", dismiss)", content)
+
+        # Success toasts
+        self.assertIn('"QR image uploaded successfully."', content)
+        self.assertIn('"QR code decoded successfully."', content)
+
+        # Error handling toasts
+        self.assertIn('showToast(msg, "error")', content)
+        self.assertIn('showToast(errMsg, "error")', content)
+
