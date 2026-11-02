@@ -18,6 +18,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect
 from django.template.loader import render_to_string
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from xhtml2pdf import pisa
 from .models import OTPVerification, DistributorProfile
 from .forms import DistributorRegistrationForm, DistributorProfileUpdateForm
@@ -28,7 +29,42 @@ logger = logging.getLogger(__name__)
 
 
 def is_distributor(user):
-    return user.groups.filter(name="Distributor").exists()
+    if not (user and user.is_authenticated):
+        return False
+    if user.is_superuser or user.is_staff:
+        return False
+    if user.groups.filter(name="Distributor").exists():
+        return True
+    try:
+        if getattr(user, "distributor_profile", None) is not None:
+            return True
+    except Exception:
+        pass
+    return DistributorProfile.objects.filter(user=user).exists()
+
+
+def is_admin(user):
+    if not (user and user.is_authenticated):
+        return False
+    if not (user.is_staff or user.is_superuser):
+        return False
+    if user.groups.filter(name="Distributor").exists():
+        return False
+    try:
+        if getattr(user, "distributor_profile", None) is not None:
+            return False
+    except Exception:
+        pass
+    if DistributorProfile.objects.filter(user=user).exists():
+        return False
+    return True
+
+
+def get_safe_redirect(request, default_route):
+    next_url = request.POST.get("next") or request.GET.get("next")
+    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        return redirect(next_url)
+    return redirect(default_route)
 
 
 # =========================
@@ -37,43 +73,58 @@ def is_distributor(user):
 
 def admin_login(request):
 
-    # Already logged-in admin
-    if request.user.is_authenticated:
-        if request.user.is_staff:
+    # Already logged-in user (GET request)
+    if request.user.is_authenticated and request.method == "GET":
+        if is_admin(request.user):
             return redirect("admin_dashboard")
-
         if is_distributor(request.user):
             return redirect("distributor_dashboard")
 
     error = None
 
     if request.method == "POST":
-
         username = request.POST.get("username", "").strip()
         password = request.POST.get("password", "")
 
-        if not username or not password:
+        if not username and not password:
             error = "Username and password are required."
-
+        elif not username:
+            error = "Username is required."
+        elif not password:
+            error = "Password is required."
         else:
             user = authenticate(
                 request,
                 username=username,
                 password=password
             )
+            if user is None:
+                # Fallback: check if username was entered as email address
+                matched_user = User.objects.filter(email__iexact=username).first()
+                if matched_user:
+                    user = authenticate(request, username=matched_user.username, password=password)
 
             if user is not None:
-
-                # Only staff users can access Admin
-                if user.is_staff:
+                if not user.is_active:
+                    error = "Your account is inactive. Please contact the administrator."
+                elif is_admin(user):
                     login(request, user)
-
-                    return redirect("admin_dashboard")
-
-                error = "You are not authorized to login as Admin."
-
+                    return get_safe_redirect(request, "admin_dashboard")
+                elif is_distributor(user):
+                    error = "Distributor accounts are not permitted to access Admin login."
+                else:
+                    error = "You are not authorized to login as Admin."
             else:
-                error = "Invalid username or password."
+                # Check whether account exists with correct password but is inactive
+                candidate = User.objects.filter(username__iexact=username).first() or \
+                            User.objects.filter(email__iexact=username).first()
+                if candidate and candidate.check_password(password) and not candidate.is_active:
+                    error = "Your account is inactive. Please contact the administrator."
+                else:
+                    error = "Invalid username or password."
+
+        if error:
+            messages.error(request, error)
 
     return render(
         request,
@@ -90,43 +141,58 @@ def admin_login(request):
 
 def distributor_login(request):
 
-    # Already logged-in distributor
-    if request.user.is_authenticated:
+    # Already logged-in user (GET request)
+    if request.user.is_authenticated and request.method == "GET":
         if is_distributor(request.user):
             return redirect("distributor_dashboard")
-
-        if request.user.is_staff:
+        if is_admin(request.user):
             return redirect("admin_dashboard")
 
     error = None
 
     if request.method == "POST":
-
         username = request.POST.get("username", "").strip()
         password = request.POST.get("password", "")
 
-        if not username or not password:
+        if not username and not password:
             error = "Username and password are required."
-
+        elif not username:
+            error = "Username is required."
+        elif not password:
+            error = "Password is required."
         else:
             user = authenticate(
                 request,
                 username=username,
                 password=password
             )
+            if user is None:
+                # Fallback: check if username was entered as email address
+                matched_user = User.objects.filter(email__iexact=username).first()
+                if matched_user:
+                    user = authenticate(request, username=matched_user.username, password=password)
 
             if user is not None:
-
-                # Only Distributor group users can access Distributor
-                if is_distributor(user):
+                if not user.is_active:
+                    error = "Your account is inactive. Please contact the administrator."
+                elif is_distributor(user):
                     login(request, user)
-
-                    return redirect("distributor_dashboard")
-
-                error = "You are not authorized to login as Distributor."
-
+                    return get_safe_redirect(request, "distributor_dashboard")
+                elif is_admin(user):
+                    error = "Admin accounts are not permitted to access Distributor login."
+                else:
+                    error = "You are not authorized to login as Distributor."
             else:
-                error = "Invalid username or password."
+                # Check whether account exists with correct password but is inactive
+                candidate = User.objects.filter(username__iexact=username).first() or \
+                            User.objects.filter(email__iexact=username).first()
+                if candidate and candidate.check_password(password) and not candidate.is_active:
+                    error = "Your account is inactive. Please contact the administrator."
+                else:
+                    error = "Invalid username or password."
+
+        if error:
+            messages.error(request, error)
 
     return render(
         request,
@@ -211,9 +277,11 @@ def distributor_register(request):
 
 @login_required(login_url="/admin/login/")
 def admin_dashboard(request):
-
-    if not request.user.is_staff:
-        return redirect("distributor_login")
+    if not is_admin(request.user):
+        messages.error(request, "You are not authorized to access the Admin Dashboard.")
+        if is_distributor(request.user):
+            return redirect("distributor_dashboard")
+        return redirect("admin_login")
 
     return render(
         request,
@@ -793,9 +861,11 @@ def admin_reports_export_pdf(request):
 
 @login_required(login_url="/distributor/login/")
 def distributor_dashboard(request):
-
     if not is_distributor(request.user):
-        return redirect("admin_login")
+        messages.error(request, "You are not authorized to access the Distributor Dashboard.")
+        if is_admin(request.user):
+            return redirect("admin_dashboard")
+        return redirect("distributor_login")
 
     return render(
         request,
@@ -904,9 +974,16 @@ def edit_distributor_profile(request):
 # =========================
 
 def logout_view(request):
-
+    was_distributor = is_distributor(request.user)
+    next_url = request.GET.get("next") or request.POST.get("next")
     logout(request)
+    messages.success(request, "You have been logged out successfully.")
 
+    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        return redirect(next_url)
+
+    if was_distributor:
+        return redirect("distributor_login")
     return redirect("admin_login")
 
 
@@ -1166,4 +1243,4 @@ def reset_password(request):
             "success": success
         }
     )
-
+

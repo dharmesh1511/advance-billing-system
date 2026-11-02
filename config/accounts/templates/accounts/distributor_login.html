@@ -144,13 +144,11 @@
 
     {% if messages %}
         {% for message in messages %}
-            <div class="success" role="status">
-                ✓ {{ message }}
+            <div class="{% if message.tags == 'error' %}error{% else %}success{% endif %}" role="alert">
+                {% if message.tags != 'error' %}✓ {% endif %}{{ message }}
             </div>
         {% endfor %}
-    {% endif %}
-
-    {% if error %}
+    {% elif error %}
         <div class="error" role="alert">
             {{ error }}
         </div>
@@ -158,6 +156,9 @@
 
     <form method="POST">
         {% csrf_token %}
+        {% if request.GET.next %}
+            <input type="hidden" name="next" value="{{ request.GET.next }}">
+        {% endif %}
 
         <label>Username</label>
         <input
