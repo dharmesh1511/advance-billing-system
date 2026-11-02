@@ -3257,3 +3257,182 @@ class ProductManagementFrontendViewTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json(), {"error": "Unauthorized"})
 
+
+from billing.management.commands.ensure_invoice_data import (
+    verify_invoice_record,
+    ensure_invoices_exist,
+)
+from django.core.management import call_command
+from io import StringIO
+from django.db.models.deletion import ProtectedError
+
+
+class EnsureInvoiceDataTests(TestCase):
+    """
+    Focused verification tests for Invoice Data existence, required fields,
+    uniqueness, relationships, and idempotent sample creation:
+    1. Verify invoice records exist.
+    2. Verify all four required fields (ID, Customer Name, Total Amount, Invoice Date).
+    3. Verify invoice ID uniqueness.
+    4. Verify customer relationship.
+    5. Verify total amount and date retrieval.
+    6. Verify repeated sample-data execution does not create duplicates.
+    7. Verify management command runs and outputs verified table.
+    """
+
+    def setUp(self):
+        self.distributor = User.objects.create_user(
+            username="dist_invoice_test",
+            email="dist_invoice_test@example.com",
+            password="DistPassword123!"
+        )
+        self.dist_group, _ = Group.objects.get_or_create(name="Distributor")
+        self.distributor.groups.add(self.dist_group)
+
+        self.customer = Customer.objects.create(
+            distributor=self.distributor,
+            name="John Doe",
+            email="john@example.com",
+            phone="9876543210",
+            address="123 Market St",
+            city="Ahmedabad",
+            state="Gujarat",
+            pincode="380001"
+        )
+
+        self.product = Product.objects.create(
+            distributor=self.distributor,
+            name="Test Widget",
+            category="Hardware",
+            price=Decimal("150.00"),
+            stock=50,
+            gst_rate=Decimal("18.00"),
+            sku="WIDGET-01",
+            unit="piece",
+            is_active=True
+        )
+
+    def test_invoice_creation_and_required_fields_retrieval(self):
+        """Verify that an invoice record contains all 4 required fields and can be retrieved."""
+        inv = Invoice.objects.create(
+            distributor=self.distributor,
+            customer=self.customer,
+            invoice_number="INV-TEST-001",
+            invoice_date=date(2026, 11, 2),
+            subtotal=Decimal("300.00"),
+            total_gst=Decimal("54.00"),
+            grand_total=Decimal("354.00")
+        )
+
+        InvoiceItem.objects.create(
+            invoice=inv,
+            product=self.product,
+            product_name=self.product.name,
+            quantity=2,
+            unit_price=Decimal("150.00"),
+            gst_rate=Decimal("18.00"),
+            taxable_amount=Decimal("300.00"),
+            gst_amount=Decimal("54.00"),
+            line_total=Decimal("354.00")
+        )
+
+        # Retrieve and verify all 4 fields via Django ORM
+        retrieved = Invoice.objects.select_related("customer").get(pk=inv.pk)
+        self.assertIsNotNone(retrieved.id)
+        self.assertEqual(retrieved.invoice_number, "INV-TEST-001")
+        self.assertEqual(retrieved.customer.name, "John Doe")
+        self.assertEqual(retrieved.grand_total, Decimal("354.00"))
+        self.assertEqual(retrieved.invoice_date, date(2026, 11, 2))
+
+        # Test verification helper
+        info = verify_invoice_record(retrieved)
+        self.assertTrue(info["is_valid"])
+        self.assertEqual(info["customer_name"], "John Doe")
+        self.assertEqual(info["total_amount"], Decimal("354.00"))
+        self.assertEqual(len(info["errors"]), 0)
+
+    def test_invoice_id_uniqueness(self):
+        """Verify invoice ID (distributor + invoice_number) uniqueness constraint."""
+        Invoice.objects.create(
+            distributor=self.distributor,
+            customer=self.customer,
+            invoice_number="INV-UNIQUE-001",
+            invoice_date=date.today(),
+            subtotal=Decimal("100.00"),
+            total_gst=Decimal("18.00"),
+            grand_total=Decimal("118.00")
+        )
+
+        # Attempting to create duplicate invoice_number for same distributor fails validation/integrity
+        with self.assertRaises(Exception):
+            dup = Invoice(
+                distributor=self.distributor,
+                customer=self.customer,
+                invoice_number="INV-UNIQUE-001",
+                invoice_date=date.today(),
+                subtotal=Decimal("100.00"),
+                total_gst=Decimal("18.00"),
+                grand_total=Decimal("118.00")
+            )
+            dup.save()
+
+    def test_customer_relationship_protected(self):
+        """Verify that customer associated with an invoice cannot be accidentally deleted."""
+        inv = Invoice.objects.create(
+            distributor=self.distributor,
+            customer=self.customer,
+            invoice_number="INV-PROTECT-001",
+            invoice_date=date.today(),
+            subtotal=Decimal("100.00"),
+            total_gst=Decimal("18.00"),
+            grand_total=Decimal("118.00")
+        )
+        with self.assertRaises(ProtectedError):
+            self.customer.delete()
+
+    def test_ensure_invoices_exist_creates_samples_when_empty(self):
+        """When 0 invoices exist, ensure_invoices_exist() generates valid sample invoice."""
+        Invoice.objects.all().delete()
+        self.assertEqual(Invoice.objects.count(), 0)
+
+        verified, created = ensure_invoices_exist()
+        self.assertGreater(len(verified), 0)
+        self.assertGreater(len(created), 0)
+        self.assertEqual(Invoice.objects.count(), 1)
+
+        sample = Invoice.objects.first()
+        self.assertIsNotNone(sample.id)
+        self.assertIsNotNone(sample.invoice_number)
+        self.assertIsNotNone(sample.customer.name)
+        self.assertGreater(sample.grand_total, Decimal("0.00"))
+        self.assertIsNotNone(sample.invoice_date)
+
+    def test_ensure_invoices_exist_is_idempotent(self):
+        """Running ensure_invoices_exist() multiple times never creates duplicate invoices."""
+        Invoice.objects.all().delete()
+        ensure_invoices_exist()
+        count_first_run = Invoice.objects.count()
+        self.assertEqual(count_first_run, 1)
+
+        # Second run
+        verified, created = ensure_invoices_exist()
+        count_second_run = Invoice.objects.count()
+        self.assertEqual(count_second_run, count_first_run)
+        self.assertEqual(len(created), 0)
+
+        # Third run
+        verified, created = ensure_invoices_exist()
+        count_third_run = Invoice.objects.count()
+        self.assertEqual(count_third_run, count_first_run)
+        self.assertEqual(len(created), 0)
+
+    def test_management_command_execution(self):
+        """Test management command 'ensure_invoice_data' outputs verified table without errors."""
+        out = StringIO()
+        call_command("ensure_invoice_data", stdout=out)
+        output = out.getvalue()
+        self.assertIn("Invoice ID", output)
+        self.assertIn("Customer Name", output)
+        self.assertIn("Total Amount", output)
+        self.assertIn("Invoice Date", output)
+        self.assertIn("VALID", output)
