@@ -608,6 +608,7 @@ def invoice_detail(request, pk):
             "profile": distributor_profile,
             "gross_total": gross_total,
             "total_discount": total_discount,
+            "qr_code": qr_code_url,
             "qr_code_url": qr_code_url,
             "qr_payload": qr_payload,
         }

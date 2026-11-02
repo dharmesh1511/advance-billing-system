@@ -355,8 +355,10 @@
                     </div>
                     <div class="col-md-4 text-center text-md-end">
                         <div class="p-2 border rounded-3 bg-white d-inline-block shadow-sm">
-                            {% if qr_code %}
-                                <img src="data:image/png;base64,{{ qr_code }}" alt="Invoice QR Code" style="width: 120px; height: 120px; display: block;" />
+                            {% if qr_code_url %}
+                                <img src="{{ qr_code_url }}" alt="Invoice QR Code" style="width: 120px; height: 120px; display: block;" />
+                            {% elif qr_code %}
+                                <img src="{% if not qr_code|slice:':5' == 'data:' %}data:image/png;base64,{% endif %}{{ qr_code }}" alt="Invoice QR Code" style="width: 120px; height: 120px; display: block;" />
                             {% else %}
                                 <img src="{% url 'invoice_qr' invoice.pk %}" alt="Invoice QR Code" style="width: 120px; height: 120px; display: block;" />
                             {% endif %}

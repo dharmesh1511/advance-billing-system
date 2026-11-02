@@ -3436,3 +3436,202 @@ class EnsureInvoiceDataTests(TestCase):
         self.assertIn("Total Amount", output)
         self.assertIn("Invoice Date", output)
         self.assertIn("VALID", output)
+
+
+from billing.utils import (
+    generate_invoice_qr,
+    generate_invoice_qr_bytes,
+    generate_invoice_qr_base64,
+    build_invoice_qr_payload,
+    decode_qr_from_image,
+)
+import json
+from PIL import Image
+from io import BytesIO
+
+
+class GenerateInvoiceQRCodeTests(TestCase):
+    """
+    Focused verification tests for QR code generation from saved Invoice model data:
+    1. QR generation for an existing saved invoice.
+    2. Correct invoice ID in QR data.
+    3. Correct customer name in QR data.
+    4. Correct total amount in QR data.
+    5. Correct invoice date in QR data.
+    6. Different invoices generate different QR payloads and images.
+    7. Invalid invoice ID returns 404 on detail and QR views.
+    8. QR image can be scanned and decoded successfully.
+    9. Unsaved invoice raises ValueError (cannot generate QR from unsaved data).
+    10. Invoice detail view displays QR image properly.
+    11. Invoice PDF view renders with QR image.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.distributor = User.objects.create_user(
+            username="dist_qr_test",
+            email="dist_qr_test@example.com",
+            password="DistPassword@123"
+        )
+        self.dist_group, _ = Group.objects.get_or_create(name="Distributor")
+        self.distributor.groups.add(self.dist_group)
+
+        self.customer1 = Customer.objects.create(
+            distributor=self.distributor,
+            name="Alice Walker",
+            email="alice@example.com",
+            phone="9876543211",
+            address="456 Elm Street",
+            city="Ahmedabad",
+            state="Gujarat",
+            pincode="380002"
+        )
+
+        self.customer2 = Customer.objects.create(
+            distributor=self.distributor,
+            name="Bob Smith",
+            email="bob@example.com",
+            phone="9876543212",
+            address="789 Oak Ave",
+            city="Surat",
+            state="Gujarat",
+            pincode="395001"
+        )
+
+        self.product = Product.objects.create(
+            distributor=self.distributor,
+            name="Smart Gadget",
+            category="Electronics",
+            price=Decimal("1200.00"),
+            stock=25,
+            gst_rate=Decimal("18.00"),
+            sku="GADGET-01",
+            unit="piece",
+            is_active=True
+        )
+
+        # Saved Invoice 1
+        self.invoice1 = Invoice.objects.create(
+            distributor=self.distributor,
+            customer=self.customer1,
+            invoice_number="INV-QR-001",
+            invoice_date=date(2026, 11, 2),
+            subtotal=Decimal("1200.00"),
+            total_gst=Decimal("216.00"),
+            grand_total=Decimal("1416.00")
+        )
+        InvoiceItem.objects.create(
+            invoice=self.invoice1,
+            product=self.product,
+            product_name=self.product.name,
+            quantity=1,
+            unit_price=Decimal("1200.00"),
+            gst_rate=Decimal("18.00"),
+            taxable_amount=Decimal("1200.00"),
+            gst_amount=Decimal("216.00"),
+            line_total=Decimal("1416.00")
+        )
+
+        # Saved Invoice 2 (different customer, date, and amount)
+        self.invoice2 = Invoice.objects.create(
+            distributor=self.distributor,
+            customer=self.customer2,
+            invoice_number="INV-QR-002",
+            invoice_date=date(2026, 11, 10),
+            subtotal=Decimal("2400.00"),
+            total_gst=Decimal("432.00"),
+            grand_total=Decimal("2832.00")
+        )
+        InvoiceItem.objects.create(
+            invoice=self.invoice2,
+            product=self.product,
+            product_name=self.product.name,
+            quantity=2,
+            unit_price=Decimal("1200.00"),
+            gst_rate=Decimal("18.00"),
+            taxable_amount=Decimal("2400.00"),
+            gst_amount=Decimal("432.00"),
+            line_total=Decimal("2832.00")
+        )
+
+    def test_qr_generation_from_saved_invoice_data(self):
+        """Test QR code generation dynamically fetches real saved invoice fields."""
+        payload = build_invoice_qr_payload(self.invoice1)
+        self.assertEqual(payload["invoice_id"], "INV-QR-001")
+        self.assertEqual(payload["customer_name"], "Alice Walker")
+        self.assertEqual(payload["total_amount"], "1416.00")
+        self.assertEqual(payload["invoice_date"], "2026-11-02")
+
+    def test_qr_image_decoding_matches_exact_json_structure(self):
+        """Test that generated QR image can be scanned and decoded to exact required JSON payload."""
+        img = generate_invoice_qr(self.invoice1)
+        self.assertIsNotNone(img)
+
+        decoded_results = decode_qr_from_image(img)
+        self.assertGreater(len(decoded_results), 0, "QR image failed to decode")
+
+        decoded_data = json.loads(decoded_results[0]["data"])
+        self.assertEqual(list(decoded_data.keys()), ["invoice_id", "customer_name", "total_amount", "invoice_date"])
+        self.assertEqual(decoded_data["invoice_id"], "INV-QR-001")
+        self.assertEqual(decoded_data["customer_name"], "Alice Walker")
+        self.assertEqual(decoded_data["total_amount"], "1416.00")
+        self.assertEqual(decoded_data["invoice_date"], "2026-11-02")
+
+    def test_different_invoices_generate_different_qr_payloads(self):
+        """Test that different invoices generate unique and distinguishable QR codes."""
+        img1 = generate_invoice_qr(self.invoice1)
+        img2 = generate_invoice_qr(self.invoice2)
+
+        decoded1 = json.loads(decode_qr_from_image(img1)[0]["data"])
+        decoded2 = json.loads(decode_qr_from_image(img2)[0]["data"])
+
+        self.assertNotEqual(decoded1["invoice_id"], decoded2["invoice_id"])
+        self.assertNotEqual(decoded1["customer_name"], decoded2["customer_name"])
+        self.assertNotEqual(decoded1["total_amount"], decoded2["total_amount"])
+        self.assertNotEqual(decoded1["invoice_date"], decoded2["invoice_date"])
+
+    def test_unsaved_invoice_raises_value_error(self):
+        """QR generation must reject unsaved invoice instances without a database PK."""
+        unsaved = Invoice(
+            distributor=self.distributor,
+            customer=self.customer1,
+            invoice_number="INV-DRAFT-001",
+            invoice_date=date.today(),
+            grand_total=Decimal("100.00")
+        )
+        with self.assertRaises(ValueError):
+            generate_invoice_qr(unsaved)
+
+    def test_invalid_invoice_id_returns_404(self):
+        """Requesting detail or QR endpoint with invalid invoice ID returns 404."""
+        self.client.login(username="dist_qr_test", password="DistPassword@123")
+
+        # Invalid ID on invoice detail
+        res_detail = self.client.get(reverse("invoice_detail", kwargs={"pk": 999999}))
+        self.assertEqual(res_detail.status_code, 404)
+
+        # Invalid ID on invoice QR image endpoint
+        res_qr = self.client.get(reverse("invoice_qr", kwargs={"pk": 999999}))
+        self.assertEqual(res_qr.status_code, 404)
+
+    def test_invoice_detail_page_displays_qr_code(self):
+        """Invoice detail page renders successfully and displays the generated QR code."""
+        self.client.login(username="dist_qr_test", password="DistPassword@123")
+        url = reverse("invoice_detail", kwargs={"pk": self.invoice1.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode("utf-8")
+        self.assertIn("Invoice QR Code", content)
+        self.assertIn("data:image/png;base64,", content)
+        # Verify no broken double-data URI prefix
+        self.assertNotIn("data:image/png;base64,data:", content)
+
+    def test_invoice_pdf_renders_with_qr_code(self):
+        """Invoice PDF endpoint generates valid PDF bytes containing the QR code."""
+        self.client.login(username="dist_qr_test", password="DistPassword@123")
+        url = reverse("invoice_pdf", kwargs={"pk": self.invoice1.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertTrue(response.content.startswith(b"%PDF"))

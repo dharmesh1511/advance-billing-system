@@ -118,45 +118,65 @@ def render_to_pdf(template_name, context=None):
 
 def build_invoice_qr_payload(invoice):
     """
-    Build structured payload dictionary for an invoice QR code.
-    Contains: invoice_number, invoice_date, customer_name, product_count (sum of line item quantities),
-    grand_total (string format 2 decimal places), currency ("INR").
-    Does not include sensitive customer personal data.
+    Build structured payload dictionary for an invoice QR code using saved invoice data.
+    Directly fetches from saved model:
+    - invoice_id: invoice reference number (or pk)
+    - customer_name: customer name from related customer model
+    - total_amount: actual total amount (grand_total formatted as 2 decimals)
+    - invoice_date: actual invoice date (YYYY-MM-DD)
     """
+    if invoice is None or not getattr(invoice, "pk", None):
+        raise ValueError("Cannot generate QR code from unsaved invoice data.")
+
+    inv_id = str(invoice.invoice_number) if getattr(invoice, "invoice_number", None) else str(invoice.pk or "")
+    customer_name = invoice.customer.name if (getattr(invoice, "customer", None) and invoice.customer) else ""
+    total_amount = f"{invoice.grand_total:.2f}" if getattr(invoice, "grand_total", None) is not None else "0.00"
+    inv_date_str = invoice.invoice_date.strftime("%Y-%m-%d") if getattr(invoice, "invoice_date", None) else ""
+
     if hasattr(invoice, "total_quantity") and invoice.total_quantity is not None:
         product_count = invoice.total_quantity
     elif hasattr(invoice, "total_item_qty") and invoice.total_item_qty is not None:
         product_count = invoice.total_item_qty
-    else:
+    elif hasattr(invoice, "items"):
         product_count = sum(item.quantity for item in invoice.items.all())
+    else:
+        product_count = 0
 
-    inv_date_str = ""
-    if invoice.invoice_date:
-        inv_date_str = invoice.invoice_date.strftime("%Y-%m-%d")
-
-    customer_name = invoice.customer.name if invoice.customer else ""
-
-    payload = {
-        "invoice_number": invoice.invoice_number,
+    return {
+        "invoice_id": inv_id,
+        "customer_name": customer_name,
+        "total_amount": total_amount,
         "invoice_date": inv_date_str,
+        # Backward-compatibility aliases
+        "invoice_number": inv_id,
+        "grand_total": total_amount,
         "product_count": product_count,
-        "grand_total": f"{invoice.grand_total:.2f}",
-        "currency": "INR"
+        "currency": "INR",
     }
-
-    if customer_name:
-        payload["customer_name"] = customer_name
-
-    return payload
 
 
 def generate_invoice_qr(invoice):
     """
-    Generates a PIL Image of the QR code for a given invoice.
-    Uses 'qrcode' library if available; falls back to reportlab+Pillow if not.
+    Generates a PIL Image of the QR code for a given invoice using saved model data.
+    Uses Python's 'qrcode' library with safe UTF-8 encoded JSON payload:
+    {
+        "invoice_id": "actual_invoice_id",
+        "customer_name": "actual_customer_name",
+        "total_amount": "actual_total_amount",
+        "invoice_date": "actual_invoice_date"
+    }
     """
+    if invoice is None or not getattr(invoice, "pk", None):
+        raise ValueError("Cannot generate QR codes from unsaved invoice data.")
+
     payload = build_invoice_qr_payload(invoice)
-    payload_str = json.dumps(payload, ensure_ascii=False)
+    qr_data = {
+        "invoice_id": payload["invoice_id"],
+        "customer_name": payload["customer_name"],
+        "total_amount": payload["total_amount"],
+        "invoice_date": payload["invoice_date"],
+    }
+    payload_str = json.dumps(qr_data, ensure_ascii=False)
 
     try:
         import qrcode
