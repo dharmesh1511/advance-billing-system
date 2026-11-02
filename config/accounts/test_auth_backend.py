@@ -589,3 +589,205 @@ class SessionBasedAuthenticationTests(TestCase):
         response = self.client.get(reverse("admin_dashboard"))
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("admin_login"), response.url)
+
+
+class RouteProtectionTests(TestCase):
+    """
+    Focused verification tests for role-based route protection:
+    1. Admin accesses Admin routes successfully.
+    2. Distributor accesses Distributor routes successfully.
+    3. Admin is denied access to Distributor routes (redirected to admin dashboard).
+    4. Distributor is denied access to Admin routes (redirected to distributor dashboard).
+    5. Unauthenticated users redirected to correct login pages with 'next' parameter.
+    6. Public pages remain accessible.
+    7. Direct URL access is protected.
+    8. CBV mixins (AdminRequiredMixin, DistributorRequiredMixin) enforce role protection.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        # Admin User
+        self.admin_user = User.objects.create_user(
+            username="admin_prot",
+            email="admin_prot@example.com",
+            password="AdminPassword@123",
+            is_staff=True
+        )
+        # Distributor User
+        self.distributor_group, _ = Group.objects.get_or_create(name="Distributor")
+        self.distributor_user = User.objects.create_user(
+            username="dist_prot",
+            email="dist_prot@example.com",
+            password="DistPassword@123"
+        )
+        self.distributor_user.groups.add(self.distributor_group)
+        self.distributor_profile = DistributorProfile.objects.create(
+            user=self.distributor_user,
+            full_name="Protected Distributor",
+            email="dist_prot@example.com",
+            phone="9876543210"
+        )
+        # Regular User
+        self.regular_user = User.objects.create_user(
+            username="reg_prot",
+            email="reg_prot@example.com",
+            password="RegPassword@123"
+        )
+
+    def test_admin_accesses_admin_routes(self):
+        """Admin user can successfully access all protected Admin routes."""
+        self.client.force_login(self.admin_user)
+        routes = [
+            reverse("admin_dashboard"),
+            reverse("admin_reports"),
+            reverse("admin_register"),
+        ]
+        for route in routes:
+            response = self.client.get(route)
+            self.assertEqual(response.status_code, 200, f"Admin failed to access {route}")
+
+    def test_distributor_accesses_distributor_routes(self):
+        """Distributor user can successfully access all protected Distributor routes."""
+        self.client.force_login(self.distributor_user)
+        routes = [
+            reverse("distributor_dashboard"),
+            reverse("distributor_profile"),
+            reverse("customer_list"),
+            reverse("product_list"),
+            reverse("invoice_list"),
+            reverse("qr_decoder"),
+        ]
+        for route in routes:
+            response = self.client.get(route)
+            self.assertEqual(response.status_code, 200, f"Distributor failed to access {route}")
+
+    def test_admin_denied_access_to_distributor_routes(self):
+        """Admin user is denied access to Distributor routes and redirected to admin dashboard."""
+        self.client.force_login(self.admin_user)
+        distributor_routes = [
+            reverse("distributor_dashboard"),
+            reverse("distributor_profile"),
+            reverse("customer_list"),
+            reverse("product_list"),
+            reverse("invoice_list"),
+            reverse("qr_decoder"),
+            reverse("create_invoice"),
+            reverse("add_customer"),
+            reverse("add_product"),
+        ]
+        for route in distributor_routes:
+            response = self.client.get(route)
+            self.assertEqual(response.status_code, 302, f"Admin was not redirected from {route}")
+            self.assertIn(reverse("admin_dashboard"), response.url, f"Admin not redirected to admin dashboard from {route}")
+
+    def test_distributor_denied_access_to_admin_routes(self):
+        """Distributor user is denied access to Admin routes and redirected to distributor dashboard."""
+        self.client.force_login(self.distributor_user)
+        admin_routes = [
+            reverse("admin_dashboard"),
+            reverse("admin_reports"),
+            reverse("admin_register"),
+            reverse("admin_reports_export_csv"),
+            reverse("admin_reports_export_pdf"),
+        ]
+        for route in admin_routes:
+            response = self.client.get(route)
+            self.assertEqual(response.status_code, 302, f"Distributor was not redirected from {route}")
+            self.assertIn(reverse("distributor_dashboard"), response.url, f"Distributor not redirected to distributor dashboard from {route}")
+
+    def test_unauthenticated_users_redirected_to_correct_login(self):
+        """Unauthenticated requests to Admin/Distributor routes redirect to respective login portals."""
+        # Admin route redirect
+        res_admin = self.client.get(reverse("admin_dashboard"))
+        self.assertEqual(res_admin.status_code, 302)
+        self.assertIn(reverse("admin_login"), res_admin.url)
+
+        res_reports = self.client.get(reverse("admin_reports"))
+        self.assertEqual(res_reports.status_code, 302)
+        self.assertIn(reverse("admin_login"), res_reports.url)
+
+        # Distributor route redirect
+        res_dist = self.client.get(reverse("distributor_dashboard"))
+        self.assertEqual(res_dist.status_code, 302)
+        self.assertIn(reverse("distributor_login"), res_dist.url)
+
+        res_cust = self.client.get(reverse("customer_list"))
+        self.assertEqual(res_cust.status_code, 302)
+        self.assertIn(reverse("distributor_login"), res_cust.url)
+
+        res_prod = self.client.get(reverse("product_list"))
+        self.assertEqual(res_prod.status_code, 302)
+        self.assertIn(reverse("distributor_login"), res_prod.url)
+
+    def test_public_pages_remain_accessible(self):
+        """Public pages (login, registration, forgot password) remain accessible without authentication."""
+        public_routes = [
+            reverse("admin_login"),
+            reverse("distributor_login"),
+            reverse("distributor_register"),
+            reverse("forgot_password"),
+        ]
+        for route in public_routes:
+            response = self.client.get(route)
+            self.assertEqual(response.status_code, 200, f"Public route {route} failed to load")
+
+    def test_direct_url_access_is_protected(self):
+        """Direct URL requests to deep action endpoints are blocked for unauthenticated users."""
+        deep_routes = [
+            reverse("create_invoice"),
+            reverse("add_customer"),
+            reverse("add_product"),
+            reverse("admin_reports_export_csv"),
+            reverse("admin_reports_export_pdf"),
+        ]
+        for route in deep_routes:
+            res = self.client.get(route)
+            self.assertEqual(res.status_code, 302, f"Direct access to {route} was not blocked")
+
+    def test_cbv_mixins_enforce_route_protection(self):
+        """Test AdminRequiredMixin and DistributorRequiredMixin enforce access control on CBVs."""
+        from django.views.generic import View
+        from django.http import HttpResponse
+        from accounts.decorators import AdminRequiredMixin, DistributorRequiredMixin
+        from django.test import RequestFactory
+        from django.contrib.messages.storage.fallback import FallbackStorage
+
+        rf = RequestFactory()
+
+        class DummyAdminView(AdminRequiredMixin, View):
+            def get(self, request):
+                return HttpResponse("admin_cbv_ok")
+
+        class DummyDistributorView(DistributorRequiredMixin, View):
+            def get(self, request):
+                return HttpResponse("dist_cbv_ok")
+
+        # Admin view with admin
+        req = rf.get("/dummy/admin/")
+        req.user = self.admin_user
+        res = DummyAdminView.as_view()(req)
+        self.assertEqual(res.status_code, 200)
+
+        # Admin view with distributor
+        req = rf.get("/dummy/admin/")
+        req.user = self.distributor_user
+        req.session = {}
+        req._messages = FallbackStorage(req)
+        res = DummyAdminView.as_view()(req)
+        self.assertEqual(res.status_code, 302)
+        self.assertIn(reverse("distributor_dashboard"), res.url)
+
+        # Distributor view with distributor
+        req = rf.get("/dummy/distributor/")
+        req.user = self.distributor_user
+        res = DummyDistributorView.as_view()(req)
+        self.assertEqual(res.status_code, 200)
+
+        # Distributor view with admin
+        req = rf.get("/dummy/distributor/")
+        req.user = self.admin_user
+        req.session = {}
+        req._messages = FallbackStorage(req)
+        res = DummyDistributorView.as_view()(req)
+        self.assertEqual(res.status_code, 302)
+        self.assertIn(reverse("admin_dashboard"), res.url)

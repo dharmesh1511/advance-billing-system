@@ -30,36 +30,14 @@ from billing.utils import link_callback
 logger = logging.getLogger(__name__)
 
 
-def is_distributor(user):
-    if not (user and user.is_authenticated):
-        return False
-    if user.is_superuser or user.is_staff:
-        return False
-    if user.groups.filter(name="Distributor").exists():
-        return True
-    try:
-        if getattr(user, "distributor_profile", None) is not None:
-            return True
-    except Exception:
-        pass
-    return DistributorProfile.objects.filter(user=user).exists()
-
-
-def is_admin(user):
-    if not (user and user.is_authenticated):
-        return False
-    if not (user.is_staff or user.is_superuser):
-        return False
-    if user.groups.filter(name="Distributor").exists():
-        return False
-    try:
-        if getattr(user, "distributor_profile", None) is not None:
-            return False
-    except Exception:
-        pass
-    if DistributorProfile.objects.filter(user=user).exists():
-        return False
-    return True
+from .decorators import (
+    is_admin,
+    is_distributor,
+    admin_required,
+    distributor_required,
+    AdminRequiredMixin,
+    DistributorRequiredMixin,
+)
 
 
 def get_safe_redirect(request, default_route):
@@ -286,14 +264,8 @@ def distributor_register(request):
 # =========================
 
 @never_cache
-@login_required(login_url="/admin/login/")
+@admin_required
 def admin_dashboard(request):
-    if not is_admin(request.user):
-        messages.error(request, "You are not authorized to access the Admin Dashboard.")
-        if is_distributor(request.user):
-            return redirect("distributor_dashboard")
-        return redirect("admin_login")
-
     return render(
         request,
         "dashboard/admin_dashboard.html"
@@ -304,15 +276,12 @@ def admin_dashboard(request):
 # ADMIN REGISTRATION FRONTEND
 # =========================
 
-@login_required(login_url="/admin/login/")
+@admin_required
 def admin_register_view(request):
     """
     Renders the Admin Registration Frontend page.
     Protected view accessible only by authenticated staff/admin users.
     """
-    if not request.user.is_staff:
-        return redirect("admin_login")
-
     return render(
         request,
         "adminpanel/admin_register.html"
@@ -397,7 +366,7 @@ def parse_date_filters(request):
     return filter_preset, start_date, end_date, field_errors, raw_start, raw_end
 
 
-@login_required(login_url="/admin/login/")
+@admin_required
 def admin_reports(request):
     """
     Dedicated Reports dashboard for authorized Admin users.
@@ -405,9 +374,6 @@ def admin_reports(request):
     with interactive date range filters, distributor filters, Chart.js visualizations,
     and paginated data tables.
     """
-    if not request.user.is_staff:
-        messages.error(request, "Access denied. Admin privileges required.")
-        return redirect("admin_login")
 
     filter_preset, start_date, end_date, field_errors, raw_start, raw_end = parse_date_filters(request)
     if field_errors:
@@ -619,16 +585,13 @@ def admin_reports(request):
     return render(request, "adminpanel/admin_reports.html", context)
 
 
-@login_required(login_url="/admin/login/")
+@admin_required
 def admin_reports_export_csv(request):
     """
     Exports filtered reports data to CSV.
     Supported types: 'invoices' (default), 'products', 'customers'.
     Includes formula sanitization and respects date & distributor filters.
     """
-    if not request.user.is_staff:
-        messages.error(request, "Access denied. Admin privileges required.")
-        return redirect("admin_login")
 
     report_type = request.GET.get("type", "invoices").strip().lower()
     filter_preset, start_date, end_date, field_errors, raw_start, raw_end = parse_date_filters(request)
@@ -756,16 +719,13 @@ def admin_reports_export_csv(request):
     return response
 
 
-@login_required(login_url="/admin/login/")
+@admin_required
 def admin_reports_export_pdf(request):
     """
     Exports filtered invoice reports data to PDF using xhtml2pdf.pisa.CreatePDF.
     Reuses date validation, invoice filtering, and summary calculations.
     Returns HTTP response with application/pdf and Content-Disposition attachment.
     """
-    if not request.user.is_staff:
-        messages.error(request, "Access denied. Admin privileges required.")
-        return redirect("admin_login")
 
     filter_preset, start_date, end_date, field_errors, raw_start, raw_end = parse_date_filters(request)
     status_filter = request.GET.get("status", "all").strip().lower()
@@ -871,14 +831,8 @@ def admin_reports_export_pdf(request):
         return HttpResponse("Unable to generate PDF report at this time.", status=500)
 
 @never_cache
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def distributor_dashboard(request):
-    if not is_distributor(request.user):
-        messages.error(request, "You are not authorized to access the Distributor Dashboard.")
-        if is_admin(request.user):
-            return redirect("admin_dashboard")
-        return redirect("distributor_login")
-
     return render(
         request,
         "dashboard/distributor_dashboard.html"
@@ -889,11 +843,8 @@ def distributor_dashboard(request):
 # DISTRIBUTOR PROFILE
 # =========================
 
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def distributor_profile(request):
-
-    if not is_distributor(request.user):
-        return redirect("distributor_login")
 
     profile = getattr(request.user, "distributor_profile", None)
     if not profile:
@@ -912,11 +863,8 @@ def distributor_profile(request):
 # EDIT DISTRIBUTOR PROFILE
 # =========================
 
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def edit_distributor_profile(request):
-
-    if not is_distributor(request.user):
-        return redirect("distributor_login")
 
     profile = getattr(request.user, "distributor_profile", None)
     if not profile:

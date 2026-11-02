@@ -20,21 +20,15 @@ from .utils import (
 
 
 
-def is_distributor(user):
-    if not (user and user.is_authenticated):
-        return False
-    if user.is_superuser or user.is_staff:
-        return True
-    if user.groups.filter(name="Distributor").exists():
-        return True
-    if hasattr(user, "distributor_profile"):
-        return True
-
-    from accounts.models import DistributorProfile
-    return DistributorProfile.objects.filter(user=user).exists()
+from accounts.decorators import (
+    is_distributor,
+    is_admin,
+    distributor_required,
+    admin_required,
+)
 
 
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def customer_register_view(request):
     """
     Renders the modern frontend Customer Registration form for authenticated Distributors.
@@ -46,7 +40,7 @@ def customer_register_view(request):
 
 
 
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def add_customer(request):
     if not is_distributor(request.user):
         return redirect("distributor_login")
@@ -78,7 +72,7 @@ def add_customer(request):
     )
 
 
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def customer_list(request):
     if not is_distributor(request.user):
         return redirect("distributor_login")
@@ -117,7 +111,7 @@ def customer_list(request):
     )
 
 
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def edit_customer(request, pk):
     if not is_distributor(request.user):
         return redirect("distributor_login")
@@ -148,7 +142,7 @@ def edit_customer(request, pk):
     )
 
 
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def delete_customer(request, pk):
     if not is_distributor(request.user):
         return redirect("distributor_login")
@@ -170,7 +164,7 @@ def delete_customer(request, pk):
 
 
 
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def add_product(request):
     if not is_distributor(request.user):
         return redirect("distributor_login")
@@ -202,7 +196,7 @@ def add_product(request):
     )
 
 
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def product_list(request):
     if not is_distributor(request.user):
         return redirect("distributor_login")
@@ -238,7 +232,7 @@ def product_list(request):
     )
 
 
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def edit_product(request, pk):
     if not is_distributor(request.user):
         return redirect("distributor_login")
@@ -269,7 +263,7 @@ def edit_product(request, pk):
     )
 
 
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def delete_product(request, pk):
     if not is_distributor(request.user):
         return redirect("distributor_login")
@@ -309,7 +303,7 @@ def generate_unique_invoice_number(user):
     return inv_num
 
 
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def create_invoice(request):
     if not is_distributor(request.user):
         return redirect("distributor_login")
@@ -453,7 +447,7 @@ def create_invoice(request):
     )
 
 
-@login_required(login_url="/distributor/login/")
+@distributor_required(return_403=True)
 def product_details(request, pk):
     if not is_distributor(request.user):
         return JsonResponse({"error": "Unauthorized"}, status=403)
@@ -476,7 +470,7 @@ def product_details(request, pk):
     })
 
 
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def invoice_pdf_view(request, pk):
     if not is_distributor(request.user):
         return redirect("distributor_login")
@@ -525,7 +519,7 @@ def invoice_pdf_view(request, pk):
     return response
 
 
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def invoice_pdf_download(request, pk):
     """
     Dedicated view for downloading the Invoice PDF with Content-Disposition: attachment.
@@ -575,7 +569,7 @@ def invoice_pdf_download(request, pk):
     return response
 
 
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def invoice_detail(request, pk):
     """
     Invoice Detail / View page displaying full invoice details, items, customer info,
@@ -620,7 +614,7 @@ def invoice_detail(request, pk):
     )
 
 
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def invoice_list(request):
     if not is_distributor(request.user):
         return redirect("distributor_login")
@@ -666,7 +660,7 @@ def invoice_list(request):
     )
 
 
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def invoice_qr_view(request, pk):
     if not is_distributor(request.user):
         return redirect("distributor_login")
@@ -692,7 +686,7 @@ def invoice_qr_view(request, pk):
     return response
 
 
-@login_required(login_url="/distributor/login/")
+@distributor_required
 def qr_decoder_view(request):
     """
     Renders the modern QR Code Decoder & Invoice Inspection interface.
