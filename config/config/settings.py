@@ -140,6 +140,23 @@ LOGIN_URL = "/admin/login/"
 LOGIN_REDIRECT_URL = "/admin/dashboard/"
 LOGOUT_REDIRECT_URL = "/admin/login/"
 
+# ==============================================================================
+# SECURE SESSION & COOKIE CONFIGURATION
+# ==============================================================================
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
+SESSION_COOKIE_NAME = "sessionid"
+SESSION_COOKIE_AGE = 86400 * 14          # 14 days standard session lifetime
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Default persistent; set dynamically on login
+SESSION_SAVE_EVERY_REQUEST = False      # Only save session when modified, not every request
+SESSION_COOKIE_HTTPONLY = True          # Prevent JavaScript access to session cookie (mitigates XSS)
+SESSION_COOKIE_SAMESITE = "Lax"         # Protect against CSRF
+SESSION_COOKIE_SECURE = not DEBUG       # Require HTTPS in production
+
+# CSRF Cookie Settings
+CSRF_COOKIE_HTTPONLY = False            # Allow client-side scripts to read CSRF token
+CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SECURE = not DEBUG          # Require HTTPS in production
+
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -176,4 +193,4 @@ QR_DECODER_MAX_IMAGE_SIZE = 5 * 1024 * 1024       # 5 MB
 QR_DECODER_MAX_IMAGE_PIXELS = 16_000_000          # 16 Megapixels
 QR_DECODER_MAX_IMAGE_DIMENSION = 4096             # Max width or height
 QR_DECODER_ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}
-QR_DECODER_ALLOWED_FORMATS = {"PNG", "JPEG", "WEBP", "BMP", "TIFF"}
+QR_DECODER_ALLOWED_FORMATS = {"PNG", "JPEG", "WEBP", "BMP", "TIFF"}

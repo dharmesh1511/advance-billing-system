@@ -403,3 +403,189 @@ class AdminAndDistributorAuthBackendTests(TestCase):
         self.assertIn(reverse("admin_login"), content)
 
 
+from django.contrib.sessions.models import Session
+from django.conf import settings
+
+
+class SessionBasedAuthenticationTests(TestCase):
+    """
+    Dedicated tests verifying Django session-based authentication:
+    1. Session middleware and engine configuration.
+    2. Admin and Distributor login session creation in DB.
+    3. Session regeneration upon login (session fixation prevention).
+    4. Authenticated users access their own dashboard (200 OK).
+    5. Cross-role dashboard access prevention with redirect.
+    6. Unauthenticated dashboard access redirect to login.
+    7. POST logout with CSRF clearing session from DB.
+    8. Back navigation prevention (@never_cache headers).
+    9. Remember Me session expiry configuration.
+    10. Expired/invalid session requires re-login.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.admin_user = User.objects.create_user(
+            username="admin_sess",
+            email="admin_sess@example.com",
+            password="AdminPassword@123",
+            is_staff=True
+        )
+        self.distributor_group, _ = Group.objects.get_or_create(name="Distributor")
+        self.distributor_user = User.objects.create_user(
+            username="dist_sess",
+            email="dist_sess@example.com",
+            password="DistPassword@123"
+        )
+        self.distributor_user.groups.add(self.distributor_group)
+        self.distributor_profile = DistributorProfile.objects.create(
+            user=self.distributor_user,
+            full_name="Distributor Sess",
+            email="dist_sess@example.com",
+            phone="9876543219"
+        )
+
+    def test_session_settings_and_middleware(self):
+        """Verify session engine, cookie security settings, and required middleware."""
+        self.assertEqual(settings.SESSION_ENGINE, "django.contrib.sessions.backends.db")
+        self.assertTrue(settings.SESSION_COOKIE_HTTPONLY)
+        self.assertEqual(settings.SESSION_COOKIE_SAMESITE, "Lax")
+        self.assertFalse(settings.SESSION_SAVE_EVERY_REQUEST)
+        self.assertIn("django.contrib.sessions.middleware.SessionMiddleware", settings.MIDDLEWARE)
+        self.assertIn("django.contrib.auth.middleware.AuthenticationMiddleware", settings.MIDDLEWARE)
+        self.assertIn("django.middleware.csrf.CsrfViewMiddleware", settings.MIDDLEWARE)
+
+    def test_admin_login_creates_database_session_and_regenerates_key(self):
+        """Admin login creates a database-backed session and regenerates session key."""
+        self.client.get(reverse("admin_login"))
+        pre_login_key = self.client.session.session_key
+
+        response = self.client.post(
+            reverse("admin_login"),
+            {"username": "admin_sess", "password": "AdminPassword@123"}
+        )
+        self.assertEqual(response.status_code, 302)
+        post_login_key = self.client.session.session_key
+
+        self.assertIsNotNone(post_login_key)
+        if pre_login_key:
+            self.assertNotEqual(pre_login_key, post_login_key)
+
+        self.assertTrue(Session.objects.filter(session_key=post_login_key).exists())
+        self.assertEqual(int(self.client.session["_auth_user_id"]), self.admin_user.id)
+
+    def test_distributor_login_creates_database_session_and_regenerates_key(self):
+        """Distributor login creates a database-backed session and regenerates session key."""
+        self.client.get(reverse("distributor_login"))
+        pre_login_key = self.client.session.session_key
+
+        response = self.client.post(
+            reverse("distributor_login"),
+            {"username": "dist_sess", "password": "DistPassword@123"}
+        )
+        self.assertEqual(response.status_code, 302)
+        post_login_key = self.client.session.session_key
+
+        self.assertIsNotNone(post_login_key)
+        if pre_login_key:
+            self.assertNotEqual(pre_login_key, post_login_key)
+
+        self.assertTrue(Session.objects.filter(session_key=post_login_key).exists())
+        self.assertEqual(int(self.client.session["_auth_user_id"]), self.distributor_user.id)
+
+    def test_authenticated_users_access_own_dashboards(self):
+        """Authenticated Admin and Distributor can access their own dashboards."""
+        self.client.force_login(self.admin_user)
+        admin_res = self.client.get(reverse("admin_dashboard"))
+        self.assertEqual(admin_res.status_code, 200)
+
+        self.client.force_login(self.distributor_user)
+        dist_res = self.client.get(reverse("distributor_dashboard"))
+        self.assertEqual(dist_res.status_code, 200)
+
+    def test_cross_role_dashboard_access_prevented(self):
+        """Admin cannot access distributor dashboard; Distributor cannot access admin dashboard."""
+        self.client.force_login(self.admin_user)
+        res1 = self.client.get(reverse("distributor_dashboard"))
+        self.assertEqual(res1.status_code, 302)
+        self.assertIn(reverse("admin_dashboard"), res1.url)
+
+        self.client.force_login(self.distributor_user)
+        res2 = self.client.get(reverse("admin_dashboard"))
+        self.assertEqual(res2.status_code, 302)
+        self.assertIn(reverse("distributor_dashboard"), res2.url)
+
+    def test_unauthenticated_dashboard_access_redirects_to_login(self):
+        """Unauthenticated requests to protected dashboards redirect to respective login."""
+        res_admin = self.client.get(reverse("admin_dashboard"))
+        self.assertEqual(res_admin.status_code, 302)
+        self.assertIn(reverse("admin_login"), res_admin.url)
+
+        res_dist = self.client.get(reverse("distributor_dashboard"))
+        self.assertEqual(res_dist.status_code, 302)
+        self.assertIn(reverse("distributor_login"), res_dist.url)
+
+    def test_post_logout_clears_session(self):
+        """POST logout clears session from DB and redirects correctly."""
+        self.client.login(username="admin_sess", password="AdminPassword@123")
+        admin_sess_key = self.client.session.session_key
+        self.assertTrue(Session.objects.filter(session_key=admin_sess_key).exists())
+
+        res_admin = self.client.post(reverse("logout"))
+        self.assertEqual(res_admin.status_code, 302)
+        self.assertIn(reverse("admin_login"), res_admin.url)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+        self.client.login(username="dist_sess", password="DistPassword@123")
+        dist_sess_key = self.client.session.session_key
+        self.assertTrue(Session.objects.filter(session_key=dist_sess_key).exists())
+
+        res_dist = self.client.post(reverse("logout"))
+        self.assertEqual(res_dist.status_code, 302)
+        self.assertIn(reverse("distributor_login"), res_dist.url)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_dashboard_and_logout_never_cache_headers(self):
+        """Dashboard views and logout endpoint return Cache-Control: no-cache, no-store headers."""
+        self.client.force_login(self.admin_user)
+        admin_dash_res = self.client.get(reverse("admin_dashboard"))
+        cache_control = admin_dash_res.headers.get("Cache-Control", "")
+        self.assertIn("no-cache", cache_control)
+        self.assertIn("no-store", cache_control)
+
+        self.client.force_login(self.distributor_user)
+        dist_dash_res = self.client.get(reverse("distributor_dashboard"))
+        cache_control_dist = dist_dash_res.headers.get("Cache-Control", "")
+        self.assertIn("no-cache", cache_control_dist)
+        self.assertIn("no-store", cache_control_dist)
+
+        logout_res = self.client.get(reverse("logout"))
+        cache_control_logout = logout_res.headers.get("Cache-Control", "")
+        self.assertIn("no-cache", cache_control_logout)
+        self.assertIn("no-store", cache_control_logout)
+
+    def test_remember_me_session_expiry(self):
+        """Remember Me sets 14-day expiry; unchecking expires on browser close."""
+        self.client.post(
+            reverse("admin_login"),
+            {"username": "admin_sess", "password": "AdminPassword@123", "remember_me": "on"}
+        )
+        self.assertFalse(self.client.session.get_expire_at_browser_close())
+        self.assertEqual(self.client.session.get_expiry_age(), settings.SESSION_COOKIE_AGE)
+        self.client.logout()
+
+        self.client.post(
+            reverse("admin_login"),
+            {"username": "admin_sess", "password": "AdminPassword@123"}
+        )
+        self.assertTrue(self.client.session.get_expire_at_browser_close())
+
+    def test_expired_session_requires_relogin(self):
+        """Expired or deleted session forces user to log in again."""
+        self.client.login(username="admin_sess", password="AdminPassword@123")
+        self.assertEqual(self.client.get(reverse("admin_dashboard")).status_code, 200)
+
+        Session.objects.all().delete()
+
+        response = self.client.get(reverse("admin_dashboard"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("admin_login"), response.url)

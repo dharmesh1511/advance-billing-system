@@ -8,6 +8,8 @@ from datetime import datetime, date, timedelta
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
+from django.conf import settings
 from django.contrib.auth.models import User, Group
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
@@ -109,6 +111,10 @@ def admin_login(request):
                     error = "Your account is inactive. Please contact the administrator."
                 elif is_admin(user):
                     login(request, user)
+                    if request.POST.get("remember_me"):
+                        request.session.set_expiry(getattr(settings, "SESSION_COOKIE_AGE", 86400 * 14))
+                    else:
+                        request.session.set_expiry(0)
                     return get_safe_redirect(request, "admin_dashboard")
                 elif is_distributor(user):
                     error = "Distributor accounts are not permitted to access Admin login."
@@ -177,6 +183,10 @@ def distributor_login(request):
                     error = "Your account is inactive. Please contact the administrator."
                 elif is_distributor(user):
                     login(request, user)
+                    if request.POST.get("remember_me"):
+                        request.session.set_expiry(getattr(settings, "SESSION_COOKIE_AGE", 86400 * 14))
+                    else:
+                        request.session.set_expiry(0)
                     return get_safe_redirect(request, "distributor_dashboard")
                 elif is_admin(user):
                     error = "Admin accounts are not permitted to access Distributor login."
@@ -275,6 +285,7 @@ def distributor_register(request):
 # ADMIN DASHBOARD
 # =========================
 
+@never_cache
 @login_required(login_url="/admin/login/")
 def admin_dashboard(request):
     if not is_admin(request.user):
@@ -859,6 +870,7 @@ def admin_reports_export_pdf(request):
         logger.error(f"Unexpected exception generating invoice report PDF: {e}")
         return HttpResponse("Unable to generate PDF report at this time.", status=500)
 
+@never_cache
 @login_required(login_url="/distributor/login/")
 def distributor_dashboard(request):
     if not is_distributor(request.user):
@@ -973,6 +985,7 @@ def edit_distributor_profile(request):
 # LOGOUT
 # =========================
 
+@never_cache
 def logout_view(request):
     was_distributor = is_distributor(request.user)
     next_url = request.GET.get("next") or request.POST.get("next")
