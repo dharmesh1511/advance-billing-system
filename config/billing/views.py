@@ -1,5 +1,8 @@
+import logging
 import re
 from decimal import Decimal
+
+logger = logging.getLogger(__name__)
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -594,7 +597,27 @@ def invoice_detail(request, pk):
         total_discount += (line_gross - item.taxable_amount)
 
     distributor_profile = getattr(request.user, "distributor_profile", None)
-    qr_code_url = generate_invoice_qr_base64(invoice)
+
+    # Reuse saved QR image from invoice model; avoid regenerating on each page load
+    qr_code_url = ""
+    if invoice.qr_code and invoice.qr_code.name:
+        try:
+            if invoice.qr_code.storage.exists(invoice.qr_code.name):
+                qr_code_url = invoice.qr_code.url
+            else:
+                invoice.generate_and_save_qr_code(force=True)
+                qr_code_url = invoice.qr_code.url if invoice.qr_code else ""
+        except Exception as e:
+            logger.error(f"Error accessing saved QR image for invoice {invoice.pk}: {e}")
+            qr_code_url = ""
+    else:
+        try:
+            invoice.generate_and_save_qr_code(force=True)
+            qr_code_url = invoice.qr_code.url if invoice.qr_code else ""
+        except Exception as e:
+            logger.error(f"Error generating saved QR image on detail view for invoice {invoice.pk}: {e}")
+            qr_code_url = ""
+
     qr_payload = build_invoice_qr_payload(invoice)
 
     return render(
@@ -680,6 +703,16 @@ def invoice_qr_view(request, pk):
             "payload": payload,
             "qr_code": base64_qr
         })
+
+    if invoice.qr_code and invoice.qr_code.name and invoice.qr_code.storage.exists(invoice.qr_code.name):
+        try:
+            with invoice.qr_code.open("rb") as f:
+                png_bytes = f.read()
+            response = HttpResponse(png_bytes, content_type="image/png")
+            response["Content-Disposition"] = f'inline; filename="Invoice_{invoice.invoice_number}_QR.png"'
+            return response
+        except Exception:
+            pass
 
     png_bytes = generate_invoice_qr_bytes(invoice)
     response = HttpResponse(png_bytes, content_type="image/png")

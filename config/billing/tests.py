@@ -3623,8 +3623,9 @@ class GenerateInvoiceQRCodeTests(TestCase):
 
         content = response.content.decode("utf-8")
         self.assertIn("Scan for Invoice Details", content)
-        self.assertIn("data:image/png;base64,", content)
-        # Verify no broken double-data URI prefix
+        self.assertTrue(
+            "invoices/qr_codes/" in content or "data:image/png;base64," in content
+        )
         self.assertNotIn("data:image/png;base64,data:", content)
 
     def test_invoice_detail_preview_dynamic_per_invoice(self):
@@ -3641,11 +3642,15 @@ class GenerateInvoiceQRCodeTests(TestCase):
         self.assertIn("qr_code", resp1.context)
         self.assertIn("qr_code_url", resp1.context)
         qr1_uri = resp1.context["qr_code"]
-        self.assertTrue(qr1_uri.startswith("data:image/png;base64,"))
 
-        # Decode invoice1 embedded QR image
-        b64_1 = qr1_uri.replace("data:image/png;base64,", "")
-        img1 = Image.open(BytesIO(base64.b64decode(b64_1)))
+        if qr1_uri.startswith("data:image/png;base64,"):
+            b64_1 = qr1_uri.replace("data:image/png;base64,", "")
+            img1 = Image.open(BytesIO(base64.b64decode(b64_1)))
+        else:
+            self.invoice1.refresh_from_db()
+            with self.invoice1.qr_code.open("rb") as f:
+                img1 = Image.open(BytesIO(f.read()))
+
         decoded1 = json.loads(decode_qr_from_image(img1)[0]["data"])
         self.assertEqual(decoded1["invoice_id"], "INV-QR-001")
         self.assertEqual(decoded1["customer_name"], "Alice Walker")
@@ -3656,11 +3661,15 @@ class GenerateInvoiceQRCodeTests(TestCase):
         resp2 = self.client.get(reverse("invoice_detail", kwargs={"pk": self.invoice2.pk}))
         self.assertEqual(resp2.status_code, 200)
         qr2_uri = resp2.context["qr_code"]
-        self.assertTrue(qr2_uri.startswith("data:image/png;base64,"))
 
-        # Decode invoice2 embedded QR image
-        b64_2 = qr2_uri.replace("data:image/png;base64,", "")
-        img2 = Image.open(BytesIO(base64.b64decode(b64_2)))
+        if qr2_uri.startswith("data:image/png;base64,"):
+            b64_2 = qr2_uri.replace("data:image/png;base64,", "")
+            img2 = Image.open(BytesIO(base64.b64decode(b64_2)))
+        else:
+            self.invoice2.refresh_from_db()
+            with self.invoice2.qr_code.open("rb") as f:
+                img2 = Image.open(BytesIO(f.read()))
+
         decoded2 = json.loads(decode_qr_from_image(img2)[0]["data"])
         self.assertEqual(decoded2["invoice_id"], "INV-QR-002")
         self.assertEqual(decoded2["customer_name"], "Bob Smith")
@@ -3675,12 +3684,21 @@ class GenerateInvoiceQRCodeTests(TestCase):
         """When QR image generation is unavailable, template renders graceful fallback without crashing."""
         from django.template.loader import render_to_string
 
+        no_qr_invoice = Invoice(
+            pk=self.invoice1.pk,
+            distributor=self.distributor,
+            customer=self.customer1,
+            invoice_number="INV-NO-QR",
+            invoice_date=date(2026, 11, 2),
+            qr_code=None
+        )
+
         html = render_to_string(
             "billing/invoice_detail.html",
             {
-                "invoice": self.invoice1,
-                "items": self.invoice1.items.all(),
-                "customer": self.invoice1.customer,
+                "invoice": no_qr_invoice,
+                "items": [],
+                "customer": self.customer1,
                 "qr_code": "",
                 "qr_code_url": "",
             }
@@ -3707,3 +3725,243 @@ class GenerateInvoiceQRCodeTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/pdf")
         self.assertTrue(response.content.startswith(b"%PDF"))
+
+
+class AutomaticInvoiceQRCodeSaveTests(TestCase):
+    """
+    Unit and integration tests for automatic QR code generation and saving during invoice save.
+    Verifies all 8 testing requirements:
+    1. Creating a new invoice generates and saves a QR code.
+    2. QR payload contains the correct four invoice values.
+    3. Different invoices have different QR data.
+    4. Existing invoice updates do not generate unnecessary duplicate files.
+    5. Relevant invoice changes regenerate the QR code.
+    6. Invoice preview displays the saved QR image.
+    7. QR code can be decoded successfully.
+    8. QR generation errors are handled safely.
+    """
+
+    def setUp(self):
+        from accounts.models import DistributorProfile
+        self.distributor = User.objects.create_user(
+            username="auto_qr_dist",
+            password="DistPassword@123",
+            email="auto_qr_dist@example.com"
+        )
+        self.profile = DistributorProfile.objects.create(
+            user=self.distributor,
+            full_name="Daniel Enterprise",
+            email="auto_qr_dist@example.com",
+            phone="9876500000"
+        )
+        self.customer1 = Customer.objects.create(
+            distributor=self.distributor,
+            name="Daniel Craig",
+            email="daniel@example.com",
+            phone="9876500001"
+        )
+        self.customer2 = Customer.objects.create(
+            distributor=self.distributor,
+            name="Eva Green",
+            email="eva@example.com",
+            phone="9876500002"
+        )
+        self.product = Product.objects.create(
+            distributor=self.distributor,
+            name="Premium Service",
+            price=Decimal("500.00"),
+            gst_rate=Decimal("18.00"),
+            stock=100
+        )
+
+    def test_1_create_new_invoice_automatically_generates_and_saves_qr_code(self):
+        """Creating a new invoice automatically generates and saves a QR code in media storage."""
+        invoice = Invoice.objects.create(
+            distributor=self.distributor,
+            customer=self.customer1,
+            invoice_number="INV-AUTO-001",
+            invoice_date=date(2026, 11, 3),
+            subtotal=Decimal("500.00"),
+            total_gst=Decimal("90.00"),
+            grand_total=Decimal("590.00")
+        )
+
+        self.assertIsNotNone(invoice.pk)
+        self.assertTrue(bool(invoice.qr_code), "invoice.qr_code was not populated automatically.")
+        self.assertTrue(invoice.qr_code.storage.exists(invoice.qr_code.name), "QR file was not saved to storage.")
+        self.assertTrue(invoice.qr_code.name.endswith(".png"), "QR file must be a PNG image.")
+        self.assertIn("INV-AUTO-001", invoice.qr_code.name)
+
+    def test_2_qr_payload_contains_correct_four_values(self):
+        """Saved QR code image encodes the exact four required invoice values in valid JSON."""
+        from PIL import Image
+        from billing.utils import decode_qr_from_image
+
+        invoice = Invoice.objects.create(
+            distributor=self.distributor,
+            customer=self.customer1,
+            invoice_number="INV-AUTO-002",
+            invoice_date=date(2026, 11, 4),
+            subtotal=Decimal("1000.00"),
+            total_gst=Decimal("180.00"),
+            grand_total=Decimal("1180.00")
+        )
+
+        with invoice.qr_code.open("rb") as f:
+            img = Image.open(f)
+            decoded_results = decode_qr_from_image(img)
+
+        self.assertGreater(len(decoded_results), 0, "Failed to decode saved QR code.")
+        data = json.loads(decoded_results[0]["data"])
+
+        self.assertEqual(list(data.keys()), ["invoice_id", "customer_name", "total_amount", "invoice_date"])
+        self.assertEqual(data["invoice_id"], "INV-AUTO-002")
+        self.assertEqual(data["customer_name"], "Daniel Craig")
+        self.assertEqual(data["total_amount"], "1180.00")
+        self.assertEqual(data["invoice_date"], "2026-11-04")
+
+    def test_3_different_invoices_have_different_qr_data(self):
+        """Different invoices produce uniquely distinguishable QR code files and payloads."""
+        from PIL import Image
+        from billing.utils import decode_qr_from_image
+
+        inv1 = Invoice.objects.create(
+            distributor=self.distributor,
+            customer=self.customer1,
+            invoice_number="INV-DIFF-001",
+            invoice_date=date(2026, 11, 1),
+            subtotal=Decimal("100.00"),
+            total_gst=Decimal("18.00"),
+            grand_total=Decimal("118.00")
+        )
+        inv2 = Invoice.objects.create(
+            distributor=self.distributor,
+            customer=self.customer2,
+            invoice_number="INV-DIFF-002",
+            invoice_date=date(2026, 11, 2),
+            subtotal=Decimal("200.00"),
+            total_gst=Decimal("36.00"),
+            grand_total=Decimal("236.00")
+        )
+
+        self.assertNotEqual(inv1.qr_code.name, inv2.qr_code.name)
+
+        with inv1.qr_code.open("rb") as f1, inv2.qr_code.open("rb") as f2:
+            data1 = json.loads(decode_qr_from_image(Image.open(f1))[0]["data"])
+            data2 = json.loads(decode_qr_from_image(Image.open(f2))[0]["data"])
+
+        self.assertNotEqual(data1["invoice_id"], data2["invoice_id"])
+        self.assertNotEqual(data1["customer_name"], data2["customer_name"])
+        self.assertNotEqual(data1["total_amount"], data2["total_amount"])
+        self.assertNotEqual(data1["invoice_date"], data2["invoice_date"])
+
+    def test_4_existing_invoice_updates_do_not_generate_duplicate_files(self):
+        """Saving an invoice without modifying QR-encoded fields preserves existing file without generating duplicate."""
+        invoice = Invoice.objects.create(
+            distributor=self.distributor,
+            customer=self.customer1,
+            invoice_number="INV-STABLE-001",
+            invoice_date=date(2026, 11, 3),
+            subtotal=Decimal("500.00"),
+            total_gst=Decimal("90.00"),
+            grand_total=Decimal("590.00")
+        )
+        initial_file_name = invoice.qr_code.name
+
+        # Ordinary update: saving again without changing the 4 QR fields
+        invoice.save()
+        invoice.refresh_from_db()
+
+        self.assertEqual(invoice.qr_code.name, initial_file_name)
+
+    def test_5_relevant_invoice_changes_regenerate_qr_code(self):
+        """Modifying encoded invoice values (e.g., grand_total or customer) regenerates QR code with updated payload."""
+        from PIL import Image
+        from billing.utils import decode_qr_from_image
+
+        invoice = Invoice.objects.create(
+            distributor=self.distributor,
+            customer=self.customer1,
+            invoice_number="INV-REGEN-001",
+            invoice_date=date(2026, 11, 3),
+            subtotal=Decimal("500.00"),
+            total_gst=Decimal("90.00"),
+            grand_total=Decimal("590.00")
+        )
+
+        # Update grand_total and customer
+        invoice.customer = self.customer2
+        invoice.grand_total = Decimal("850.00")
+        invoice.save()
+
+        invoice.refresh_from_db()
+
+        with invoice.qr_code.open("rb") as f:
+            updated_data = json.loads(decode_qr_from_image(Image.open(f))[0]["data"])
+
+        self.assertEqual(updated_data["customer_name"], "Eva Green")
+        self.assertEqual(updated_data["total_amount"], "850.00")
+
+    def test_6_invoice_preview_displays_saved_qr_image(self):
+        """Invoice preview detail view displays the saved QR image from media storage."""
+        invoice = Invoice.objects.create(
+            distributor=self.distributor,
+            customer=self.customer1,
+            invoice_number="INV-PREV-001",
+            invoice_date=date(2026, 11, 3),
+            subtotal=Decimal("500.00"),
+            total_gst=Decimal("90.00"),
+            grand_total=Decimal("590.00")
+        )
+
+        self.client.login(username="auto_qr_dist", password="DistPassword@123")
+        url = reverse("invoice_detail", kwargs={"pk": invoice.pk})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+
+        self.assertIn("Scan for Invoice Details", content)
+        self.assertIn(invoice.qr_code.url, content)
+
+    def test_7_qr_code_decodes_successfully(self):
+        """QR code saved in media storage decodes with high fidelity."""
+        from PIL import Image
+        from billing.utils import decode_qr_from_image
+
+        invoice = Invoice.objects.create(
+            distributor=self.distributor,
+            customer=self.customer1,
+            invoice_number="INV-DECODE-001",
+            invoice_date=date(2026, 11, 3),
+            subtotal=Decimal("1200.00"),
+            total_gst=Decimal("216.00"),
+            grand_total=Decimal("1416.00")
+        )
+
+        with invoice.qr_code.open("rb") as f:
+            img = Image.open(f)
+            decoded = decode_qr_from_image(img)
+
+        self.assertTrue(len(decoded) > 0)
+        payload = json.loads(decoded[0]["data"])
+        self.assertEqual(payload["invoice_id"], "INV-DECODE-001")
+        self.assertEqual(payload["total_amount"], "1416.00")
+
+    def test_8_qr_generation_errors_handled_safely(self):
+        """If QR code generation fails, invoice is still saved successfully without duplication or crash."""
+        from unittest.mock import patch
+
+        with patch("billing.models.Invoice.generate_and_save_qr_code", side_effect=RuntimeError("Storage failure")):
+            invoice = Invoice.objects.create(
+                distributor=self.distributor,
+                customer=self.customer1,
+                invoice_number="INV-SAFE-001",
+                invoice_date=date(2026, 11, 3),
+                subtotal=Decimal("300.00"),
+                total_gst=Decimal("54.00"),
+                grand_total=Decimal("354.00")
+            )
+
+        self.assertIsNotNone(invoice.pk)
+        self.assertEqual(Invoice.objects.filter(invoice_number="INV-SAFE-001").count(), 1)

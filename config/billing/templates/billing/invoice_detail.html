@@ -357,6 +357,8 @@
                         <div class="p-2 border rounded-3 bg-white d-inline-block shadow-sm text-center">
                             {% if qr_code_url %}
                                 <img src="{{ qr_code_url }}" alt="Scan for Invoice Details" class="img-fluid rounded" style="width: 120px; height: 120px; object-fit: contain; display: block; margin: 0 auto;" />
+                            {% elif invoice.qr_code %}
+                                <img src="{{ invoice.qr_code.url }}" alt="Scan for Invoice Details" class="img-fluid rounded" style="width: 120px; height: 120px; object-fit: contain; display: block; margin: 0 auto;" />
                             {% elif qr_code %}
                                 <img src="{% if not qr_code|slice:':5' == 'data:' %}data:image/png;base64,{% endif %}{{ qr_code }}" alt="Scan for Invoice Details" class="img-fluid rounded" style="width: 120px; height: 120px; object-fit: contain; display: block; margin: 0 auto;" />
                             {% else %}

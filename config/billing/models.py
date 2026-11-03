@@ -1,8 +1,13 @@
+import logging
+import re
 from decimal import Decimal
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
+
+logger = logging.getLogger(__name__)
 
 
 class Customer(models.Model):
@@ -237,6 +242,13 @@ class Invoice(models.Model):
         help_text="Grand total amount including GST"
     )
 
+    qr_code = models.ImageField(
+        upload_to="invoices/qr_codes/",
+        blank=True,
+        null=True,
+        help_text="Automatically generated QR code image for this invoice"
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True
     )
@@ -267,9 +279,88 @@ class Invoice(models.Model):
         if self.grand_total is not None and self.grand_total < Decimal('0.00'):
             raise ValidationError({'grand_total': 'Grand total cannot be negative.'})
 
+    def generate_and_save_qr_code(self, force=False):
+        """
+        Generates and saves the QR code image for this invoice.
+        Encodes the 4 key values: invoice_id, customer_name, total_amount, invoice_date.
+        Saves the resulting image into self.qr_code using media storage without recursive save.
+        """
+        if not self.pk:
+            return None
+
+        # Do not generate for incomplete invoices missing required customer or number
+        if not getattr(self, "customer_id", None) or not getattr(self, "invoice_number", None):
+            return None
+
+        from billing.utils import generate_invoice_qr_bytes
+
+        # If file already exists and not forcing regeneration, return existing
+        if not force and self.qr_code and self.qr_code.name:
+            try:
+                if self.qr_code.storage.exists(self.qr_code.name):
+                    return self.qr_code
+            except Exception:
+                pass
+
+        # Clean up old file to prevent accumulation of duplicate files
+        if self.qr_code and self.qr_code.name:
+            try:
+                if self.qr_code.storage.exists(self.qr_code.name):
+                    self.qr_code.storage.delete(self.qr_code.name)
+            except Exception as e:
+                logger.warning(f"Failed to delete old QR image for invoice {self.pk}: {e}")
+
+        safe_num = re.sub(r'[^A-Za-z0-9_\-]', '_', str(self.invoice_number or f"inv_{self.pk}"))
+        filename = f"{safe_num}_qr.png"
+
+        png_bytes = generate_invoice_qr_bytes(self)
+        content_file = ContentFile(png_bytes)
+
+        self.qr_code.save(filename, content_file, save=False)
+        Invoice.objects.filter(pk=self.pk).update(qr_code=self.qr_code.name)
+        return self.qr_code
+
     def save(self, *args, **kwargs):
         self.full_clean()
+
+        # Prevent recursion if caller specifically only updates qr_code
+        update_fields = kwargs.get("update_fields")
+        if update_fields and set(update_fields) == {"qr_code"}:
+            super().save(*args, **kwargs)
+            return
+
+        is_new = self.pk is None
+        old_data = None
+        if not is_new:
+            old_data = Invoice.objects.filter(pk=self.pk).values(
+                "invoice_number", "customer_id", "grand_total", "invoice_date", "qr_code"
+            ).first()
+
         super().save(*args, **kwargs)
+
+        # Automatic QR code generation and save
+        try:
+            should_generate = False
+            if is_new:
+                should_generate = True
+            elif not self.qr_code:
+                should_generate = True
+            elif old_data:
+                # Regenerate if any of the 4 encoded fields changed
+                if (
+                    old_data.get("invoice_number") != self.invoice_number or
+                    old_data.get("customer_id") != self.customer_id or
+                    old_data.get("grand_total") != self.grand_total or
+                    old_data.get("invoice_date") != self.invoice_date
+                ):
+                    should_generate = True
+                elif not self.qr_code.storage.exists(self.qr_code.name):
+                    should_generate = True
+
+            if should_generate:
+                self.generate_and_save_qr_code(force=True)
+        except Exception as e:
+            logger.error(f"Error during automatic QR code generation for invoice {self.pk}: {e}")
 
     def __str__(self):
         return f"{self.invoice_number} ({self.customer.name if self.customer else 'No Customer'})"
