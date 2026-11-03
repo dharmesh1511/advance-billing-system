@@ -67,6 +67,8 @@ urlpatterns = [
     path("distributor/invoices/<int:pk>/pdf/", billing_views.invoice_pdf_view, name="invoice_pdf_view"),
     path("distributor/invoices/<int:pk>/download-pdf/", billing_views.invoice_pdf_download, name="invoice_pdf_download"),
     path("distributor/invoices/<int:pk>/download-pdf/", billing_views.invoice_pdf_download, name="invoice_pdf_download_view"),
+    path("distributor/invoices/<int:pk>/preview/", billing_views.invoice_preview_view, name="invoice_preview"),
+    path("distributor/invoices/<int:pk>/preview/", billing_views.invoice_preview_view, name="invoice_preview_view"),
     path("distributor/invoices/<int:pk>/", billing_views.invoice_detail, name="invoice_detail"),
     path("distributor/invoices/<int:pk>/details/", billing_views.invoice_detail, name="invoice_details"),
     path("distributor/invoices/<int:pk>/qr/", billing_views.invoice_qr_view, name="invoice_qr"),
@@ -82,4 +84,4 @@ urlpatterns = [
     path("verify-otp/", views.verify_otp, name="verify_otp"),
     path("resend-otp/", views.resend_otp, name="resend_otp"),
     path("reset-password/", views.reset_password, name="reset_password"),
-]
+]

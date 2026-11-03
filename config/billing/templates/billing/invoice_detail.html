@@ -272,6 +272,11 @@
 
             <!-- Top-Right Action Area -->
             <div class="header-actions">
+                <a href="{% url 'invoice_preview' invoice.pk %}"
+                   class="btn btn-outline-primary d-inline-flex align-items-center gap-2 px-3 py-2">
+                    <i class="bi bi-file-earmark-text"></i>
+                    <span>Preview Invoice</span>
+                </a>
                 <a href="{% url 'invoice_pdf_download' invoice.pk %}"
                    class="btn btn-primary d-inline-flex align-items-center gap-2 px-3 py-2 shadow-sm">
                     <i class="bi bi-file-earmark-pdf fs-5"></i>

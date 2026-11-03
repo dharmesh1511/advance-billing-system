@@ -637,6 +637,75 @@ def invoice_detail(request, pk):
         }
     )
 
+@distributor_required
+def invoice_preview_view(request, pk):
+    """
+    Dedicated preview page for an invoice.
+    Retrieves the invoice using select_related('customer', 'distributor')
+    and prefetch_related('items', 'items__product').
+    Reuses the saved QR image from media storage without regenerating.
+    Returns 404 for non-existent or unauthorized invoices.
+    """
+    if not is_distributor(request.user):
+        return redirect("distributor_login")
+
+    invoice = get_object_or_404(
+        Invoice.objects.select_related("customer", "distributor").prefetch_related("items", "items__product"),
+        pk=pk,
+        distributor=request.user
+    )
+
+    items = invoice.items.all()
+    gross_total = Decimal("0.00")
+    total_discount = Decimal("0.00")
+
+    for item in items:
+        line_gross = Decimal(item.quantity) * item.unit_price
+        gross_total += line_gross
+        total_discount += (line_gross - item.taxable_amount)
+
+    distributor_profile = getattr(request.user, "distributor_profile", None)
+
+    # Reuse saved QR image from model storage; avoid regenerating on each page load
+    qr_code_url = ""
+    if invoice.qr_code and invoice.qr_code.name:
+        try:
+            if invoice.qr_code.storage.exists(invoice.qr_code.name):
+                qr_code_url = invoice.qr_code.url
+            else:
+                invoice.generate_and_save_qr_code(force=True)
+                qr_code_url = invoice.qr_code.url if invoice.qr_code else ""
+        except Exception as e:
+            logger.error(f"Error accessing saved QR image for invoice {invoice.pk}: {e}")
+            qr_code_url = ""
+    else:
+        try:
+            invoice.generate_and_save_qr_code(force=True)
+            qr_code_url = invoice.qr_code.url if invoice.qr_code else ""
+        except Exception as e:
+            logger.error(f"Error generating saved QR image on preview view for invoice {invoice.pk}: {e}")
+            qr_code_url = ""
+
+    qr_payload = build_invoice_qr_payload(invoice)
+
+    return render(
+        request,
+        "billing/invoice_preview.html",
+        {
+            "invoice": invoice,
+            "items": items,
+            "customer": invoice.customer,
+            "distributor": request.user,
+            "profile": distributor_profile,
+            "gross_total": gross_total,
+            "total_discount": total_discount,
+            "qr_code_url": qr_code_url,
+            "qr_code": qr_code_url,
+            "qr_payload": qr_payload,
+        }
+    )
+
+
 
 @distributor_required
 def invoice_list(request):

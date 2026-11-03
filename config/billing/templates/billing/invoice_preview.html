@@ -1,0 +1,512 @@
+{% load billing_tags %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Preview - {{ invoice.invoice_number }} | Advance Billing System</title>
+    <!-- Bootstrap 5 CSS & Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --success-color: #16a34a;
+            --dark-color: #111827;
+            --secondary-color: #6b7280;
+            --border-color: #e5e7eb;
+            --bg-color: #f3f4f6;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--dark-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Action Bar (Hidden in Print) */
+        .preview-action-bar {
+            background-color: #ffffff;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 1020;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        .preview-action-container {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        /* Invoice Paper Layout */
+        .invoice-paper-wrapper {
+            flex: 1;
+            padding: 28px 16px 48px;
+        }
+
+        .invoice-paper {
+            max-width: 860px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.06), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+            padding: 44px 48px;
+        }
+
+        /* Invoice Typography & Badges */
+        .invoice-title {
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: var(--dark-color);
+        }
+
+        .invoice-ref {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 15px;
+            color: var(--primary-color);
+            font-weight: 700;
+        }
+
+        .badge-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            background-color: #ecfdf5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+
+        /* Information Panels */
+        .info-panel {
+            background-color: #fafafa;
+            border: 1px solid #f0f0f0;
+            border-radius: 8px;
+            padding: 18px 20px;
+            height: 100%;
+        }
+
+        .panel-heading {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-weight: 700;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        /* Items Table */
+        .table-custom {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .table-custom th {
+            background-color: #f8fafc;
+            color: #475569;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 12px 14px;
+            border-top: 1px solid #e2e8f0;
+            border-bottom: 2px solid #cbd5e1;
+        }
+
+        .table-custom td {
+            padding: 14px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+            color: #1e293b;
+        }
+
+        .table-custom tbody tr:hover {
+            background-color: #f8fafc;
+        }
+
+        /* Summary Box */
+        .summary-card {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px 20px;
+        }
+
+        .summary-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            font-size: 13.5px;
+            color: #475569;
+        }
+
+        .summary-line.total {
+            margin-top: 8px;
+            padding-top: 12px;
+            border-top: 2px solid #cbd5e1;
+            font-size: 17px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .summary-line.total .total-amount {
+            color: #16a34a;
+        }
+
+        /* QR Code Card */
+        .qr-card-container {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px;
+            display: inline-block;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            text-align: center;
+        }
+
+        .qr-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #64748b;
+            margin-top: 6px;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+
+        /* Print Media Styles */
+        @media print {
+            body {
+                background: #ffffff !important;
+                color: #000000 !important;
+                min-height: auto !important;
+            }
+
+            .d-print-none, .preview-action-bar {
+                display: none !important;
+            }
+
+            .invoice-paper-wrapper {
+                padding: 0 !important;
+            }
+
+            .invoice-paper {
+                box-shadow: none !important;
+                border: none !important;
+                border-radius: 0 !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+            }
+
+            .table-custom th {
+                background-color: #f1f5f9 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .info-panel, .summary-card {
+                background-color: #ffffff !important;
+                border: 1px solid #cbd5e1 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            @page {
+                size: A4 portrait;
+                margin: 12mm 14mm;
+            }
+        }
+
+        /* Responsive Mobile Adjustments */
+        @media (max-width: 768px) {
+            .invoice-paper {
+                padding: 24px 18px;
+            }
+            .preview-action-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .preview-action-container .btn-group-right {
+                display: flex;
+                gap: 8px;
+            }
+            .preview-action-container .btn-group-right .btn {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sticky Top Action Bar -->
+    <header class="preview-action-bar d-print-none">
+        <div class="preview-action-container">
+            <!-- Left Actions: Navigation -->
+            <div class="d-flex align-items-center gap-2">
+                <a href="{% url 'invoice_list' %}" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-2 px-3 py-2 fw-semibold">
+                    <i class="bi bi-arrow-left"></i>
+                    <span>Back to Invoices</span>
+                </a>
+                <a href="{% url 'invoice_detail' invoice.pk %}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-2 px-3 py-2 fw-semibold">
+                    <i class="bi bi-eye"></i>
+                    <span>Invoice Details</span>
+                </a>
+            </div>
+
+            <!-- Right Actions: Print & Download -->
+            <div class="d-flex align-items-center gap-2 btn-group-right">
+                <button type="button" onclick="window.print()" class="btn btn-sm btn-outline-dark d-inline-flex align-items-center gap-2 px-3 py-2 fw-semibold">
+                    <i class="bi bi-printer"></i>
+                    <span>Print Invoice</span>
+                </button>
+                <a href="{% url 'invoice_pdf_download' invoice.pk %}" class="btn btn-sm btn-success d-inline-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm">
+                    <i class="bi bi-file-earmark-pdf"></i>
+                    <span>Download PDF</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="invoice-paper-wrapper">
+        <article class="invoice-paper">
+            
+            <!-- Header Section: Business Info & Invoice Meta -->
+            <div class="row align-items-start g-4 mb-4 pb-4 border-bottom">
+                <!-- Business / Distributor Information -->
+                <div class="col-md-7">
+                    <div class="panel-heading">Issuer / Distributor</div>
+                    <h4 class="fw-bold text-dark mb-1">
+                        {% if profile and profile.full_name %}
+                            {{ profile.full_name }}
+                        {% elif distributor and distributor.get_full_name %}
+                            {{ distributor.get_full_name }}
+                        {% else %}
+                            {{ distributor.username|default:"Business Enterprise" }}
+                        {% endif %}
+                    </h4>
+                    {% if profile and profile.phone %}
+                        <div class="text-secondary small"><i class="bi bi-telephone me-1"></i>Phone: {{ profile.phone }}</div>
+                    {% endif %}
+                    {% if profile and profile.email %}
+                        <div class="text-secondary small"><i class="bi bi-envelope me-1"></i>Email: {{ profile.email }}</div>
+                    {% elif distributor.email %}
+                        <div class="text-secondary small"><i class="bi bi-envelope me-1"></i>Email: {{ distributor.email }}</div>
+                    {% endif %}
+                    {% if profile and profile.gstin %}
+                        <div class="text-secondary small mt-1">GSTIN: <strong>{{ profile.gstin }}</strong></div>
+                    {% endif %}
+                </div>
+
+                <!-- Invoice Meta Section -->
+                <div class="col-md-5 text-md-end">
+                    <div class="invoice-title text-primary">INVOICE</div>
+                    <div class="invoice-ref mt-1 mb-2">{{ invoice.invoice_number }}</div>
+                    <div class="text-secondary small mb-1">
+                        Invoice Date: <strong class="text-dark">{{ invoice.invoice_date|date:"d M Y" }}</strong>
+                    </div>
+                    {% if invoice.created_at %}
+                        <div class="text-secondary small mb-2">
+                            Issued: <span>{{ invoice.created_at|date:"d M Y, H:i" }}</span>
+                        </div>
+                    {% endif %}
+                    <div>
+                        <span class="badge-status">
+                            <i class="bi bi-check-circle-fill"></i>
+                            <span>{{ invoice.payment_status|default:"Paid"|title }}</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Customer Details (Bill To) -->
+            <section class="mb-4 pb-3">
+                <div class="info-panel">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="panel-heading">Customer Information (Bill To)</div>
+                            <h6 class="fw-bold text-dark mb-1">{{ customer.name }}</h6>
+                            {% if customer.address %}
+                                <div class="text-secondary small mb-1">{{ customer.address }}</div>
+                            {% endif %}
+                            {% if customer.city or customer.state %}
+                                <div class="text-secondary small">
+                                    {{ customer.city }}{% if customer.city and customer.state %}, {% endif %}{{ customer.state }}
+                                    {% if customer.pincode %} - {{ customer.pincode }}{% endif %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <div class="panel-heading">Contact Information</div>
+                            {% if customer.phone %}
+                                <div class="text-secondary small mb-1"><i class="bi bi-telephone me-1"></i>Phone: <strong>{{ customer.phone }}</strong></div>
+                            {% endif %}
+                            {% if customer.email %}
+                                <div class="text-secondary small mb-1"><i class="bi bi-envelope me-1"></i>Email: {{ customer.email }}</div>
+                            {% endif %}
+                            {% if customer.gstin %}
+                                <div class="text-secondary small mt-1">Customer GSTIN: <strong>{{ customer.gstin }}</strong></div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Invoice Items Table -->
+            <section class="mb-4">
+                <div class="table-responsive">
+                    <table class="table-custom" aria-label="Invoice Line Items">
+                        <thead>
+                            <tr>
+                                <th style="width: 44px;" class="text-center">#</th>
+                                <th>Product Name</th>
+                                <th class="text-center" style="width: 80px;">Qty</th>
+                                <th class="text-end" style="width: 110px;">Unit Price</th>
+                                <th class="text-center" style="width: 90px;">Discount</th>
+                                <th class="text-center" style="width: 80px;">GST</th>
+                                <th class="text-end" style="width: 120px;">Item Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                                <tr>
+                                    <td class="text-center text-muted">{{ forloop.counter }}</td>
+                                    <td>
+                                        <div class="fw-semibold text-dark">{{ item.product_name }}</div>
+                                        {% if item.product and item.product.sku %}
+                                            <div class="text-muted small" style="font-size: 11px;">SKU: {{ item.product.sku }}</div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center fw-semibold">{{ item.quantity }}</td>
+                                    <td class="text-end">₹{{ item.unit_price }}</td>
+                                    <td class="text-center">
+                                        {% if item.discount_percent and item.discount_percent > 0 %}
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle">{{ item.discount_percent }}%</span>
+                                        {% else %}
+                                            <span class="text-muted">0%</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">{{ item.gst_rate }}%</td>
+                                    <td class="text-end fw-bold text-dark">₹{{ item.line_total }}</td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">No product line items associated with this invoice.</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Footer Section: QR Code, Terms & Payment Summary -->
+            <section class="pt-2 border-top">
+                <div class="row align-items-end g-4">
+                    
+                    <!-- Left: Saved QR Code & Terms -->
+                    <div class="col-md-7">
+                        <div class="d-flex align-items-center gap-4 mb-3">
+                            <!-- Dedicated QR Code Card -->
+                            <div class="qr-card-container">
+                                {% if qr_code_url %}
+                                    <img src="{{ qr_code_url }}" alt="Scan to Verify Invoice" class="img-fluid rounded" style="width: 110px; height: 110px; object-fit: contain; display: block; margin: 0 auto;" />
+                                {% elif invoice.qr_code %}
+                                    <img src="{{ invoice.qr_code.url }}" alt="Scan to Verify Invoice" class="img-fluid rounded" style="width: 110px; height: 110px; object-fit: contain; display: block; margin: 0 auto;" />
+                                {% elif qr_code %}
+                                    <img src="{% if not qr_code|slice:':5' == 'data:' and not qr_code|slice:':1' == '/' %}data:image/png;base64,{% endif %}{{ qr_code }}" alt="Scan to Verify Invoice" class="img-fluid rounded" style="width: 110px; height: 110px; object-fit: contain; display: block; margin: 0 auto;" />
+                                {% else %}
+                                    <div class="d-flex flex-column align-items-center justify-content-center text-muted bg-light rounded" style="width: 110px; height: 110px; margin: 0 auto;">
+                                        <i class="bi bi-qr-code fs-3 text-secondary mb-1"></i>
+                                        <span style="font-size: 0.72rem;">QR Unavailable</span>
+                                    </div>
+                                {% endif %}
+                                <div class="qr-label">Scan to Verify Invoice</div>
+                            </div>
+
+                            <!-- Thank you note -->
+                            <div>
+                                <div class="fw-bold text-dark mb-1" style="font-size: 14px;">Thank you for your business!</div>
+                                <div class="text-muted small" style="font-size: 11.5px; line-height: 1.4;">
+                                    This is a computer generated invoice.<br>
+                                    Scan the QR code to verify details.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Terms & Conditions -->
+                        <div class="text-muted" style="font-size: 11px; line-height: 1.45;">
+                            <strong>Terms &amp; Conditions:</strong><br>
+                            1. All goods remain property of company until paid in full.<br>
+                            2. Computer generated invoice; no physical signature required unless specified.
+                        </div>
+                    </div>
+
+                    <!-- Right: Payment Summary Details -->
+                    <div class="col-md-5">
+                        <div class="summary-card">
+                            {% if gross_total and total_discount and total_discount > 0 %}
+                                <div class="summary-line">
+                                    <span>Gross Subtotal:</span>
+                                    <span class="fw-semibold">₹{{ gross_total }}</span>
+                                </div>
+                                <div class="summary-line text-success">
+                                    <span>Discount Savings:</span>
+                                    <span class="fw-semibold">-₹{{ total_discount }}</span>
+                                </div>
+                            {% endif %}
+                            <div class="summary-line">
+                                <span>Taxable Subtotal:</span>
+                                <span class="fw-semibold">₹{{ invoice.subtotal }}</span>
+                            </div>
+                            <div class="summary-line">
+                                <span>Total Tax (GST):</span>
+                                <span class="fw-semibold">₹{{ invoice.total_gst }}</span>
+                            </div>
+                            <div class="summary-line total">
+                                <span>Total Amount:</span>
+                                <span class="total-amount">₹{{ invoice.grand_total }}</span>
+                            </div>
+                            <div class="summary-line text-muted" style="font-size: 12px; margin-top: 4px; border-top: 1px dashed #e2e8f0; padding-top: 6px;">
+                                <span>Paid Amount:</span>
+                                <span>₹{{ invoice.grand_total }}</span>
+                            </div>
+                            <div class="summary-line text-muted" style="font-size: 12px;">
+                                <span>Balance Due:</span>
+                                <span class="text-success fw-bold">₹0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+        </article>
+    </main>
+
+</body>
+</html>
+

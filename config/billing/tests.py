@@ -3965,3 +3965,266 @@ class AutomaticInvoiceQRCodeSaveTests(TestCase):
 
         self.assertIsNotNone(invoice.pk)
         self.assertEqual(Invoice.objects.filter(invoice_number="INV-SAFE-001").count(), 1)
+
+
+class DedicatedInvoicePreviewPageTests(TestCase):
+    """
+    Unit and integration tests for the dedicated Preview Invoice page with QR code.
+    Verifies all 10 testing requirements:
+    1. Preview button opens the correct invoice.
+    2. Correct invoice details are displayed.
+    3. Correct customer information is displayed.
+    4. Invoice items and totals are accurate.
+    5. Correct saved QR code is displayed with label 'Scan to Verify Invoice'.
+    6. Different invoices show different data and QR codes.
+    7. Invalid invoice ID returns 404.
+    8. Unauthorized access is blocked (unauthenticated redirected, wrong distributor gets 404).
+    9. Print layout and action buttons work correctly.
+    10. Existing invoice list and PDF download functionality still work.
+    """
+
+    def setUp(self):
+        from accounts.models import DistributorProfile
+        self.distributor1 = User.objects.create_user(
+            username="prev_dist_1",
+            password="DistPassword@123",
+            email="prev1@example.com"
+        )
+        self.profile1 = DistributorProfile.objects.create(
+            user=self.distributor1,
+            full_name="Alpha Tech Solutions",
+            email="prev1@example.com",
+            phone="9876500010"
+        )
+
+        self.distributor2 = User.objects.create_user(
+            username="prev_dist_2",
+            password="DistPassword@123",
+            email="prev2@example.com"
+        )
+        self.profile2 = DistributorProfile.objects.create(
+            user=self.distributor2,
+            full_name="Beta Logistics",
+            email="prev2@example.com",
+            phone="9876500020"
+        )
+
+        self.customer1 = Customer.objects.create(
+            distributor=self.distributor1,
+            name="James Bond",
+            email="james@mi6.gov.uk",
+            phone="9876543210",
+            address="MI6 HQ, Vauxhall Cross",
+            city="London",
+            state="Westminster",
+            pincode="SW1A 1AA"
+        )
+        self.customer2 = Customer.objects.create(
+            distributor=self.distributor1,
+            name="Vesper Lynd",
+            email="vesper@treasury.gov.uk",
+            phone="9876543211",
+            address="Treasury Dept, Whitehall",
+            city="London",
+            state="Westminster",
+            pincode="SW1A 2HQ"
+        )
+
+        self.product1 = Product.objects.create(
+            distributor=self.distributor1,
+            name="Spy Watch",
+            price=Decimal("500.00"),
+            gst_rate=Decimal("18.00"),
+            stock=50,
+            sku="SPY-007"
+        )
+
+        # Invoice 1
+        self.invoice1 = Invoice.objects.create(
+            distributor=self.distributor1,
+            customer=self.customer1,
+            invoice_number="INV-PREV-001",
+            invoice_date=date(2026, 11, 3),
+            subtotal=Decimal("1000.00"),
+            total_gst=Decimal("180.00"),
+            grand_total=Decimal("1180.00")
+        )
+        InvoiceItem.objects.create(
+            invoice=self.invoice1,
+            product=self.product1,
+            product_name=self.product1.name,
+            quantity=2,
+            unit_price=Decimal("500.00"),
+            gst_rate=Decimal("18.00"),
+            taxable_amount=Decimal("1000.00"),
+            gst_amount=Decimal("180.00"),
+            line_total=Decimal("1180.00")
+        )
+
+        # Invoice 2
+        self.invoice2 = Invoice.objects.create(
+            distributor=self.distributor1,
+            customer=self.customer2,
+            invoice_number="INV-PREV-002",
+            invoice_date=date(2026, 11, 4),
+            subtotal=Decimal("500.00"),
+            total_gst=Decimal("90.00"),
+            grand_total=Decimal("590.00")
+        )
+        InvoiceItem.objects.create(
+            invoice=self.invoice2,
+            product=self.product1,
+            product_name=self.product1.name,
+            quantity=1,
+            unit_price=Decimal("500.00"),
+            gst_rate=Decimal("18.00"),
+            taxable_amount=Decimal("500.00"),
+            gst_amount=Decimal("90.00"),
+            line_total=Decimal("590.00")
+        )
+
+    def test_1_preview_button_opens_correct_invoice(self):
+        """Clicking Preview opens the dedicated preview page with HTTP 200 and correct invoice context."""
+        self.client.login(username="prev_dist_1", password="DistPassword@123")
+        url = reverse("invoice_preview", kwargs={"pk": self.invoice1.pk})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["invoice"].pk, self.invoice1.pk)
+        self.assertTemplateUsed(response, "billing/invoice_preview.html")
+
+    def test_2_correct_invoice_details_displayed(self):
+        """Invoice number, date, and status are properly rendered."""
+        self.client.login(username="prev_dist_1", password="DistPassword@123")
+        url = reverse("invoice_preview", kwargs={"pk": self.invoice1.pk})
+        response = self.client.get(url)
+        content = response.content.decode("utf-8")
+
+        self.assertIn("INV-PREV-001", content)
+        self.assertIn("03 Nov 2026", content)
+        self.assertIn("Paid", content)
+
+    def test_3_correct_customer_information_displayed(self):
+        """Customer name, contact details, and address are properly displayed."""
+        self.client.login(username="prev_dist_1", password="DistPassword@123")
+        url = reverse("invoice_preview", kwargs={"pk": self.invoice1.pk})
+        response = self.client.get(url)
+        content = response.content.decode("utf-8")
+
+        self.assertIn("James Bond", content)
+        self.assertIn("james@mi6.gov.uk", content)
+        self.assertIn("9876543210", content)
+        self.assertIn("MI6 HQ, Vauxhall Cross", content)
+        self.assertIn("London", content)
+
+    def test_4_invoice_items_and_totals_are_accurate(self):
+        """Product line items, unit price, quantity, subtotal, GST, and grand total are accurate."""
+        self.client.login(username="prev_dist_1", password="DistPassword@123")
+        url = reverse("invoice_preview", kwargs={"pk": self.invoice1.pk})
+        response = self.client.get(url)
+        content = response.content.decode("utf-8")
+
+        self.assertIn("Spy Watch", content)
+        self.assertIn("SPY-007", content)
+        self.assertIn("1000.00", content)
+        self.assertIn("180.00", content)
+        self.assertIn("1180.00", content)
+
+    def test_5_correct_saved_qr_code_is_displayed_with_label(self):
+        """Saved QR code from media storage is rendered with 'Scan to Verify Invoice' label."""
+        from PIL import Image
+        from billing.utils import decode_qr_from_image
+
+        self.client.login(username="prev_dist_1", password="DistPassword@123")
+        url = reverse("invoice_preview", kwargs={"pk": self.invoice1.pk})
+        response = self.client.get(url)
+        content = response.content.decode("utf-8")
+
+        self.assertIn("Scan to Verify Invoice", content)
+        self.assertIn(self.invoice1.qr_code.url, content)
+
+        # Decode the rendered QR code from file
+        with self.invoice1.qr_code.open("rb") as f:
+            decoded = json.loads(decode_qr_from_image(Image.open(f))[0]["data"])
+
+        self.assertEqual(decoded["invoice_id"], "INV-PREV-001")
+        self.assertEqual(decoded["customer_name"], "James Bond")
+        self.assertEqual(decoded["total_amount"], "1180.00")
+        self.assertEqual(decoded["invoice_date"], "2026-11-03")
+
+    def test_6_different_invoices_show_different_data_and_qr_codes(self):
+        """Previews of different invoices render distinct details and distinct QR codes."""
+        self.client.login(username="prev_dist_1", password="DistPassword@123")
+
+        resp1 = self.client.get(reverse("invoice_preview", kwargs={"pk": self.invoice1.pk}))
+        resp2 = self.client.get(reverse("invoice_preview", kwargs={"pk": self.invoice2.pk}))
+
+        content1 = resp1.content.decode("utf-8")
+        content2 = resp2.content.decode("utf-8")
+
+        self.assertIn("INV-PREV-001", content1)
+        self.assertNotIn("INV-PREV-002", content1)
+
+        self.assertIn("INV-PREV-002", content2)
+        self.assertNotIn("INV-PREV-001", content2)
+
+        self.assertIn(self.invoice1.qr_code.url, content1)
+        self.assertIn(self.invoice2.qr_code.url, content2)
+        self.assertNotEqual(self.invoice1.qr_code.url, self.invoice2.qr_code.url)
+
+    def test_7_invalid_invoice_id_returns_404(self):
+        """Requesting non-existent invoice preview returns HTTP 404."""
+        self.client.login(username="prev_dist_1", password="DistPassword@123")
+        response = self.client.get(reverse("invoice_preview", kwargs={"pk": 999999}))
+        self.assertEqual(response.status_code, 404)
+
+    def test_8_unauthorized_access_is_blocked(self):
+        """Unauthenticated request is redirected; access across different distributors returns 404."""
+        # Unauthenticated
+        response = self.client.get(reverse("invoice_preview", kwargs={"pk": self.invoice1.pk}))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("distributor_login"), response.url)
+
+        # Logged in as different distributor
+        self.client.login(username="prev_dist_2", password="DistPassword@123")
+        cross_response = self.client.get(reverse("invoice_preview", kwargs={"pk": self.invoice1.pk}))
+        self.assertEqual(cross_response.status_code, 404)
+
+    def test_9_print_layout_and_action_buttons_present(self):
+        """Preview UI contains Back, Print (window.print), and Download PDF action buttons."""
+        self.client.login(username="prev_dist_1", password="DistPassword@123")
+        response = self.client.get(reverse("invoice_preview", kwargs={"pk": self.invoice1.pk}))
+        content = response.content.decode("utf-8")
+
+        self.assertIn("Back to Invoices", content)
+        self.assertIn("window.print()", content)
+        self.assertIn("Print Invoice", content)
+        self.assertIn(reverse("invoice_pdf_download", kwargs={"pk": self.invoice1.pk}), content)
+        self.assertIn("Download PDF", content)
+        self.assertIn("@media print", content)
+        self.assertIn("d-print-none", content)
+
+    def test_10_existing_invoice_list_and_pdf_functionality_still_work(self):
+        """Invoice list displays Preview button and PDF download remains operational."""
+        self.client.login(username="prev_dist_1", password="DistPassword@123")
+
+        # Invoice List contains Preview button
+        list_resp = self.client.get(reverse("invoice_list"))
+        self.assertEqual(list_resp.status_code, 200)
+        list_content = list_resp.content.decode("utf-8")
+        preview_url = reverse("invoice_preview", kwargs={"pk": self.invoice1.pk})
+        self.assertIn(preview_url, list_content)
+        self.assertIn("Preview", list_content)
+
+        # Invoice Detail contains Preview Invoice button
+        detail_resp = self.client.get(reverse("invoice_detail", kwargs={"pk": self.invoice1.pk}))
+        self.assertEqual(detail_resp.status_code, 200)
+        detail_content = detail_resp.content.decode("utf-8")
+        self.assertIn(preview_url, detail_content)
+        self.assertIn("Preview Invoice", detail_content)
+
+        # PDF Download works
+        pdf_resp = self.client.get(reverse("invoice_pdf_download", kwargs={"pk": self.invoice1.pk}))
+        self.assertEqual(pdf_resp.status_code, 200)
+        self.assertEqual(pdf_resp["Content-Type"], "application/pdf")
+        self.assertTrue(pdf_resp.content.startswith(b"%PDF"))
