@@ -3622,10 +3622,82 @@ class GenerateInvoiceQRCodeTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
         content = response.content.decode("utf-8")
-        self.assertIn("Invoice QR Code", content)
+        self.assertIn("Scan for Invoice Details", content)
         self.assertIn("data:image/png;base64,", content)
         # Verify no broken double-data URI prefix
         self.assertNotIn("data:image/png;base64,data:", content)
+
+    def test_invoice_detail_preview_dynamic_per_invoice(self):
+        """Invoice preview dynamically renders distinct, scannable QR codes for each invoice."""
+        import base64
+        from io import BytesIO
+        from PIL import Image
+
+        self.client.login(username="dist_qr_test", password="DistPassword@123")
+
+        # Request invoice1 preview
+        resp1 = self.client.get(reverse("invoice_detail", kwargs={"pk": self.invoice1.pk}))
+        self.assertEqual(resp1.status_code, 200)
+        self.assertIn("qr_code", resp1.context)
+        self.assertIn("qr_code_url", resp1.context)
+        qr1_uri = resp1.context["qr_code"]
+        self.assertTrue(qr1_uri.startswith("data:image/png;base64,"))
+
+        # Decode invoice1 embedded QR image
+        b64_1 = qr1_uri.replace("data:image/png;base64,", "")
+        img1 = Image.open(BytesIO(base64.b64decode(b64_1)))
+        decoded1 = json.loads(decode_qr_from_image(img1)[0]["data"])
+        self.assertEqual(decoded1["invoice_id"], "INV-QR-001")
+        self.assertEqual(decoded1["customer_name"], "Alice Walker")
+        self.assertEqual(decoded1["total_amount"], "1416.00")
+        self.assertEqual(decoded1["invoice_date"], "2026-11-02")
+
+        # Request invoice2 preview
+        resp2 = self.client.get(reverse("invoice_detail", kwargs={"pk": self.invoice2.pk}))
+        self.assertEqual(resp2.status_code, 200)
+        qr2_uri = resp2.context["qr_code"]
+        self.assertTrue(qr2_uri.startswith("data:image/png;base64,"))
+
+        # Decode invoice2 embedded QR image
+        b64_2 = qr2_uri.replace("data:image/png;base64,", "")
+        img2 = Image.open(BytesIO(base64.b64decode(b64_2)))
+        decoded2 = json.loads(decode_qr_from_image(img2)[0]["data"])
+        self.assertEqual(decoded2["invoice_id"], "INV-QR-002")
+        self.assertEqual(decoded2["customer_name"], "Bob Smith")
+        self.assertEqual(decoded2["total_amount"], "2832.00")
+        self.assertEqual(decoded2["invoice_date"], self.invoice2.invoice_date.strftime("%Y-%m-%d"))
+
+        # Confirm dynamic uniqueness
+        self.assertNotEqual(qr1_uri, qr2_uri)
+        self.assertNotEqual(decoded1, decoded2)
+
+    def test_invoice_detail_preview_graceful_missing_qr_fallback(self):
+        """When QR image generation is unavailable, template renders graceful fallback without crashing."""
+        from django.template.loader import render_to_string
+
+        html = render_to_string(
+            "billing/invoice_detail.html",
+            {
+                "invoice": self.invoice1,
+                "items": self.invoice1.items.all(),
+                "customer": self.invoice1.customer,
+                "qr_code": "",
+                "qr_code_url": "",
+            }
+        )
+        self.assertIn("QR Unavailable", html)
+        self.assertIn("Scan for Invoice Details", html)
+
+    def test_invoice_detail_preview_responsive_ui_elements(self):
+        """Invoice detail preview contains responsive centering and scannable image attributes."""
+        self.client.login(username="dist_qr_test", password="DistPassword@123")
+        response = self.client.get(reverse("invoice_detail", kwargs={"pk": self.invoice1.pk}))
+        content = response.content.decode("utf-8")
+
+        self.assertIn("Scan for Invoice Details", content)
+        self.assertIn("img-fluid", content)
+        self.assertIn("object-fit: contain", content)
+        self.assertIn("text-center", content)
 
     def test_invoice_pdf_renders_with_qr_code(self):
         """Invoice PDF endpoint generates valid PDF bytes containing the QR code."""

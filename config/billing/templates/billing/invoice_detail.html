@@ -354,15 +354,18 @@
                         </div>
                     </div>
                     <div class="col-md-4 text-center text-md-end">
-                        <div class="p-2 border rounded-3 bg-white d-inline-block shadow-sm">
+                        <div class="p-2 border rounded-3 bg-white d-inline-block shadow-sm text-center">
                             {% if qr_code_url %}
-                                <img src="{{ qr_code_url }}" alt="Invoice QR Code" style="width: 120px; height: 120px; display: block;" />
+                                <img src="{{ qr_code_url }}" alt="Scan for Invoice Details" class="img-fluid rounded" style="width: 120px; height: 120px; object-fit: contain; display: block; margin: 0 auto;" />
                             {% elif qr_code %}
-                                <img src="{% if not qr_code|slice:':5' == 'data:' %}data:image/png;base64,{% endif %}{{ qr_code }}" alt="Invoice QR Code" style="width: 120px; height: 120px; display: block;" />
+                                <img src="{% if not qr_code|slice:':5' == 'data:' %}data:image/png;base64,{% endif %}{{ qr_code }}" alt="Scan for Invoice Details" class="img-fluid rounded" style="width: 120px; height: 120px; object-fit: contain; display: block; margin: 0 auto;" />
                             {% else %}
-                                <img src="{% url 'invoice_qr' invoice.pk %}" alt="Invoice QR Code" style="width: 120px; height: 120px; display: block;" />
+                                <div class="d-flex flex-column align-items-center justify-content-center text-muted bg-light rounded" style="width: 120px; height: 120px; margin: 0 auto;">
+                                    <i class="bi bi-qr-code fs-3 text-secondary mb-1"></i>
+                                    <span style="font-size: 0.72rem;">QR Unavailable</span>
+                                </div>
                             {% endif %}
-                            <div class="text-muted small mt-1 fw-semibold">Invoice QR Code</div>
+                            <div class="text-muted small mt-1 fw-semibold text-center" style="font-size: 0.8rem; letter-spacing: 0.2px;">Scan for Invoice Details</div>
                         </div>
                     </div>
                 </div>
