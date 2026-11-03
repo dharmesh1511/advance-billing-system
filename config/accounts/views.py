@@ -4,17 +4,17 @@ import logging
 import secrets
 from io import BytesIO
 from decimal import Decimal
-from datetime import datetime, date, timedelta
+from datetime import datetime, timedelta
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required
+
 from django.views.decorators.cache import never_cache
 from django.conf import settings
 from django.contrib.auth.models import User, Group
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Sum, Count, Avg, F, Q, Value, DecimalField
+from django.db.models import Sum, Count, Q, Value
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect
@@ -35,8 +35,8 @@ from .decorators import (
     is_distributor,
     admin_required,
     distributor_required,
-    AdminRequiredMixin,
-    DistributorRequiredMixin,
+
+
 )
 
 
@@ -833,9 +833,36 @@ def admin_reports_export_pdf(request):
 @never_cache
 @distributor_required
 def distributor_dashboard(request):
+    total_invoices = Invoice.objects.filter(distributor=request.user).count()
+    revenue_agg = Invoice.objects.filter(distributor=request.user).aggregate(total=Sum("grand_total"))
+    total_revenue = revenue_agg["total"] or Decimal("0.00")
+
+    total_customers = Customer.objects.filter(distributor=request.user).count()
+    total_products = Product.objects.filter(distributor=request.user).count()
+    active_products = Product.objects.filter(distributor=request.user, is_active=True).count()
+    low_stock_count = Product.objects.filter(distributor=request.user, stock__lte=5).count()
+
+    recent_invoices = Invoice.objects.filter(
+        distributor=request.user
+    ).select_related("customer").order_by("-invoice_date", "-id")[:5]
+
+    profile = getattr(request.user, "distributor_profile", None)
+    if not profile:
+        profile = DistributorProfile.objects.filter(user=request.user).first()
+
     return render(
         request,
-        "dashboard/distributor_dashboard.html"
+        "dashboard/distributor_dashboard.html",
+        {
+            "total_invoices": total_invoices,
+            "total_revenue": total_revenue,
+            "total_customers": total_customers,
+            "total_products": total_products,
+            "active_products": active_products,
+            "low_stock_count": low_stock_count,
+            "recent_invoices": recent_invoices,
+            "profile": profile,
+        }
     )
 
 

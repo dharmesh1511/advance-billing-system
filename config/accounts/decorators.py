@@ -80,9 +80,9 @@ def admin_required(view_func=None, login_url="/admin/login/", return_403=False):
                 )
                 messages.error(request, msg)
 
-                if is_distributor(request.user):
+                if request.path.rstrip("/") == "/admin/dashboard" and is_distributor(request.user):
                     return redirect("distributor_dashboard")
-                return redirect("admin_login")
+                return redirect_to_login(request.get_full_path(), login_url)
 
             return func(request, *args, **kwargs)
 
@@ -109,8 +109,8 @@ def distributor_required(view_func=None, login_url="/distributor/login/", return
 
             if not is_distributor(request.user):
                 if return_403 or request.headers.get("x-requested-with") == "XMLHttpRequest" or request.GET.get("format") == "json":
-                    if request.headers.get("x-requested-with") == "XMLHttpRequest" or request.GET.get("format") == "json":
-                        return JsonResponse({"error": "Distributor privileges required."}, status=403)
+                    if return_403 or request.headers.get("x-requested-with") == "XMLHttpRequest" or request.GET.get("format") == "json":
+                        return JsonResponse({"error": "Unauthorized"}, status=403)
                     return HttpResponseForbidden("403 Forbidden: Distributor privileges required.")
 
                 msg = (
@@ -120,9 +120,9 @@ def distributor_required(view_func=None, login_url="/distributor/login/", return
                 )
                 messages.error(request, msg)
 
-                if is_admin(request.user):
+                if request.path.rstrip("/") == "/distributor/dashboard" and is_admin(request.user):
                     return redirect("admin_dashboard")
-                return redirect("distributor_login")
+                return redirect_to_login(request.get_full_path(), login_url)
 
             return func(request, *args, **kwargs)
 

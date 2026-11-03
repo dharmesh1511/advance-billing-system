@@ -4,7 +4,7 @@ from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+
 from django.contrib import messages
 from django.db.models import Q, Count, Sum, Value, IntegerField, ProtectedError, RestrictedError
 from django.db.models.functions import Coalesce
@@ -17,7 +17,9 @@ from .utils import (
     render_to_pdf,
     build_invoice_qr_payload,
     generate_invoice_qr_bytes,
-    generate_invoice_qr_base64
+    generate_invoice_qr_base64,
+    calculate_invoice_totals,
+    get_or_create_invoice_qr_url,
 )
 
 
@@ -25,9 +27,9 @@ from .utils import (
 
 from accounts.decorators import (
     is_distributor,
-    is_admin,
+
     distributor_required,
-    admin_required,
+
 )
 
 
@@ -473,8 +475,7 @@ def product_details(request, pk):
     })
 
 
-@distributor_required
-def invoice_pdf_view(request, pk):
+def _generate_invoice_pdf_response(request, pk, as_attachment=False):
     if not is_distributor(request.user):
         return redirect("distributor_login")
 
@@ -485,16 +486,8 @@ def invoice_pdf_view(request, pk):
     )
 
     items = invoice.items.all()
-    gross_total = Decimal("0.00")
-    total_discount = Decimal("0.00")
-
-    for item in items:
-        line_gross = Decimal(item.quantity) * item.unit_price
-        gross_total += line_gross
-        total_discount += (line_gross - item.taxable_amount)
-
+    gross_total, total_discount = calculate_invoice_totals(items)
     distributor_profile = getattr(request.user, "distributor_profile", None)
-
     qr_uri = generate_invoice_qr_base64(invoice)
 
     context = {
@@ -515,7 +508,7 @@ def invoice_pdf_view(request, pk):
         return redirect("invoice_detail", pk=pk)
 
     safe_inv_num = re.sub(r'[^A-Za-z0-9_\-]', '', invoice.invoice_number)
-    disposition_type = "attachment" if request.GET.get("download") == "1" else "inline"
+    disposition_type = "attachment" if as_attachment else "inline"
 
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = f'{disposition_type}; filename="Invoice-{safe_inv_num}.pdf"'
@@ -523,53 +516,17 @@ def invoice_pdf_view(request, pk):
 
 
 @distributor_required
+def invoice_pdf_view(request, pk):
+    as_attachment = (request.GET.get("download") == "1")
+    return _generate_invoice_pdf_response(request, pk, as_attachment=as_attachment)
+
+
+@distributor_required
 def invoice_pdf_download(request, pk):
     """
     Dedicated view for downloading the Invoice PDF with Content-Disposition: attachment.
     """
-    if not is_distributor(request.user):
-        return redirect("distributor_login")
-
-    invoice = get_object_or_404(
-        Invoice.objects.select_related("customer", "distributor").prefetch_related("items", "items__product"),
-        pk=pk,
-        distributor=request.user
-    )
-
-    items = invoice.items.all()
-    gross_total = Decimal("0.00")
-    total_discount = Decimal("0.00")
-
-    for item in items:
-        line_gross = Decimal(item.quantity) * item.unit_price
-        gross_total += line_gross
-        total_discount += (line_gross - item.taxable_amount)
-
-    distributor_profile = getattr(request.user, "distributor_profile", None)
-    qr_uri = generate_invoice_qr_base64(invoice)
-
-    context = {
-        "invoice": invoice,
-        "items": items,
-        "customer": invoice.customer,
-        "distributor": request.user,
-        "profile": distributor_profile,
-        "gross_total": gross_total,
-        "total_discount": total_discount,
-        "qr_code": qr_uri,
-        "qr_code_url": qr_uri,
-    }
-
-    pdf_bytes = render_to_pdf("billing/invoice_pdf.html", context)
-    if not pdf_bytes:
-        messages.error(request, "Unable to generate PDF invoice at this time.")
-        return redirect("invoice_detail", pk=pk)
-
-    safe_inv_num = re.sub(r'[^A-Za-z0-9_\-]', '', invoice.invoice_number)
-
-    response = HttpResponse(pdf_bytes, content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename="Invoice-{safe_inv_num}.pdf"'
-    return response
+    return _generate_invoice_pdf_response(request, pk, as_attachment=True)
 
 
 @distributor_required
@@ -588,36 +545,9 @@ def invoice_detail(request, pk):
     )
 
     items = invoice.items.all()
-    gross_total = Decimal("0.00")
-    total_discount = Decimal("0.00")
-
-    for item in items:
-        line_gross = Decimal(item.quantity) * item.unit_price
-        gross_total += line_gross
-        total_discount += (line_gross - item.taxable_amount)
-
+    gross_total, total_discount = calculate_invoice_totals(items)
     distributor_profile = getattr(request.user, "distributor_profile", None)
-
-    # Reuse saved QR image from invoice model; avoid regenerating on each page load
-    qr_code_url = ""
-    if invoice.qr_code and invoice.qr_code.name:
-        try:
-            if invoice.qr_code.storage.exists(invoice.qr_code.name):
-                qr_code_url = invoice.qr_code.url
-            else:
-                invoice.generate_and_save_qr_code(force=True)
-                qr_code_url = invoice.qr_code.url if invoice.qr_code else ""
-        except Exception as e:
-            logger.error(f"Error accessing saved QR image for invoice {invoice.pk}: {e}")
-            qr_code_url = ""
-    else:
-        try:
-            invoice.generate_and_save_qr_code(force=True)
-            qr_code_url = invoice.qr_code.url if invoice.qr_code else ""
-        except Exception as e:
-            logger.error(f"Error generating saved QR image on detail view for invoice {invoice.pk}: {e}")
-            qr_code_url = ""
-
+    qr_code_url = get_or_create_invoice_qr_url(invoice)
     qr_payload = build_invoice_qr_payload(invoice)
 
     return render(
@@ -636,6 +566,7 @@ def invoice_detail(request, pk):
             "qr_payload": qr_payload,
         }
     )
+
 
 @distributor_required
 def invoice_preview_view(request, pk):
@@ -656,36 +587,9 @@ def invoice_preview_view(request, pk):
     )
 
     items = invoice.items.all()
-    gross_total = Decimal("0.00")
-    total_discount = Decimal("0.00")
-
-    for item in items:
-        line_gross = Decimal(item.quantity) * item.unit_price
-        gross_total += line_gross
-        total_discount += (line_gross - item.taxable_amount)
-
+    gross_total, total_discount = calculate_invoice_totals(items)
     distributor_profile = getattr(request.user, "distributor_profile", None)
-
-    # Reuse saved QR image from model storage; avoid regenerating on each page load
-    qr_code_url = ""
-    if invoice.qr_code and invoice.qr_code.name:
-        try:
-            if invoice.qr_code.storage.exists(invoice.qr_code.name):
-                qr_code_url = invoice.qr_code.url
-            else:
-                invoice.generate_and_save_qr_code(force=True)
-                qr_code_url = invoice.qr_code.url if invoice.qr_code else ""
-        except Exception as e:
-            logger.error(f"Error accessing saved QR image for invoice {invoice.pk}: {e}")
-            qr_code_url = ""
-    else:
-        try:
-            invoice.generate_and_save_qr_code(force=True)
-            qr_code_url = invoice.qr_code.url if invoice.qr_code else ""
-        except Exception as e:
-            logger.error(f"Error generating saved QR image on preview view for invoice {invoice.pk}: {e}")
-            qr_code_url = ""
-
+    qr_code_url = get_or_create_invoice_qr_url(invoice)
     qr_payload = build_invoice_qr_payload(invoice)
 
     return render(

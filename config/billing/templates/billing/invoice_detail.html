@@ -23,74 +23,167 @@
             display: flex;
         }
 
-        /* Sidebar Layout */
+        /* Sidebar Layout - Modern SaaS Theme */
         .sidebar {
             width: 260px;
-            background-color: #111827;
+            height: 100vh;
+            position: sticky;
+            top: 0;
+            background-color: #0f172a;
             color: #ffffff;
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
             transition: all 0.3s ease;
+            z-index: 100;
+            overflow-y: auto;
+            overflow-x: hidden;
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 2px 0 16px rgba(0, 0, 0, 0.12);
+        }
+
+        .sidebar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+        }
+        .sidebar::-webkit-scrollbar-track {
+            background: transparent;
         }
 
         .sidebar-brand {
-            padding: 24px 20px;
+            padding: 22px 20px;
             display: flex;
             align-items: center;
             gap: 12px;
-            border-bottom: 1px solid #1f2937;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            background: #0b1120;
+            flex-shrink: 0;
         }
 
         .brand-logo {
             width: 40px;
             height: 40px;
-            background: #16a34a;
-            color: white;
-            border-radius: 10px;
+            background: linear-gradient(135deg, #16a34a, #15803d);
+            color: #ffffff;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: bold;
-            font-size: 18px;
+            font-weight: 800;
+            font-size: 17px;
+            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
+            flex-shrink: 0;
+            letter-spacing: -0.5px;
         }
 
         .brand-title {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 700;
             color: #ffffff;
+            letter-spacing: -0.2px;
+            line-height: 1.25;
         }
 
         .sidebar-nav {
-            padding: 20px 12px;
+            padding: 16px 12px;
             flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 4px;
+            overflow-y: auto;
         }
 
         .nav-item {
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 12px 16px;
-            color: #9ca3af;
+            padding: 10px 14px;
+            color: #94a3b8;
             text-decoration: none;
             border-radius: 10px;
-            font-size: 15px;
+            font-size: 13.5px;
             font-weight: 500;
-            transition: all 0.2s ease;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
         }
 
         .nav-item:hover {
-            background-color: #1f2937;
+            background-color: rgba(255, 255, 255, 0.07);
             color: #ffffff;
+            transform: translateX(2px);
         }
 
         .nav-item.active {
-            background-color: #16a34a;
+            background: linear-gradient(135deg, rgba(22, 163, 74, 0.95), rgba(21, 128, 61, 0.95));
             color: #ffffff;
             font-weight: 600;
+            box-shadow: 0 4px 14px rgba(22, 163, 74, 0.32);
+        }
+
+        .nav-item.active::before {
+            content: "";
+            position: absolute;
+            left: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 22px;
+            background-color: #4ade80;
+            border-radius: 0 4px 4px 0;
+            box-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
+        }
+
+        .nav-item svg {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+            transition: transform 0.2s ease;
+        }
+
+        .nav-item:hover svg {
+            transform: scale(1.05);
+        }
+
+        .sidebar-footer {
+            padding: 14px 16px;
+            margin-top: auto;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            background: #0b1120;
+            flex-shrink: 0;
+        }
+
+        .logout-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            color: #f87171;
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.18);
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 13.5px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .logout-btn:hover {
+            background-color: rgba(239, 68, 68, 0.18);
+            color: #ffffff;
+            border-color: rgba(239, 68, 68, 0.35);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
+        }
+
+        .logout-btn svg {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
         }
 
         .main-wrapper {

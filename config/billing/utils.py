@@ -4,6 +4,7 @@ import logging
 import json
 import base64
 from io import BytesIO
+from decimal import Decimal
 from urllib.parse import urlparse, parse_qs
 
 from django.conf import settings
@@ -32,6 +33,9 @@ def link_callback(uri, rel):
     Convert HTML URIs to absolute system paths so xhtml2pdf can access static/media files.
     """
     if not uri:
+        return uri
+
+    if uri.startswith("data:"):
         return uri
 
     if uri.startswith("http://") or uri.startswith("https://"):
@@ -236,6 +240,43 @@ def generate_invoice_qr_base64(invoice):
         return f"data:image/png;base64,{encoded}"
     except Exception as e:
         logger.error(f"Error generating base64 QR code for invoice {getattr(invoice, 'invoice_number', '')}: {e}")
+        return ""
+
+
+def calculate_invoice_totals(items):
+    """
+    Calculate gross total and total discount from an iterable/queryset of invoice items.
+    """
+    gross_total = Decimal("0.00")
+    total_discount = Decimal("0.00")
+    for item in items:
+        line_gross = Decimal(item.quantity) * item.unit_price
+        gross_total += line_gross
+        total_discount += (line_gross - item.taxable_amount)
+    return gross_total, total_discount
+
+
+def get_or_create_invoice_qr_url(invoice):
+    """
+    Retrieves the URL of the saved QR code image for an invoice.
+    If missing or not on storage, safely generates and saves it.
+    """
+    if not invoice or not getattr(invoice, "pk", None):
+        return ""
+    if invoice.qr_code and invoice.qr_code.name:
+        try:
+            if invoice.qr_code.storage.exists(invoice.qr_code.name):
+                return invoice.qr_code.url
+            invoice.generate_and_save_qr_code(force=True)
+            return invoice.qr_code.url if invoice.qr_code else ""
+        except Exception as e:
+            logger.error(f"Error accessing saved QR image for invoice {invoice.pk}: {e}")
+            return ""
+    try:
+        invoice.generate_and_save_qr_code(force=True)
+        return invoice.qr_code.url if invoice.qr_code else ""
+    except Exception as e:
+        logger.error(f"Error generating saved QR image for invoice {invoice.pk}: {e}")
         return ""
 
 

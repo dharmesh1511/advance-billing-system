@@ -1,349 +1,821 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Distributor Dashboard | Advance Billing System</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
+{% extends "billing/base_distributor.html" %}
+{% load static %}
+{% load billing_tags %}
+
+{% block title %}Dashboard | Advance Billing System{% endblock %}
+
+{% block nav_dashboard %}active{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_heading %}Distributor Dashboard{% endblock %}
+{% block page_subheading %}Welcome back, {{ request.user.first_name|default:request.user.username }}! Management overview, sales performance & quick actions.{% endblock %}
+
+{% block header_actions %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Premium Dashboard Styles */
+    :root {
+        --dash-navy: #0f172a;
+        --dash-slate: #1e293b;
+        --dash-emerald: #16a34a;
+        --dash-blue: #2563eb;
+        --dash-purple: #7c3aed;
+        --dash-amber: #d97706;
+    }
+
+    .dash-container {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    /* Welcome Hero Card */
+    .hero-banner {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0f172a 100%);
+        border-radius: 20px;
+        padding: 30px 34px;
+        color: #ffffff;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.2), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .hero-banner::after {
+        content: "";
+        position: absolute;
+        top: -60px;
+        right: -60px;
+        width: 240px;
+        height: 240px;
+        background: radial-gradient(circle, rgba(22, 163, 74, 0.2) 0%, rgba(22, 163, 74, 0) 70%);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    .hero-content {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+
+    .hero-text h2 {
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        margin-bottom: 8px;
+        color: #ffffff;
+    }
+
+    .hero-text p {
+        color: #94a3b8;
+        font-size: 14px;
+        max-width: 580px;
+        line-height: 1.5;
+        margin: 0;
+    }
+
+    .hero-badges {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 14px;
+        flex-wrap: wrap;
+    }
+
+    .hero-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        font-size: 12.5px;
+        color: #e2e8f0;
+        font-weight: 500;
+    }
+
+    .hero-chip.verified {
+        background: rgba(22, 163, 74, 0.18);
+        border-color: rgba(34, 197, 94, 0.3);
+        color: #86efac;
+    }
+
+    .hero-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .btn-hero {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 18px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 13.5px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+
+    .btn-hero-primary {
+        background: linear-gradient(135deg, #16a34a, #15803d);
+        color: #ffffff;
+        box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35);
+    }
+
+    .btn-hero-primary:hover {
+        background: linear-gradient(135deg, #15803d, #166534);
+        transform: translateY(-1px);
+        color: #ffffff;
+    }
+
+    .btn-hero-secondary {
+        background: rgba(255, 255, 255, 0.1);
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(8px);
+    }
+
+    .btn-hero-secondary:hover {
+        background: rgba(255, 255, 255, 0.16);
+        color: #ffffff;
+        transform: translateY(-1px);
+    }
+
+    /* KPI Metrics Cards Grid */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 20px;
+    }
+
+    @media (max-width: 1100px) {
+        .kpi-grid {
+            grid-template-columns: repeat(2, 1fr);
         }
+    }
 
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f3f4f6;
-            color: #111827;
-            min-height: 100vh;
-            display: flex;
+    @media (max-width: 600px) {
+        .kpi-grid {
+            grid-template-columns: 1fr;
         }
+    }
 
-        /* Sidebar Layout */
-        .sidebar {
-            width: 260px;
-            background-color: #111827;
-            color: #ffffff;
-            display: flex;
-            flex-direction: column;
-            flex-shrink: 0;
-            transition: all 0.3s ease;
+    .kpi-card {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 22px 24px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.03);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+    }
+
+    .kpi-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 20px -8px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+        border-color: #cbd5e1;
+    }
+
+    .kpi-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+    }
+
+    .kpi-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+    }
+
+    .kpi-icon-wrap {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .kpi-icon-wrap.emerald {
+        background-color: #ecfdf5;
+        color: #16a34a;
+    }
+
+    .kpi-icon-wrap.blue {
+        background-color: #eff6ff;
+        color: #2563eb;
+    }
+
+    .kpi-icon-wrap.purple {
+        background-color: #f5f3ff;
+        color: #7c3aed;
+    }
+
+    .kpi-icon-wrap.amber {
+        background-color: #fffbeb;
+        color: #d97706;
+    }
+
+    .kpi-value {
+        font-size: 26px;
+        font-weight: 800;
+        color: #0f172a;
+        letter-spacing: -0.5px;
+        line-height: 1.1;
+        margin-bottom: 6px;
+    }
+
+    .kpi-desc {
+        font-size: 12px;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    /* Main Dashboard Grid: Recent Invoices & Quick Launch */
+    .dashboard-main-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 24px;
+        align-items: start;
+    }
+
+    @media (max-width: 1024px) {
+        .dashboard-main-grid {
+            grid-template-columns: 1fr;
         }
+    }
 
-        .sidebar-brand {
-            padding: 24px 20px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            border-bottom: 1px solid #1f2937;
-        }
+    /* Section Cards */
+    .dash-card {
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        overflow: hidden;
+    }
 
-        .brand-logo {
-            width: 40px;
-            height: 40px;
-            background: #16a34a;
-            color: white;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 18px;
-        }
+    .dash-card-header {
+        padding: 18px 22px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background-color: #ffffff;
+    }
 
-        .brand-title {
-            font-size: 16px;
-            font-weight: 700;
-            color: #ffffff;
-        }
+    .dash-card-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
 
-        .sidebar-nav {
-            padding: 20px 12px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
+    .dash-card-link {
+        font-size: 13px;
+        font-weight: 600;
+        color: #16a34a;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        transition: color 0.15s ease;
+    }
 
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 16px;
-            color: #9ca3af;
-            text-decoration: none;
-            border-radius: 10px;
-            font-size: 15px;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
+    .dash-card-link:hover {
+        color: #15803d;
+        text-decoration: underline;
+    }
 
-        .nav-item:hover {
-            background-color: #1f2937;
-            color: #ffffff;
-        }
+    /* Recent Invoices Table */
+    .invoice-table-wrapper {
+        overflow-x: auto;
+    }
 
-        .nav-item.active {
-            background-color: #16a34a;
-            color: #ffffff;
-            font-weight: 600;
-        }
+    .dash-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13.5px;
+    }
 
-        .nav-item svg {
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
-        }
+    .dash-table th {
+        background-color: #f8fafc;
+        color: #64748b;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 11.5px;
+        letter-spacing: 0.5px;
+        padding: 12px 18px;
+        border-bottom: 1px solid #e2e8f0;
+        text-align: left;
+    }
 
-        .sidebar-footer {
-            padding: 16px;
-            border-top: 1px solid #1f2937;
-        }
+    .dash-table td {
+        padding: 14px 18px;
+        border-bottom: 1px solid #f1f5f9;
+        color: #1e293b;
+        vertical-align: middle;
+    }
 
-        .logout-btn {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 16px;
-            color: #ef4444;
-            text-decoration: none;
-            border-radius: 10px;
-            font-size: 15px;
-            font-weight: 600;
-            transition: background 0.2s ease;
-        }
+    .dash-table tr:last-child td {
+        border-bottom: none;
+    }
 
-        .logout-btn:hover {
-            background-color: rgba(239, 68, 68, 0.1);
-        }
+    .dash-table tr:hover {
+        background-color: #f8fafc;
+    }
 
-        /* Main Content Area */
-        .main-wrapper {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-width: 0;
-        }
+    .inv-badge {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-weight: 700;
+        color: #16a34a;
+        background-color: #f0fdf4;
+        border: 1px solid #dcfce7;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 12.5px;
+    }
 
-        .top-header {
-            background-color: #ffffff;
-            padding: 18px 30px;
-            border-bottom: 1px solid #e5e7eb;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
+    .customer-cell {
+        font-weight: 600;
+        color: #0f172a;
+    }
 
-        .header-title h1 {
-            font-size: 22px;
-            font-weight: 700;
-            color: #111827;
-        }
+    .amount-cell {
+        font-weight: 700;
+        color: #0f172a;
+    }
 
-        .user-profile-badge {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            text-decoration: none;
-            color: inherit;
-        }
+    .table-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
 
-        .avatar-circle {
-            width: 38px;
-            height: 38px;
-            background-color: #16a34a;
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 15px;
-        }
+    .table-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 5px 10px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.15s ease;
+    }
 
-        .user-info {
-            display: flex;
-            flex-direction: column;
-        }
+    .table-btn-preview {
+        background-color: #eff6ff;
+        color: #2563eb;
+        border: 1px solid #bfdbfe;
+    }
 
-        .user-name {
-            font-size: 14px;
-            font-weight: 600;
-            color: #111827;
-        }
+    .table-btn-preview:hover {
+        background-color: #dbeafe;
+        color: #1d4ed8;
+    }
 
-        .user-role {
-            font-size: 12px;
-            color: #6b7280;
-        }
+    .table-btn-pdf {
+        background-color: #f0fdf4;
+        color: #16a34a;
+        border: 1px solid #bbf7d0;
+    }
 
-        .content-body {
-            padding: 30px;
-            flex: 1;
-        }
+    .table-btn-pdf:hover {
+        background-color: #dcfce7;
+        color: #15803d;
+    }
 
-        .dashboard-card {
-            background: #ffffff;
-            border-radius: 16px;
-            padding: 30px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            border: 1px solid #e5e7eb;
-        }
+    /* Quick Launchpad Tiles */
+    .launchpad-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        padding: 16px;
+    }
 
-        .welcome-title {
-            font-size: 20px;
-            font-weight: 700;
-            color: #111827;
-            margin-bottom: 8px;
-        }
+    .launch-tile {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 12px 14px;
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        text-decoration: none;
+        color: #0f172a;
+        transition: all 0.2s ease;
+    }
 
-        .welcome-desc {
-            color: #6b7280;
-            font-size: 14px;
-            line-height: 1.5;
-        }
+    .launch-tile:hover {
+        background-color: #ffffff;
+        border-color: #cbd5e1;
+        box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.05);
+        transform: translateY(-2px);
+    }
 
-        @media (max-width: 768px) {
-            body {
-                flex-direction: column;
-            }
+    .launch-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
 
-            .sidebar {
-                width: 100%;
-            }
+    .launch-text {
+        flex: 1;
+        min-width: 0;
+    }
 
-            .sidebar-nav {
-                flex-direction: row;
-                overflow-x: auto;
-                padding: 10px;
-            }
+    .launch-title {
+        font-size: 13.5px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 2px;
+    }
 
-            .top-header {
-                padding: 16px 20px;
-            }
+    .launch-sub {
+        font-size: 11.5px;
+        color: #64748b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 
-            .content-body {
-                padding: 20px;
-            }
-        }
-    </style>
-</head>
-<body>
+    .launch-arrow {
+        color: #94a3b8;
+        transition: transform 0.2s ease;
+    }
 
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-brand">
-            <div class="brand-logo">AB</div>
-            <div class="brand-title">Advance Billing</div>
-        </div>
+    .launch-tile:hover .launch-arrow {
+        transform: translateX(3px);
+        color: #0f172a;
+    }
 
-        <nav class="sidebar-nav">
-            <a href="{% url 'distributor_dashboard' %}" class="nav-item active">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                </svg>
-                <span>Dashboard</span>
-            </a>
+    /* Business Profile Card */
+    .profile-summary-box {
+        padding: 18px 20px;
+        background: #fafafa;
+        border-top: 1px solid #f1f5f9;
+    }
 
-            <a href="{% url 'customer_list' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
-                </svg>
-                <span>Customers</span>
-            </a>
+    .profile-meta-line {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12.5px;
+        padding: 5px 0;
+        color: #475569;
+    }
 
-            <a href="{% url 'add_customer' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-                </svg>
-                <span>Add Customer</span>
-            </a>
+    .profile-meta-val {
+        font-weight: 600;
+        color: #0f172a;
+    }
 
-            <a href="{% url 'product_list' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                </svg>
-                <span>Products</span>
-            </a>
+    /* Empty state */
+    .empty-state-box {
+        text-align: center;
+        padding: 40px 20px;
+        color: #64748b;
+    }
 
-            <a href="{% url 'invoice_list' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-                <span>Invoices</span>
-            </a>
+    .empty-state-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background-color: #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 12px;
+        color: #94a3b8;
+    }
+</style>
+{% endblock %}
 
-            <a href="{% url 'qr_decoder' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
-                </svg>
-                <span>Decode QR Code</span>
-            </a>
+{% block content %}
+<div class="dash-container">
 
-
-            <a href="{% url 'distributor_profile' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                </svg>
-                <span>Profile</span>
-            </a>
-        </nav>
-
-        <div class="sidebar-footer">
-            <a href="{% url 'logout' %}" class="logout-btn">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-                </svg>
-                <span>Logout</span>
-            </a>
-        </div>
-    </aside>
-
-    <!-- Main Wrapper -->
-    <div class="main-wrapper">
-        <header class="top-header">
-            <div class="header-title">
-                <h1>Distributor Dashboard</h1>
+    <!-- 1. Welcome Hero Banner -->
+    <section class="hero-banner">
+        <div class="hero-content">
+            <div class="hero-text">
+                <h2>Welcome back, {{ request.user.first_name|default:request.user.username }}! 👋</h2>
+                <p>
+                    Manage your billing system with ease: create verified GST invoices with QR codes, maintain client records, track inventory stock, and audit billing transactions.
+                </p>
+                <div class="hero-badges">
+                    <span class="hero-chip verified">
+                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span>Verified Distributor Account</span>
+                    </span>
+                    {% if profile and profile.phone %}
+                    <span class="hero-chip">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+                        </svg>
+                        <span>{{ profile.phone }}</span>
+                    </span>
+                    {% endif %}
+                    <span class="hero-chip">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        <span>{% now "l, d F Y" %}</span>
+                    </span>
+                </div>
             </div>
 
-            <a href="{% url 'distributor_profile' %}" class="user-profile-badge">
-                <div class="avatar-circle">
-                    {{ request.user.first_name|default:request.user.username|slice:":1"|upper }}
-                </div>
-                <div class="user-info">
-                    <span class="user-name">{{ request.user.get_full_name|default:request.user.username }}</span>
-                    <span class="user-role">Distributor</span>
-                </div>
-            </a>
-        </header>
+            <div class="hero-actions">
+                <a href="{% url 'create_invoice' %}" class="btn-hero btn-hero-primary">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    <span>+ New Invoice</span>
+                </a>
+                <a href="{% url 'qr_decoder' %}" class="btn-hero btn-hero-secondary">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                    </svg>
+                    <span>Scan QR</span>
+                </a>
+            </div>
+        </div>
+    </section>
 
-        <main class="content-body">
-            {% if messages %}
-                <div class="alert-messages" style="margin-bottom: 20px;">
-                    {% for message in messages %}
-                        <div class="alert-success" role="status" style="background-color: #dcfce7; border: 1px solid #86efac; color: #15803d; padding: 14px 18px; border-radius: 10px; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
-                            ✓ {{ message }}
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-
-            <div class="dashboard-card">
-                <h2 class="welcome-title">Welcome back, {{ request.user.first_name|default:request.user.username }}!</h2>
-                <p class="welcome-desc" style="margin-bottom: 20px;">
-                    Manage your billing operations, inspect system statistics, and review your account profile.
-                </p>
-                <div style="margin-top: 16px;">
-                    <a href="{% url 'add_customer' %}" style="display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; background-color: #16a34a; color: white; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 14px;">
-                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+    <!-- 2. KPI Stat Cards Grid -->
+    <section class="kpi-grid">
+        <!-- Revenue Card -->
+        <div class="kpi-card">
+            <div>
+                <div class="kpi-header">
+                    <span class="kpi-title">Invoiced Revenue</span>
+                    <div class="kpi-icon-wrap emerald">
+                        <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
-                        <span>Add New Customer</span>
+                    </div>
+                </div>
+                <div class="kpi-value">{{ total_revenue|inr }}</div>
+            </div>
+            <div class="kpi-desc">
+                <span style="color: #16a34a; font-weight: 700;">₹ Gross</span>
+                <span>across all issued invoices</span>
+            </div>
+        </div>
+
+        <!-- Total Invoices Card -->
+        <div class="kpi-card">
+            <div>
+                <div class="kpi-header">
+                    <span class="kpi-title">Total Invoices</span>
+                    <div class="kpi-icon-wrap blue">
+                        <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <div class="kpi-value">{{ total_invoices }}</div>
+            </div>
+            <div class="kpi-desc">
+                <a href="{% url 'invoice_list' %}" class="dash-card-link">View invoice archive →</a>
+            </div>
+        </div>
+
+        <!-- Customers Card -->
+        <div class="kpi-card">
+            <div>
+                <div class="kpi-header">
+                    <span class="kpi-title">Active Clients</span>
+                    <div class="kpi-icon-wrap purple">
+                        <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <div class="kpi-value">{{ total_customers }}</div>
+            </div>
+            <div class="kpi-desc">
+                <a href="{% url 'customer_list' %}" class="dash-card-link">Manage customer directory →</a>
+            </div>
+        </div>
+
+        <!-- Catalog Products Card -->
+        <div class="kpi-card">
+            <div>
+                <div class="kpi-header">
+                    <span class="kpi-title">Inventory Items</span>
+                    <div class="kpi-icon-wrap amber">
+                        <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                        </svg>
+                    </div>
+                </div>
+                <div class="kpi-value">{{ total_products }}</div>
+            </div>
+            <div class="kpi-desc">
+                <span>{{ active_products }} active for billing</span>
+                {% if low_stock_count > 0 %}
+                    <span style="color: #dc2626; font-weight: 700;">({{ low_stock_count }} low stock)</span>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. Main Split Section: Recent Invoices & Quick Launchpad -->
+    <div class="dashboard-main-grid">
+
+        <!-- Left: Recent Invoices Table -->
+        <div class="dash-card">
+            <div class="dash-card-header">
+                <h3 class="dash-card-title">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: #16a34a;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                    <span>Recent Customer Invoices</span>
+                </h3>
+                <a href="{% url 'invoice_list' %}" class="dash-card-link">
+                    <span>View All Invoices</span>
+                    <span>→</span>
+                </a>
+            </div>
+
+            <div class="invoice-table-wrapper">
+                {% if recent_invoices %}
+                <table class="dash-table">
+                    <thead>
+                        <tr>
+                            <th>Invoice #</th>
+                            <th>Customer</th>
+                            <th>Date</th>
+                            <th style="text-align: right;">Amount</th>
+                            <th style="text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inv in recent_invoices %}
+                        <tr>
+                            <td>
+                                <span class="inv-badge">{{ inv.invoice_number }}</span>
+                            </td>
+                            <td class="customer-cell">
+                                {{ inv.customer.name }}
+                            </td>
+                            <td style="color: #64748b;">
+                                {{ inv.invoice_date|date:"d M Y" }}
+                            </td>
+                            <td class="amount-cell" style="text-align: right;">
+                                {{ inv.grand_total|inr }}
+                            </td>
+                            <td style="text-align: center;">
+                                <div class="table-actions" style="justify-content: center;">
+                                    <a href="{% url 'invoice_preview' inv.pk %}" class="table-btn table-btn-preview" title="Preview Invoice">
+                                        Preview
+                                    </a>
+                                    <a href="{% url 'invoice_pdf_download' inv.pk %}" class="table-btn table-btn-pdf" title="Download PDF">
+                                        PDF
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="empty-state-box">
+                    <div class="empty-state-icon">
+                        <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <h4 style="font-size: 15px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">No invoices generated yet</h4>
+                    <p style="font-size: 13px; margin-bottom: 16px;">Create your first customer invoice to record sales and generate QR codes.</p>
+                    <a href="{% url 'create_invoice' %}" class="btn-hero btn-hero-primary" style="display: inline-flex;">
+                        <span>+ Create First Invoice</span>
                     </a>
                 </div>
+                {% endif %}
             </div>
-        </main>
+        </div>
+
+        <!-- Right: Quick Operations Hub & Business Identity -->
+        <div class="d-flex flex-column gap-4">
+
+            <!-- Operations Launchpad -->
+            <div class="dash-card">
+                <div class="dash-card-header">
+                    <h3 class="dash-card-title">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: #2563eb;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                        <span>Operations Hub</span>
+                    </h3>
+                </div>
+
+                <div class="launchpad-grid">
+                    <a href="{% url 'create_invoice' %}" class="launch-tile">
+                        <div class="launch-icon" style="background-color: #ecfdf5; color: #16a34a;">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </div>
+                        <div class="launch-text">
+                            <div class="launch-title">Create Tax Invoice</div>
+                            <div class="launch-sub">GST tax invoice with QR code</div>
+                        </div>
+                        <span class="launch-arrow">→</span>
+                    </a>
+
+                    <a href="{% url 'qr_decoder' %}" class="launch-tile">
+                        <div class="launch-icon" style="background-color: #eff6ff; color: #2563eb;">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                            </svg>
+                        </div>
+                        <div class="launch-text">
+                            <div class="launch-title">Decode QR Code</div>
+                            <div class="launch-sub">Verify invoice data instantly</div>
+                        </div>
+                        <span class="launch-arrow">→</span>
+                    </a>
+
+                    <a href="{% url 'product_add' %}" class="launch-tile">
+                        <div class="launch-icon" style="background-color: #fffbeb; color: #d97706;">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+                            </svg>
+                        </div>
+                        <div class="launch-text">
+                            <div class="launch-title">Add New Product</div>
+                            <div class="launch-sub">Set prices, SKU, stock & GST</div>
+                        </div>
+                        <span class="launch-arrow">→</span>
+                    </a>
+
+                    <a href="{% url 'customer_register' %}" class="launch-tile">
+                        <div class="launch-icon" style="background-color: #f5f3ff; color: #7c3aed;">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+                            </svg>
+                        </div>
+                        <div class="launch-text">
+                            <div class="launch-title">Register Customer</div>
+                            <div class="launch-sub">Add buyer details & contact</div>
+                        </div>
+                        <span class="launch-arrow">→</span>
+                    </a>
+                </div>
+
+                <!-- Distributor Profile Summary -->
+                <div class="profile-summary-box">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Business Profile</span>
+                        <a href="{% url 'distributor_profile' %}" style="font-size: 12px; color: #16a34a; font-weight: 600; text-decoration: none;">Edit Settings →</a>
+                    </div>
+                    <div class="profile-meta-line">
+                        <span>Distributor:</span>
+                        <span class="profile-meta-val">{{ profile.full_name|default:request.user.username }}</span>
+                    </div>
+                    <div class="profile-meta-line">
+                        <span>Email:</span>
+                        <span class="profile-meta-val">{{ request.user.email|default:"Not configured" }}</span>
+                    </div>
+                    {% if profile and profile.phone %}
+                    <div class="profile-meta-line">
+                        <span>Phone:</span>
+                        <span class="profile-meta-val">{{ profile.phone }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+
     </div>
 
-</body>
-</html>
+</div>
+{% endblock %}
