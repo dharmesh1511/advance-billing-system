@@ -145,7 +145,10 @@ def build_invoice_qr_payload(invoice):
     inv_id = str(invoice.invoice_number) if getattr(invoice, "invoice_number", None) else str(invoice.pk or "")
     customer_name = invoice.customer.name if (getattr(invoice, "customer", None) and invoice.customer) else ""
     total_amount = f"{invoice.grand_total:.2f}" if getattr(invoice, "grand_total", None) is not None else "0.00"
-    inv_date_str = invoice.invoice_date.strftime("%Y-%m-%d") if getattr(invoice, "invoice_date", None) else ""
+    if getattr(invoice, "invoice_date", None):
+        inv_date_str = invoice.invoice_date.strftime("%Y-%m-%d") if hasattr(invoice.invoice_date, "strftime") else str(invoice.invoice_date)
+    else:
+        inv_date_str = ""
 
     if hasattr(invoice, "total_quantity") and invoice.total_quantity is not None:
         product_count = invoice.total_quantity

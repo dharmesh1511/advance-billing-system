@@ -493,6 +493,12 @@ def _generate_invoice_pdf_response(request, pk, as_attachment=False):
     except Exception:
         distributor_profile = DistributorProfile.objects.filter(user=request.user).first()
     qr_uri = generate_invoice_qr_base64(invoice)
+    if not qr_uri and getattr(invoice, "qr_code", None) and invoice.qr_code.name:
+        try:
+            if invoice.qr_code.storage.exists(invoice.qr_code.name):
+                qr_uri = invoice.qr_code.url
+        except Exception as e:
+            logger.warning(f"Failed to access saved QR image fallback for invoice {invoice.pk}: {e}")
 
     context = {
         "invoice": invoice,

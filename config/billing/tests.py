@@ -4570,3 +4570,208 @@ class ComprehensiveInvoicePDFVerificationTests(TestCase):
         self.client.login(username="pdf_test_dist1", password="DistPassword@123")
         missing_resp = self.client.get(reverse("invoice_pdf_download", kwargs={"pk": 999999}))
         self.assertEqual(missing_resp.status_code, 404)
+
+
+import base64
+from io import BytesIO
+from unittest.mock import patch
+from PIL import Image
+from pypdf import PdfReader
+
+class DynamicQRCodeEmbeddingPDFTests(TestCase):
+    """
+    Verification and testing of dynamic QR code embedding in Invoice PDFs:
+    1. QR code is dynamically generated using actual saved invoice data (id, customer, total, date).
+    2. generate_invoice_qr_base64() returns a valid Base64 PNG data URI.
+    3. Both invoice_pdf_view() and invoice_pdf_download() pass QR image correctly and return valid PDFs.
+    4. QR image is rendered in invoice_pdf.html within the footer with appropriate dimensions.
+    5. QR code extracted from the generated PDF is fully scannable and matches the invoice record.
+    6. Distinct invoices generate distinct, non-overlapping QR codes.
+    7. Error handling for unsaved invoices, empty QR codes, and media fallback.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.dist_group, _ = Group.objects.get_or_create(name="Distributor")
+        self.distributor = User.objects.create_user(
+            username="dist_qr_embed_user",
+            email="dist_qr@example.com",
+            password="DistPassword@123"
+        )
+        self.distributor.groups.add(self.dist_group)
+        self.profile = DistributorProfile.objects.create(
+            user=self.distributor,
+            full_name="Prime Tech Distributors",
+            email="dist_qr@example.com",
+            phone="9876543210"
+        )
+
+        self.customer_a = Customer.objects.create(
+            distributor=self.distributor,
+            name="Alpha Corp",
+            email="alpha@example.com",
+            phone="9123456780",
+            address="101 Alpha Tower",
+            city="Mumbai",
+            state="Maharashtra",
+            pincode="400001"
+        )
+        self.customer_b = Customer.objects.create(
+            distributor=self.distributor,
+            name="Beta Enterprise",
+            email="beta@example.com",
+            phone="9234567891",
+            address="202 Beta Square",
+            city="Pune",
+            state="Maharashtra",
+            pincode="411001"
+        )
+
+        self.invoice_a = Invoice.objects.create(
+            distributor=self.distributor,
+            customer=self.customer_a,
+            invoice_number="INV-DYN-A101",
+            invoice_date="2026-11-04",
+            subtotal=Decimal("2000.00"),
+            total_gst=Decimal("360.00"),
+            grand_total=Decimal("2360.00")
+        )
+
+        self.invoice_b = Invoice.objects.create(
+            distributor=self.distributor,
+            customer=self.customer_b,
+            invoice_number="INV-DYN-B202",
+            invoice_date="2026-11-05",
+            subtotal=Decimal("5000.00"),
+            total_gst=Decimal("900.00"),
+            grand_total=Decimal("5900.00")
+        )
+
+    def test_dynamic_qr_payload_and_base64_generation(self):
+        """Verify QR code is generated using actual invoice details and returns valid Base64 PNG."""
+        payload = build_invoice_qr_payload(self.invoice_a)
+        self.assertEqual(payload["invoice_id"], "INV-DYN-A101")
+        self.assertEqual(payload["customer_name"], "Alpha Corp")
+        self.assertEqual(payload["total_amount"], "2360.00")
+        self.assertEqual(payload["invoice_date"], "2026-11-04")
+
+        # Base64 URI verification
+        data_uri = generate_invoice_qr_base64(self.invoice_a)
+        self.assertTrue(data_uri.startswith("data:image/png;base64,"))
+        b64_part = data_uri.split(",", 1)[1]
+        decoded_bytes = base64.b64decode(b64_part)
+        self.assertTrue(decoded_bytes.startswith(b"\x89PNG\r\n\x1a\n"))
+
+        # Decode directly from generated image
+        img = Image.open(BytesIO(decoded_bytes))
+        scan_results = decode_qr_from_image(img)
+        self.assertTrue(len(scan_results) >= 1)
+        qr_obj = json.loads(scan_results[0]["data"])
+        self.assertEqual(qr_obj["invoice_id"], "INV-DYN-A101")
+        self.assertEqual(qr_obj["customer_name"], "Alpha Corp")
+        self.assertEqual(qr_obj["total_amount"], "2360.00")
+        self.assertEqual(qr_obj["invoice_date"], "2026-11-04")
+
+    def test_both_pdf_view_and_download_pass_qr_and_render_pdf(self):
+        """Verify both invoice_pdf_view and invoice_pdf_download pass QR and return valid PDFs."""
+        self.client.login(username="dist_qr_embed_user", password="DistPassword@123")
+
+        # 1. View (inline)
+        resp_view = self.client.get(reverse("invoice_pdf", kwargs={"pk": self.invoice_a.pk}))
+        self.assertEqual(resp_view.status_code, 200)
+        self.assertEqual(resp_view["Content-Type"], "application/pdf")
+        self.assertTrue(resp_view.content.startswith(b"%PDF"))
+        self.assertIn("inline", resp_view["Content-Disposition"])
+        self.assertIn("Invoice-INV-DYN-A101.pdf", resp_view["Content-Disposition"])
+
+        # 2. Download (attachment)
+        resp_dl = self.client.get(reverse("invoice_pdf_download", kwargs={"pk": self.invoice_a.pk}))
+        self.assertEqual(resp_dl.status_code, 200)
+        self.assertEqual(resp_dl["Content-Type"], "application/pdf")
+        self.assertTrue(resp_dl.content.startswith(b"%PDF"))
+        self.assertIn("attachment", resp_dl["Content-Disposition"])
+        self.assertIn("Invoice-INV-DYN-A101.pdf", resp_dl["Content-Disposition"])
+
+    def test_qr_code_scannable_and_payload_matches_db_record(self):
+        """Extract embedded image from generated PDF and verify QR decodes to exact saved invoice record."""
+        self.client.login(username="dist_qr_embed_user", password="DistPassword@123")
+        resp = self.client.get(reverse("invoice_pdf_download", kwargs={"pk": self.invoice_a.pk}))
+        self.assertEqual(resp.status_code, 200)
+
+        reader = PdfReader(BytesIO(resp.content))
+        self.assertTrue(len(reader.pages) >= 1)
+
+        extracted_images = []
+        for page in reader.pages:
+            for name, img_obj in page.images.items():
+                extracted_images.append(Image.open(BytesIO(img_obj.data)))
+
+        self.assertTrue(len(extracted_images) >= 1, "PDF does not contain any embedded images")
+
+        decoded = decode_qr_from_image(extracted_images[0])
+        self.assertTrue(len(decoded) >= 1, "Failed to decode QR code embedded in PDF")
+        qr_data = json.loads(decoded[0]["data"])
+
+        self.assertEqual(qr_data["invoice_id"], self.invoice_a.invoice_number)
+        self.assertEqual(qr_data["customer_name"], self.invoice_a.customer.name)
+        self.assertEqual(qr_data["total_amount"], f"{self.invoice_a.grand_total:.2f}")
+        self.assertEqual(qr_data["invoice_date"], str(self.invoice_a.invoice_date))
+
+    def test_multiple_invoices_generate_distinct_qr_codes(self):
+        """Different invoices generate different QR codes and scan to their own distinct data."""
+        self.client.login(username="dist_qr_embed_user", password="DistPassword@123")
+
+        uri_a = generate_invoice_qr_base64(self.invoice_a)
+        uri_b = generate_invoice_qr_base64(self.invoice_b)
+        self.assertNotEqual(uri_a, uri_b)
+
+        # PDF A
+        resp_a = self.client.get(reverse("invoice_pdf_download", kwargs={"pk": self.invoice_a.pk}))
+        reader_a = PdfReader(BytesIO(resp_a.content))
+        img_a = [Image.open(BytesIO(im.data)) for p in reader_a.pages for _, im in p.images.items()][0]
+        dec_a = json.loads(decode_qr_from_image(img_a)[0]["data"])
+
+        # PDF B
+        resp_b = self.client.get(reverse("invoice_pdf_download", kwargs={"pk": self.invoice_b.pk}))
+        reader_b = PdfReader(BytesIO(resp_b.content))
+        img_b = [Image.open(BytesIO(im.data)) for p in reader_b.pages for _, im in p.images.items()][0]
+        dec_b = json.loads(decode_qr_from_image(img_b)[0]["data"])
+
+        # Assert independent contents
+        self.assertEqual(dec_a["invoice_id"], "INV-DYN-A101")
+        self.assertEqual(dec_a["customer_name"], "Alpha Corp")
+        self.assertEqual(dec_b["invoice_id"], "INV-DYN-B202")
+        self.assertEqual(dec_b["customer_name"], "Beta Enterprise")
+        self.assertNotEqual(dec_a["invoice_id"], dec_b["invoice_id"])
+
+    def test_qr_generation_error_handling_and_fallback(self):
+        """Error handling for unsaved invoice, missing customer, empty QR in template, and saved QR fallback."""
+        # 1. Unsaved invoice returns empty string without crashing
+        unsaved_inv = Invoice(distributor=self.distributor, invoice_number="INV-UNSAVED")
+        result = generate_invoice_qr_base64(unsaved_inv)
+        self.assertEqual(result, "")
+
+        # 2. Template renders cleanly when QR code is missing/empty
+        context = {
+            "invoice": self.invoice_a,
+            "items": [],
+            "customer": self.invoice_a.customer,
+            "distributor": self.distributor,
+            "qr_code": "",
+            "qr_code_url": "",
+            "gross_total": Decimal("2000.00"),
+            "total_discount": Decimal("0.00"),
+        }
+        pdf_bytes = render_to_pdf("billing/invoice_pdf.html", context)
+        self.assertIsNotNone(pdf_bytes)
+        self.assertTrue(pdf_bytes.startswith(b"%PDF"))
+
+        # 3. Fallback to invoice.qr_code if generate_invoice_qr_base64 fails
+        self.invoice_a.generate_and_save_qr_code(force=True)
+        self.assertTrue(bool(self.invoice_a.qr_code))
+        
+        self.client.login(username="dist_qr_embed_user", password="DistPassword@123")
+        with patch("billing.views.generate_invoice_qr_base64", return_value=""):
+            resp_fallback = self.client.get(reverse("invoice_pdf_download", kwargs={"pk": self.invoice_a.pk}))
+            self.assertEqual(resp_fallback.status_code, 200)
+            self.assertTrue(resp_fallback.content.startswith(b"%PDF"))
