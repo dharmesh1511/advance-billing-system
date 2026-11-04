@@ -5,6 +5,16 @@
     <meta charset="UTF-8">
     <title>Invoice {{ invoice.invoice_number }}</title>
     <style>
+        @font-face {
+            font-family: 'Arial';
+            src: url('static/fonts/arial.ttf');
+        }
+        @font-face {
+            font-family: 'Arial';
+            src: url('static/fonts/arialbd.ttf');
+            font-weight: bold;
+        }
+
         @page {
             size: A4 portrait;
             margin: 12mm 15mm 20mm 15mm;
@@ -18,7 +28,7 @@
         }
 
         body {
-            font-family: Arial, Helvetica, sans-serif;
+            font-family: 'Arial', Helvetica, sans-serif;
             color: #334155;
             font-size: 9.5pt;
             line-height: 1.4;
@@ -377,16 +387,16 @@
                         <td class="invoice-meta-label text-right">Invoice Date:</td>
                         <td class="invoice-meta-value text-right">{{ invoice.invoice_date|date:"d M Y" }}</td>
                     </tr>
-                    {% if invoice.due_date %}
+                    {% if due_date %}
                     <tr>
                         <td class="invoice-meta-label text-right">Due Date:</td>
-                        <td class="invoice-meta-value text-right">{{ invoice.due_date|date:"d M Y" }}</td>
+                        <td class="invoice-meta-value text-right">{{ due_date|date:"d M Y" }}</td>
                     </tr>
                     {% endif %}
-                    {% if invoice.payment_status %}
+                    {% if payment_status %}
                     <tr>
                         <td class="invoice-meta-label text-right">Status:</td>
-                        <td class="invoice-meta-value text-right" style="color: #2563EB;">{{ invoice.payment_status|title }}</td>
+                        <td class="invoice-meta-value text-right" style="color: #2563EB;">{{ payment_status|title }}</td>
                     </tr>
                     {% endif %}
                 </table>
@@ -397,7 +407,7 @@
     <!-- Customer Bill To Box -->
     <div class="bill-to-box">
         <div class="bill-to-title">BILL TO</div>
-        <div class="customer-name">{{ customer.name }}</div>
+        <div class="customer-name">{{ customer.name|default:"Valued Customer" }}</div>
         <div class="customer-detail">
             {% if customer.address %}<div>{{ customer.address }}</div>{% endif %}
             {% if customer.city or customer.state or customer.pincode %}
@@ -408,6 +418,9 @@
             {% endif %}
             {% if customer.phone %}<div>Phone: {{ customer.phone }}</div>{% endif %}
             {% if customer.email %}<div>Email: {{ customer.email }}</div>{% endif %}
+            {% if not customer.address and not customer.phone and not customer.email %}
+                <div>Contact: Not provided</div>
+            {% endif %}
         </div>
     </div>
 

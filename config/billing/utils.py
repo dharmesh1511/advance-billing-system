@@ -19,9 +19,19 @@ logger = logging.getLogger(__name__)
 # Register a Unicode font (e.g., Arial on Windows) if available for Rupee symbol support
 def _register_unicode_fonts():
     try:
-        win_arial = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts", "arial.ttf")
-        if os.path.exists(win_arial) and "Arial" not in pdfmetrics.getRegisteredFontNames():
-            pdfmetrics.registerFont(TTFont("Arial", win_arial))
+        static_arial = os.path.join(settings.BASE_DIR, "static", "fonts", "arial.ttf")
+        static_arialbd = os.path.join(settings.BASE_DIR, "static", "fonts", "arialbd.ttf")
+        win_dir = os.environ.get("WINDIR", r"C:\Windows")
+        win_arial = os.path.join(win_dir, "Fonts", "arial.ttf")
+        win_arialbd = os.path.join(win_dir, "Fonts", "arialbd.ttf")
+
+        font_path = static_arial if os.path.exists(static_arial) else (win_arial if os.path.exists(win_arial) else None)
+        bold_font_path = static_arialbd if os.path.exists(static_arialbd) else (win_arialbd if os.path.exists(win_arialbd) else None)
+
+        if font_path and "Arial" not in pdfmetrics.getRegisteredFontNames():
+            pdfmetrics.registerFont(TTFont("Arial", font_path))
+        if bold_font_path and "Arial-Bold" not in pdfmetrics.getRegisteredFontNames():
+            pdfmetrics.registerFont(TTFont("Arial-Bold", bold_font_path))
     except Exception as e:
         logger.debug(f"Could not register system Arial font: {e}")
 

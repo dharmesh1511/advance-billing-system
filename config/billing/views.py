@@ -25,6 +25,7 @@ from .utils import (
 
 
 
+from accounts.models import DistributorProfile
 from accounts.decorators import (
     is_distributor,
 
@@ -487,7 +488,10 @@ def _generate_invoice_pdf_response(request, pk, as_attachment=False):
 
     items = invoice.items.all()
     gross_total, total_discount = calculate_invoice_totals(items)
-    distributor_profile = getattr(request.user, "distributor_profile", None)
+    try:
+        distributor_profile = request.user.distributor_profile
+    except Exception:
+        distributor_profile = DistributorProfile.objects.filter(user=request.user).first()
     qr_uri = generate_invoice_qr_base64(invoice)
 
     context = {
@@ -500,6 +504,8 @@ def _generate_invoice_pdf_response(request, pk, as_attachment=False):
         "total_discount": total_discount,
         "qr_code": qr_uri,
         "qr_code_url": qr_uri,
+        "payment_status": getattr(invoice, "payment_status", "Paid"),
+        "due_date": getattr(invoice, "due_date", None),
     }
 
     pdf_bytes = render_to_pdf("billing/invoice_pdf.html", context)
@@ -507,7 +513,8 @@ def _generate_invoice_pdf_response(request, pk, as_attachment=False):
         messages.error(request, "Unable to generate PDF invoice at this time.")
         return redirect("invoice_detail", pk=pk)
 
-    safe_inv_num = re.sub(r'[^A-Za-z0-9_\-]', '', invoice.invoice_number)
+    raw_num = str(invoice.invoice_number or invoice.pk or "doc")
+    safe_inv_num = re.sub(r'[^A-Za-z0-9_\-]', '', raw_num) or str(invoice.pk)
     disposition_type = "attachment" if as_attachment else "inline"
 
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
