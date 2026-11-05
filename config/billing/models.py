@@ -454,7 +454,37 @@ class InvoiceItem(models.Model):
         verbose_name = "Invoice Item"
         verbose_name_plural = "Invoice Items"
 
+    def _populate_defaults_from_product(self):
+        if getattr(self, "product_id", None):
+            if not self.product_name or not self.product_name.strip():
+                self.product_name = self.product.name
+            if self.unit_price is None:
+                self.unit_price = self.product.price
+            if self.gst_rate is None:
+                self.gst_rate = self.product.gst_rate
+            if self.discount_percent is None:
+                self.discount_percent = Decimal('0.00')
+
+            qty = self.quantity or 1
+            unit_price = self.unit_price if self.unit_price is not None else self.product.price
+            disc_pct = self.discount_percent if self.discount_percent is not None else Decimal('0.00')
+            gst_rate = self.gst_rate if self.gst_rate is not None else self.product.gst_rate
+
+            gross = Decimal(qty) * unit_price
+            discount = (gross * (disc_pct / Decimal('100.00'))).quantize(Decimal('0.01'))
+            taxable = gross - discount
+            gst = (taxable * (gst_rate / Decimal('100.00'))).quantize(Decimal('0.01'))
+            total = taxable + gst
+
+            if self.taxable_amount is None or self.taxable_amount == Decimal('0.00'):
+                self.taxable_amount = taxable
+            if self.gst_amount is None or self.gst_amount == Decimal('0.00'):
+                self.gst_amount = gst
+            if self.line_total is None or self.line_total == Decimal('0.00'):
+                self.line_total = total
+
     def clean(self):
+        self._populate_defaults_from_product()
         super().clean()
         if not self.product_name or not self.product_name.strip():
             raise ValidationError({'product_name': 'Product name cannot be empty.'})
@@ -474,6 +504,7 @@ class InvoiceItem(models.Model):
             raise ValidationError({'line_total': 'Line total cannot be negative.'})
 
     def save(self, *args, **kwargs):
+        self._populate_defaults_from_product()
         self.full_clean()
         super().save(*args, **kwargs)
 

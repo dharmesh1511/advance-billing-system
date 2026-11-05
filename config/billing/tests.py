@@ -4920,3 +4920,274 @@ class InvoicePDFDownloadButtonAndAlertTests(TestCase):
         self.client.login(username="pdf_btn_dist1", password="DistPassword@123")
         missing_resp = self.client.get(reverse("invoice_pdf_download", kwargs={"pk": 999999}))
         self.assertEqual(missing_resp.status_code, 404)
+
+
+class DjangoAdminManualDataEntryTests(TestCase):
+    """
+    Automated verification of manual data entry for Customer, Invoice, and InvoiceItem via Django Admin:
+    1. CustomerAdmin registration, list_display, search_fields, list_filter, manual add and edit.
+    2. InvoiceAdmin registration with InvoiceItemInline, list_display, search_fields, list_filter, date_hierarchy.
+    3. Manual creation of an invoice with multiple inline items, auto-numbering, auto-pricing and tax calculations.
+    4. InvoiceItemAdmin registration, list_display, search_fields, list_filter.
+    5. Full integration: manually created invoices work seamlessly with Invoice Preview, QR code, and PDF download.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.admin_user = User.objects.create_superuser(
+            username="admin_billing_mgr",
+            email="admin_mgr@example.com",
+            password="AdminPassword@123"
+        )
+
+        self.dist_group, _ = Group.objects.get_or_create(name="Distributor")
+        self.distributor = User.objects.create_user(
+            username="dist_billing_user",
+            email="dist_billing@example.com",
+            password="DistPassword@123"
+        )
+        self.distributor.groups.add(self.dist_group)
+        self.profile = DistributorProfile.objects.create(
+            user=self.distributor,
+            full_name="Prime Supply Network",
+            email="dist_billing@example.com",
+            phone="9876543210"
+        )
+
+        self.product1 = Product.objects.create(
+            distributor=self.distributor,
+            name="Smart POS Terminal",
+            price=Decimal("4500.00"),
+            stock=25,
+            gst_rate=Decimal("18.00"),
+            sku="POS-4500"
+        )
+
+        self.product2 = Product.objects.create(
+            distributor=self.distributor,
+            name="Thermal Receipt Paper Roll",
+            price=Decimal("150.00"),
+            stock=200,
+            gst_rate=Decimal("12.00"),
+            sku="PAPER-150"
+        )
+
+    def test_customer_admin_configuration_and_manual_entry(self):
+        """Admin can manually add, edit, search and filter Customers via Django Admin."""
+        from django.contrib import admin as django_admin
+        from billing.admin import CustomerAdmin
+
+        # 1. Verify ModelAdmin configuration
+        customer_admin = django_admin.site._registry[Customer]
+        self.assertIsInstance(customer_admin, CustomerAdmin)
+        self.assertIn("name", customer_admin.list_display)
+        self.assertIn("email", customer_admin.list_display)
+        self.assertIn("phone", customer_admin.list_display)
+        self.assertIn("name", customer_admin.search_fields)
+        self.assertIn("created_at", customer_admin.list_filter)
+
+        # 2. Add customer via Admin POST
+        self.client.login(username="admin_billing_mgr", password="AdminPassword@123")
+        add_url = reverse("admin:billing_customer_add")
+        cust_payload = {
+            "distributor": self.distributor.pk,
+            "name": "Apex Commerce Pvt Ltd",
+            "email": "info@apexcommerce.in",
+            "phone": "9812345678",
+            "address": "Level 4, Business Tower",
+            "city": "Bengaluru",
+            "state": "Karnataka",
+            "pincode": "560001",
+        }
+        resp = self.client.post(add_url, data=cust_payload, follow=True)
+        self.assertEqual(resp.status_code, 200)
+
+        created_cust = Customer.objects.filter(name="Apex Commerce Pvt Ltd").first()
+        self.assertIsNotNone(created_cust)
+        self.assertEqual(created_cust.phone, "9812345678")
+        self.assertEqual(created_cust.city, "Bengaluru")
+
+        # 3. Edit customer via Admin POST
+        change_url = reverse("admin:billing_customer_change", args=[created_cust.pk])
+        cust_payload["city"] = "Bengaluru Urban"
+        edit_resp = self.client.post(change_url, data=cust_payload, follow=True)
+        self.assertEqual(edit_resp.status_code, 200)
+        created_cust.refresh_from_db()
+        self.assertEqual(created_cust.city, "Bengaluru Urban")
+
+        # 4. Search & filter in changelist
+        list_url = reverse("admin:billing_customer_changelist")
+        search_resp = self.client.get(list_url + "?q=Apex")
+        self.assertEqual(search_resp.status_code, 200)
+        self.assertContains(search_resp, "Apex Commerce Pvt Ltd")
+
+    def test_invoice_admin_configuration_and_manual_entry_with_inlines(self):
+        """Admin can manually create an invoice with inline items; totals and QR code auto-generate."""
+        from django.contrib import admin as django_admin
+        from billing.admin import InvoiceAdmin, InvoiceItemInline
+
+        # 1. Verify ModelAdmin & Inline configuration
+        invoice_admin = django_admin.site._registry[Invoice]
+        self.assertIsInstance(invoice_admin, InvoiceAdmin)
+        self.assertIn("invoice_number", invoice_admin.list_display)
+        self.assertIn("customer", invoice_admin.list_display)
+        self.assertIn("invoice_date", invoice_admin.list_display)
+        self.assertIn("grand_total", invoice_admin.list_display)
+        self.assertIn("invoice_date", invoice_admin.list_filter)
+        self.assertIn("invoice_number", invoice_admin.search_fields)
+        self.assertEqual(len(invoice_admin.inlines), 1)
+        self.assertEqual(invoice_admin.inlines[0], InvoiceItemInline)
+
+        # 2. Create customer for invoice
+        customer = Customer.objects.create(
+            distributor=self.distributor,
+            name="Sunrise Retail Enterprises",
+            email="accounts@sunriseretail.com",
+            phone="9876501234",
+            address="Commercial Complex, Road 1",
+            city="Pune",
+            state="Maharashtra",
+            pincode="411001"
+        )
+
+        # 3. Add invoice with multiple inline items via Admin POST
+        self.client.login(username="admin_billing_mgr", password="AdminPassword@123")
+        add_url = reverse("admin:billing_invoice_add")
+        inv_payload = {
+            "distributor": self.distributor.pk,
+            "customer": customer.pk,
+            "invoice_number": "",  # Auto-generated
+            "invoice_date": "2026-11-05",
+            "subtotal": "0.00",
+            "total_gst": "0.00",
+            "grand_total": "0.00",
+            # Inline formset management fields
+            "items-TOTAL_FORMS": "2",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "0",
+            "items-MAX_NUM_FORMS": "1000",
+            # Line 1: Smart POS Terminal x 2, 0% discount
+            "items-0-product": self.product1.pk,
+            "items-0-product_name": "",  # Auto-populated from product
+            "items-0-quantity": "2",
+            "items-0-unit_price": "",    # Auto-populated
+            "items-0-discount_percent": "0.00",
+            "items-0-gst_rate": "",      # Auto-populated
+            "items-0-taxable_amount": "", # Auto-calculated: 2 * 4500 = 9000
+            "items-0-gst_amount": "",     # Auto-calculated: 9000 * 18% = 1620
+            "items-0-line_total": "",     # Auto-calculated: 9000 + 1620 = 10620
+            # Line 2: Thermal Paper Roll x 4, 10% discount
+            "items-1-product": self.product2.pk,
+            "items-1-product_name": "",
+            "items-1-quantity": "4",
+            "items-1-unit_price": "",    # Auto-populated: 150
+            "items-1-discount_percent": "10.00",
+            "items-1-gst_rate": "",      # Auto-populated: 12%
+            "items-1-taxable_amount": "", # Auto-calculated: (4*150) - 10% = 540
+            "items-1-gst_amount": "",     # Auto-calculated: 540 * 12% = 64.80
+            "items-1-line_total": "",     # Auto-calculated: 540 + 64.80 = 604.80
+        }
+
+        resp = self.client.post(add_url, data=inv_payload, follow=True)
+        self.assertEqual(resp.status_code, 200)
+
+        created_invoice = Invoice.objects.filter(customer=customer).order_by("-id").first()
+        self.assertIsNotNone(created_invoice)
+        self.assertTrue(created_invoice.invoice_number.startswith("INV-"))
+
+        # Check line items
+        items = list(created_invoice.items.all())
+        self.assertEqual(len(items), 2)
+        self.assertEqual(items[0].product_name, "Smart POS Terminal")
+        self.assertEqual(items[0].taxable_amount, Decimal("9000.00"))
+        self.assertEqual(items[0].gst_amount, Decimal("1620.00"))
+        self.assertEqual(items[0].line_total, Decimal("10620.00"))
+
+        self.assertEqual(items[1].product_name, "Thermal Receipt Paper Roll")
+        self.assertEqual(items[1].taxable_amount, Decimal("540.00"))
+        self.assertEqual(items[1].gst_amount, Decimal("64.80"))
+        self.assertEqual(items[1].line_total, Decimal("604.80"))
+
+        # Check invoice totals (9000 + 540 = 9540 taxable, 1620 + 64.80 = 1684.80 gst, grand_total = 11224.80)
+        self.assertEqual(created_invoice.subtotal, Decimal("9540.00"))
+        self.assertEqual(created_invoice.total_gst, Decimal("1684.80"))
+        self.assertEqual(created_invoice.grand_total, Decimal("11224.80"))
+
+        # Check QR code was automatically generated and saved
+        self.assertTrue(bool(created_invoice.qr_code))
+        self.assertTrue(created_invoice.qr_code.storage.exists(created_invoice.qr_code.name))
+
+    def test_invoice_item_admin_configuration(self):
+        """InvoiceItemAdmin is registered with required list_display, search_fields and filters."""
+        from django.contrib import admin as django_admin
+        from billing.admin import InvoiceItemAdmin
+
+        item_admin = django_admin.site._registry[InvoiceItem]
+        self.assertIsInstance(item_admin, InvoiceItemAdmin)
+        self.assertIn("invoice", item_admin.list_display)
+        self.assertIn("product_name", item_admin.list_display)
+        self.assertIn("quantity", item_admin.list_display)
+        self.assertIn("unit_price", item_admin.list_display)
+        self.assertIn("line_total", item_admin.list_display)
+        self.assertIn("product_name", item_admin.search_fields)
+        self.assertIn("gst_rate", item_admin.list_filter)
+
+    def test_manually_created_invoice_works_with_preview_qr_and_pdf(self):
+        """Manually created invoice records integrate cleanly with Invoice Preview, QR code, and PDF downloads."""
+        # 1. Create invoice & items as admin would
+        customer = Customer.objects.create(
+            distributor=self.distributor,
+            name="Quantum Logistics Ltd",
+            email="billing@quantumlogistics.com",
+            phone="9823456789",
+            address="Quantum Tech Centre",
+            city="Hyderabad",
+            state="Telangana",
+            pincode="500081"
+        )
+        invoice = Invoice.objects.create(
+            distributor=self.distributor,
+            customer=customer,
+            invoice_number="INV-MANUAL-001",
+            invoice_date="2026-11-05",
+            subtotal=Decimal("4500.00"),
+            total_gst=Decimal("810.00"),
+            grand_total=Decimal("5310.00")
+        )
+        InvoiceItem.objects.create(
+            invoice=invoice,
+            product=self.product1,
+            quantity=1
+        )
+        invoice.generate_and_save_qr_code(force=True)
+
+        # 2. Login as distributor
+        self.client.login(username="dist_billing_user", password="DistPassword@123")
+
+        # 3. Preview page
+        preview_resp = self.client.get(reverse("billing_invoice_preview", kwargs={"pk": invoice.pk}))
+        self.assertEqual(preview_resp.status_code, 200)
+        content = preview_resp.content.decode("utf-8")
+        self.assertIn("INV-MANUAL-001", content)
+        self.assertIn("Quantum Logistics Ltd", content)
+        self.assertIn("Smart POS Terminal", content)
+        self.assertIn("5310.00", content)
+
+        # 4. PDF download view
+        pdf_resp = self.client.get(reverse("invoice_pdf_download", kwargs={"pk": invoice.pk}))
+        self.assertEqual(pdf_resp.status_code, 200)
+        self.assertEqual(pdf_resp["Content-Type"], "application/pdf")
+        self.assertTrue(pdf_resp.content.startswith(b"%PDF"))
+        self.assertIn("attachment", pdf_resp["Content-Disposition"])
+        self.assertIn("Invoice-INV-MANUAL-001.pdf", pdf_resp["Content-Disposition"])
+
+        # 5. Extract and decode QR code from PDF
+        reader = PdfReader(BytesIO(pdf_resp.content))
+        extracted_images = [Image.open(BytesIO(im.data)) for p in reader.pages for _, im in p.images.items()]
+        self.assertTrue(len(extracted_images) >= 1)
+        decoded = decode_qr_from_image(extracted_images[0])
+        self.assertTrue(len(decoded) >= 1)
+        qr_json = json.loads(decoded[0]["data"])
+        self.assertEqual(qr_json["invoice_id"], "INV-MANUAL-001")
+        self.assertEqual(qr_json["customer_name"], "Quantum Logistics Ltd")
+        self.assertEqual(qr_json["total_amount"], "5310.00")
