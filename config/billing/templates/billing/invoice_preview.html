@@ -262,6 +262,17 @@
 </head>
 <body>
 
+    <!-- PDF Download Notification Toast / Alert Container (Fixed Top Right) -->
+    <div id="pdfAlertContainer" class="position-fixed top-0 end-0 p-3 d-print-none" style="z-index: 1090; max-width: 420px; width: 100%; pointer-events: none;" aria-live="polite" aria-atomic="true">
+        <div id="pdfAlert" class="alert alert-dismissible fade d-none align-items-center shadow-lg border-0" role="alert" style="pointer-events: auto; border-radius: 10px; transition: opacity 0.25s ease-in-out;">
+            <div class="d-flex align-items-center gap-2 flex-grow-1">
+                <i id="pdfAlertIcon" class="bi fs-5"></i>
+                <div id="pdfAlertMessage" class="fw-semibold small"></div>
+            </div>
+            <button type="button" class="btn-close" id="pdfAlertCloseBtn" aria-label="Close"></button>
+        </div>
+    </div>
+
     <!-- Sticky Top Action Bar -->
     <header class="preview-action-bar d-print-none">
         <div class="preview-action-container">
@@ -283,9 +294,15 @@
                     <i class="bi bi-printer"></i>
                     <span>Print Invoice</span>
                 </button>
-                <a href="{% url 'invoice_pdf_download' invoice.pk %}" class="btn btn-sm btn-success d-inline-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm">
-                    <i class="bi bi-file-earmark-pdf"></i>
-                    <span>Download PDF</span>
+                <a href="{% url 'invoice_pdf_download' invoice.pk %}"
+                   id="downloadPdfBtn"
+                   role="button"
+                   class="btn btn-sm btn-success d-inline-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm"
+                   data-download-url="{% url 'invoice_pdf_download' invoice.pk %}"
+                   data-filename="Invoice-{{ invoice.invoice_number }}.pdf"
+                   aria-label="Download Invoice PDF">
+                    <i class="bi bi-file-earmark-pdf" id="downloadPdfIcon"></i>
+                    <span id="downloadPdfText">Download PDF</span>
                 </a>
             </div>
         </div>
@@ -507,6 +524,175 @@
         </article>
     </main>
 
+    <!-- Client-side PDF Download Handler with Toast/Alerts & Double-click Prevention -->
+    <script>
+    (function() {
+        const downloadBtn = document.getElementById('downloadPdfBtn');
+        const alertBox = document.getElementById('pdfAlert');
+        const alertIcon = document.getElementById('pdfAlertIcon');
+        const alertMsg = document.getElementById('pdfAlertMessage');
+        const alertCloseBtn = document.getElementById('pdfAlertCloseBtn');
+
+        if (!downloadBtn || !alertBox) return;
+
+        let isDownloading = false;
+        let alertTimeout = null;
+
+        function showAlert(type, message) {
+            if (alertTimeout) {
+                clearTimeout(alertTimeout);
+                alertTimeout = null;
+            }
+
+            alertBox.classList.remove('alert-success', 'alert-danger', 'd-none', 'show');
+
+            if (type === 'success') {
+                alertBox.classList.add('alert-success');
+                alertIcon.className = 'bi bi-check-circle-fill text-success fs-5';
+                alertBox.setAttribute('role', 'status');
+            } else {
+                alertBox.classList.add('alert-danger');
+                alertIcon.className = 'bi bi-exclamation-triangle-fill text-danger fs-5';
+                alertBox.setAttribute('role', 'alert');
+            }
+
+            alertMsg.textContent = message;
+            alertBox.classList.add('d-flex');
+
+            requestAnimationFrame(() => {
+                alertBox.classList.add('show');
+            });
+
+            const duration = (type === 'success') ? 4500 : 5500;
+            alertTimeout = setTimeout(() => {
+                hideAlert();
+            }, duration);
+        }
+
+        function hideAlert() {
+            if (alertTimeout) {
+                clearTimeout(alertTimeout);
+                alertTimeout = null;
+            }
+            alertBox.classList.remove('show');
+            setTimeout(() => {
+                alertBox.classList.remove('d-flex');
+                alertBox.classList.add('d-none');
+            }, 250);
+        }
+
+        if (alertCloseBtn) {
+            alertCloseBtn.addEventListener('click', hideAlert);
+        }
+
+        downloadBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+
+            // Prevent accidental multiple download requests while in progress
+            if (isDownloading) {
+                return false;
+            }
+
+            isDownloading = true;
+
+            // Preserve original button content
+            const originalContent = downloadBtn.innerHTML;
+
+            // Update button UI to loading state
+            downloadBtn.setAttribute('aria-disabled', 'true');
+            downloadBtn.classList.add('disabled');
+            downloadBtn.style.pointerEvents = 'none';
+            downloadBtn.innerHTML = `
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <span>Downloading...</span>
+            `;
+
+            const downloadUrl = downloadBtn.getAttribute('data-download-url') || downloadBtn.href;
+
+            try {
+                const response = await fetch(downloadUrl, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/pdf, application/json, text/plain, */*'
+                    }
+                });
+
+                // Handle HTTP error responses
+                if (!response.ok) {
+                    let errMessage = '';
+                    try {
+                        const errJson = await response.json();
+                        errMessage = errJson.error || '';
+                    } catch (_) {
+                        errMessage = await response.text();
+                    }
+                    throw new Error(errMessage || `HTTP error ${response.status}`);
+                }
+
+                // Verify valid PDF Content-Type
+                const contentType = response.headers.get('content-type') || '';
+                if (!contentType.toLowerCase().includes('application/pdf')) {
+                    throw new Error(`Invalid response format: ${contentType}`);
+                }
+
+                const blob = await response.blob();
+                if (!blob || blob.size < 10) {
+                    throw new Error('Received empty or truncated PDF payload');
+                }
+
+                // Verify %PDF signature in first 4 bytes
+                const headerBuffer = await blob.slice(0, 5).arrayBuffer();
+                const headerBytes = new Uint8Array(headerBuffer);
+                const headerString = String.fromCharCode(...headerBytes);
+                if (!headerString.startsWith('%PDF')) {
+                    throw new Error('Invalid PDF: Missing %PDF signature');
+                }
+
+                // Determine filename
+                let filename = downloadBtn.getAttribute('data-filename') || 'Invoice.pdf';
+                const disposition = response.headers.get('Content-Disposition') || response.headers.get('content-disposition');
+                if (disposition) {
+                    const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/i);
+                    if (match && match[1]) {
+                        filename = match[1].replace(/['"]/g, '').trim();
+                    }
+                }
+
+                // Trigger browser file download
+                const blobUrl = window.URL.createObjectURL(blob);
+                const tempLink = document.createElement('a');
+                tempLink.style.display = 'none';
+                tempLink.href = blobUrl;
+                tempLink.download = filename;
+                document.body.appendChild(tempLink);
+                tempLink.click();
+
+                setTimeout(() => {
+                    if (tempLink.parentNode) {
+                        document.body.removeChild(tempLink);
+                    }
+                    window.URL.revokeObjectURL(blobUrl);
+                }, 300);
+
+                // Show success notification
+                showAlert('success', 'Invoice PDF downloaded successfully.');
+
+            } catch (error) {
+                console.error('Invoice PDF Download failed:', error);
+                // Show danger notification (success is never triggered on failure)
+                showAlert('danger', 'Unable to download invoice PDF. Please try again.');
+            } finally {
+                // Restore button state
+                downloadBtn.innerHTML = originalContent;
+                downloadBtn.removeAttribute('aria-disabled');
+                downloadBtn.classList.remove('disabled');
+                downloadBtn.style.pointerEvents = '';
+                isDownloading = false;
+            }
+        });
+    })();
+    </script>
 </body>
 </html>
 

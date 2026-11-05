@@ -4775,3 +4775,148 @@ class DynamicQRCodeEmbeddingPDFTests(TestCase):
             resp_fallback = self.client.get(reverse("invoice_pdf_download", kwargs={"pk": self.invoice_a.pk}))
             self.assertEqual(resp_fallback.status_code, 200)
             self.assertTrue(resp_fallback.content.startswith(b"%PDF"))
+
+
+class InvoicePDFDownloadButtonAndAlertTests(TestCase):
+    """
+    Automated verification of the improved Download PDF button and success/failure alerts:
+    1. Download PDF button visibility, data attributes, and alert container in invoice preview page.
+    2. Successful PDF download response (HTTP 200, application/pdf, %PDF header, attachment header).
+    3. Backend error handling when PDF generation fails:
+       - AJAX / XMLHttpRequest returns HTTP 500 JSON with error message.
+       - Standard GET returns HTTP 500 text/plain with error message.
+    4. Distributor security isolation and 404 handling.
+    5. Client script verification (double-click prevention, loading spinner, success & danger messages, %PDF validation).
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.dist_group, _ = Group.objects.get_or_create(name="Distributor")
+
+        self.distributor1 = User.objects.create_user(
+            username="pdf_btn_dist1",
+            email="pdf_dist1@example.com",
+            password="DistPassword@123"
+        )
+        self.distributor1.groups.add(self.dist_group)
+        self.profile1 = DistributorProfile.objects.create(
+            user=self.distributor1,
+            full_name="Metro Distributors Ltd",
+            email="metro@example.com",
+            phone="9876543210"
+        )
+
+        self.distributor2 = User.objects.create_user(
+            username="pdf_btn_dist2",
+            email="pdf_dist2@example.com",
+            password="DistPassword@123"
+        )
+        self.distributor2.groups.add(self.dist_group)
+
+        self.customer = Customer.objects.create(
+            distributor=self.distributor1,
+            name="Horizon Corp",
+            email="horizon@example.com",
+            phone="9123456780",
+            address="Plot 5, Sector 18",
+            city="Gurugram",
+            state="Haryana",
+            pincode="122015"
+        )
+
+        self.invoice = Invoice.objects.create(
+            distributor=self.distributor1,
+            customer=self.customer,
+            invoice_number="INV-BTN-2026-01",
+            invoice_date="2026-11-05",
+            subtotal=Decimal("3000.00"),
+            total_gst=Decimal("540.00"),
+            grand_total=Decimal("3540.00")
+        )
+
+    def test_preview_page_renders_download_button_and_alert_container(self):
+        """Preview page renders the download button with correct attributes and toast/alert container."""
+        self.client.login(username="pdf_btn_dist1", password="DistPassword@123")
+        url = reverse("billing_invoice_preview", kwargs={"pk": self.invoice.pk})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "billing/invoice_preview.html")
+
+        content = response.content.decode("utf-8")
+
+        # 1. Download button structure
+        self.assertIn('id="downloadPdfBtn"', content)
+        expected_download_url = reverse("invoice_pdf_download", kwargs={"pk": self.invoice.pk})
+        self.assertIn(f'data-download-url="{expected_download_url}"', content)
+        self.assertIn(f'data-filename="Invoice-{self.invoice.invoice_number}.pdf"', content)
+        self.assertIn("Download PDF", content)
+
+        # 2. Toast/Alert container & dismiss button
+        self.assertIn('id="pdfAlertContainer"', content)
+        self.assertIn('id="pdfAlert"', content)
+        self.assertIn('id="pdfAlertIcon"', content)
+        self.assertIn('id="pdfAlertMessage"', content)
+        self.assertIn('id="pdfAlertCloseBtn"', content)
+
+        # 3. Client-side script features
+        self.assertIn("Invoice PDF downloaded successfully.", content)
+        self.assertIn("Unable to download invoice PDF. Please try again.", content)
+        self.assertIn("spinner-border", content)
+        self.assertIn("isDownloading", content)
+        self.assertIn("application/pdf", content)
+        self.assertIn("%PDF", content)
+
+    def test_successful_pdf_download_response(self):
+        """Successful PDF download returns HTTP 200, application/pdf, %PDF signature, and attachment header."""
+        self.client.login(username="pdf_btn_dist1", password="DistPassword@123")
+        url = reverse("invoice_pdf_download", kwargs={"pk": self.invoice.pk})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn("attachment", response["Content-Disposition"])
+        self.assertIn(f"Invoice-{self.invoice.invoice_number}.pdf", response["Content-Disposition"])
+        self.assertTrue(response.content.startswith(b"%PDF"))
+        self.assertTrue(len(response.content) > 1000)
+
+    def test_pdf_generation_failure_ajax_returns_500_json(self):
+        """When PDF generation fails, an AJAX request receives HTTP 500 with user-safe JSON error."""
+        self.client.login(username="pdf_btn_dist1", password="DistPassword@123")
+        url = reverse("invoice_pdf_download", kwargs={"pk": self.invoice.pk})
+
+        with patch("billing.views.render_to_pdf", return_value=None):
+            response = self.client.get(url, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+            self.assertEqual(response.status_code, 500)
+            self.assertIn("application/json", response["Content-Type"])
+            data = json.loads(response.content.decode("utf-8"))
+            self.assertEqual(data["error"], "Unable to download invoice PDF. Please try again.")
+
+    def test_pdf_generation_failure_standard_returns_500_text(self):
+        """When PDF generation fails, standard request receives HTTP 500 text without exposing internal stack traces."""
+        self.client.login(username="pdf_btn_dist1", password="DistPassword@123")
+        url = reverse("invoice_pdf_download", kwargs={"pk": self.invoice.pk})
+
+        with patch("billing.views.render_to_pdf", return_value=None):
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 500)
+            self.assertIn("Unable to download invoice PDF. Please try again.", response.content.decode("utf-8"))
+
+    def test_download_unauthorized_and_cross_distributor_isolation(self):
+        """Cross-distributor request returns 404, unauthenticated request redirects to login."""
+        url = reverse("invoice_pdf_download", kwargs={"pk": self.invoice.pk})
+
+        # 1. Unauthenticated -> 302 redirect to login
+        unauth_resp = self.client.get(url)
+        self.assertEqual(unauth_resp.status_code, 302)
+        self.assertIn("/distributor/login/", unauth_resp.url)
+
+        # 2. Distributor 2 -> 404 Not Found
+        self.client.login(username="pdf_btn_dist2", password="DistPassword@123")
+        cross_resp = self.client.get(url)
+        self.assertEqual(cross_resp.status_code, 404)
+
+        # 3. Nonexistent invoice -> 404 Not Found
+        self.client.login(username="pdf_btn_dist1", password="DistPassword@123")
+        missing_resp = self.client.get(reverse("invoice_pdf_download", kwargs={"pk": 999999}))
+        self.assertEqual(missing_resp.status_code, 404)

@@ -514,10 +514,22 @@ def _generate_invoice_pdf_response(request, pk, as_attachment=False):
         "due_date": getattr(invoice, "due_date", None),
     }
 
-    pdf_bytes = render_to_pdf("billing/invoice_pdf.html", context)
+    try:
+        pdf_bytes = render_to_pdf("billing/invoice_pdf.html", context)
+    except Exception as e:
+        logger.error(f"Unexpected error rendering PDF invoice {invoice.pk}: {e}", exc_info=True)
+        pdf_bytes = None
+
     if not pdf_bytes:
-        messages.error(request, "Unable to generate PDF invoice at this time.")
-        return redirect("invoice_detail", pk=pk)
+        logger.error(f"Unable to generate PDF invoice for invoice {invoice.pk} (distributor={request.user.pk})")
+        is_ajax = (
+            request.headers.get("x-requested-with") == "XMLHttpRequest"
+            or "application/json" in request.headers.get("Accept", "")
+            or request.GET.get("format") == "json"
+        )
+        if is_ajax:
+            return JsonResponse({"error": "Unable to download invoice PDF. Please try again."}, status=500)
+        return HttpResponse("Unable to download invoice PDF. Please try again.", status=500, content_type="text/plain; charset=utf-8")
 
     raw_num = str(invoice.invoice_number or invoice.pk or "doc")
     safe_inv_num = re.sub(r'[^A-Za-z0-9_\-]', '', raw_num) or str(invoice.pk)
