@@ -918,8 +918,16 @@
                                                 <a href="{% url 'invoice_pdf_download' invoice.pk %}" class="btn btn-outline-danger" title="Download PDF">
                                                     <i class="bi bi-file-earmark-pdf me-1"></i>PDF
                                                 </a>
-                                                <button type="button" onclick="openQrModal('{{ invoice.pk }}', '{{ invoice.invoice_number|escapejs }}', '{{ invoice.customer.name|escapejs }}', '{{ invoice.total_item_qty }}', '{{ invoice.grand_total }}')" class="btn btn-outline-success" title="View Invoice QR Code">
-                                                    <i class="bi bi-qr-code me-1"></i>QR
+                                                <button type="button"
+                                                        class="btn btn-outline-success"
+                                                        onclick="openQrModal('{{ invoice.pk }}', '{{ invoice.invoice_number|escapejs }}', '{{ invoice.customer.name|escapejs }}', '{{ invoice.total_item_qty }}', '{{ invoice.grand_total }}')"
+                                                        title="Preview Invoice QR Code"
+                                                        data-bs-toggle="tooltip"
+                                                        data-bs-placement="top"
+                                                        data-bs-title="Preview Invoice QR Code"
+                                                        aria-label="Preview Invoice QR Code">
+                                                    <i class="bi bi-eye" aria-hidden="true"></i>
+                                                    <span class="visually-hidden">Preview Invoice QR Code</span>
                                                 </button>
                                             </div>
                                         </td>
@@ -1088,5 +1096,13 @@
     </script>
     <!-- Local Offline Bootstrap 5 JS Bundle -->
     <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.forEach(function (tooltipTriggerEl) {
+                new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+    </script>
 </body>
 </html>
