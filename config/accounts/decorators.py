@@ -133,6 +133,36 @@ def distributor_required(view_func=None, login_url="/distributor/login/", return
     return decorator
 
 
+def admin_or_distributor_required(view_func=None, login_url="/distributor/login/", return_403=False):
+    """
+    Decorator for views accessible by either an Admin or a Distributor:
+    - Unauthenticated users: redirected to login_url with next parameter.
+    - Non-distributor / Non-admin users: redirected to login_url with permission error.
+    - AJAX/JSON or return_403: returns HTTP 403 Forbidden or JSON error.
+    - Verified Admins and Distributors: access granted.
+    """
+    def decorator(func):
+        @wraps(func)
+        def _wrapped_view(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                return redirect_to_login(request.get_full_path(), login_url)
+
+            if not (is_distributor(request.user) or is_admin(request.user)):
+                if return_403 or request.headers.get("x-requested-with") == "XMLHttpRequest" or request.GET.get("format") == "json":
+                    return HttpResponseForbidden("403 Forbidden: Authorized role required.")
+
+                messages.error(request, "Access denied. Distributor privileges required.")
+                return redirect("distributor_login")
+
+            return func(request, *args, **kwargs)
+
+        return _wrapped_view
+
+    if view_func is not None:
+        return decorator(view_func)
+    return decorator
+
+
 class AdminRequiredMixin(AccessMixin):
     """Class-based view mixin that verifies the current user has the Admin role."""
     login_url = "/admin/login/"

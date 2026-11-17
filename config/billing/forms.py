@@ -2,6 +2,7 @@ import re
 from decimal import Decimal
 from django import forms
 from .models import Customer, Product, Invoice, InvoiceItem
+from accounts.decorators import is_admin
 
 
 
@@ -423,7 +424,10 @@ class InvoiceForm(forms.ModelForm):
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         if user is not None:
-            self.fields["customer"].queryset = Customer.objects.filter(distributor=user)
+            if is_admin(user):
+                self.fields["customer"].queryset = Customer.objects.all().select_related("distributor")
+            else:
+                self.fields["customer"].queryset = Customer.objects.filter(distributor=user)
         else:
             self.fields["customer"].queryset = Customer.objects.none()
         self.fields["customer"].empty_label = "Select Customer"
@@ -491,7 +495,10 @@ class InvoiceItemForm(forms.ModelForm):
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         if user is not None:
-            self.fields["product"].queryset = Product.objects.filter(distributor=user)
+            if is_admin(user):
+                self.fields["product"].queryset = Product.objects.all().select_related("distributor")
+            else:
+                self.fields["product"].queryset = Product.objects.filter(distributor=user)
         else:
             self.fields["product"].queryset = Product.objects.none()
         self.fields["product"].empty_label = "Select Product"

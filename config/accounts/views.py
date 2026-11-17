@@ -266,9 +266,84 @@ def distributor_register(request):
 @never_cache
 @admin_required
 def admin_dashboard(request):
+    try:
+        today = timezone.localdate()
+
+        # Aggregate overall invoice totals
+        invoice_aggregates = Invoice.objects.aggregate(
+            total_sales=Coalesce(Sum("grand_total"), Decimal("0.00")),
+            total_subtotal=Coalesce(Sum("subtotal"), Decimal("0.00")),
+            total_gst=Coalesce(Sum("total_gst"), Decimal("0.00")),
+            total_count=Count("id"),
+        )
+        total_sales = invoice_aggregates["total_sales"]
+        total_subtotal = invoice_aggregates["total_subtotal"]
+        total_gst = invoice_aggregates["total_gst"]
+        total_invoices = invoice_aggregates["total_count"]
+
+        # Today's sales & invoice count
+        today_aggregates = Invoice.objects.filter(invoice_date=today).aggregate(
+            today_sales=Coalesce(Sum("grand_total"), Decimal("0.00")),
+            today_count=Count("id"),
+        )
+        today_sales = today_aggregates["today_sales"]
+        today_invoices = today_aggregates["today_count"]
+
+        # Total active distributors (users with distributor profile or in distributor group)
+        distributor_count = User.objects.filter(
+            Q(groups__name="Distributor") | Q(distributor_profile__isnull=False)
+        ).distinct().count()
+
+        customer_count = Customer.objects.count()
+        product_count = Product.objects.count()
+        admin_count = User.objects.filter(
+            Q(is_superuser=True) | Q(is_staff=True)
+        ).distinct().count()
+
+        # Recent invoices across all distributors
+        recent_invoices = Invoice.objects.select_related(
+            "customer", "distributor"
+        ).order_by("-invoice_date", "-id")[:6]
+
+        # Recent active distributors with profile
+        recent_distributors = DistributorProfile.objects.select_related(
+            "user"
+        ).order_by("-id")[:5]
+
+    except Exception as e:
+        logger.error(f"Error loading admin dashboard stats: {e}", exc_info=True)
+        total_sales = Decimal("0.00")
+        total_subtotal = Decimal("0.00")
+        total_gst = Decimal("0.00")
+        total_invoices = 0
+        today_sales = Decimal("0.00")
+        today_invoices = 0
+        distributor_count = 0
+        customer_count = 0
+        product_count = 0
+        admin_count = 0
+        recent_invoices = []
+        recent_distributors = []
+
+    context = {
+        "total_sales": total_sales,
+        "total_subtotal": total_subtotal,
+        "total_gst": total_gst,
+        "total_invoices": total_invoices,
+        "today_sales": today_sales,
+        "today_invoices": today_invoices,
+        "distributor_count": distributor_count,
+        "customer_count": customer_count,
+        "product_count": product_count,
+        "admin_count": admin_count,
+        "recent_invoices": recent_invoices,
+        "recent_distributors": recent_distributors,
+    }
+
     return render(
         request,
-        "dashboard/admin_dashboard.html"
+        "dashboard/admin_dashboard.html",
+        context
     )
 
 

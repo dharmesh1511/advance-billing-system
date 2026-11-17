@@ -28,27 +28,27 @@ from .utils import (
 from accounts.models import DistributorProfile
 from accounts.decorators import (
     is_distributor,
-
+    is_admin,
     distributor_required,
-
+    admin_or_distributor_required,
 )
 
 
-@distributor_required
+@admin_or_distributor_required
 def customer_register_view(request):
     """
-    Renders the modern frontend Customer Registration form for authenticated Distributors.
+    Renders the modern frontend Customer Registration form for authenticated Distributors and Admins.
     """
-    if not is_distributor(request.user):
+    if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
     return render(request, "billing/customer_register.html")
 
 
 
-@distributor_required
+@admin_or_distributor_required
 def add_customer(request):
-    if not is_distributor(request.user):
+    if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
     error = None
@@ -62,6 +62,8 @@ def add_customer(request):
                 customer.save()
 
                 messages.success(request, "Customer added successfully.")
+                if is_admin(request.user):
+                    return redirect("customer_list")
                 return redirect("distributor_dashboard")
             except Exception as e:
                 error = "Unable to add customer right now. Please try again."
@@ -78,12 +80,15 @@ def add_customer(request):
     )
 
 
-@distributor_required
+@admin_or_distributor_required
 def customer_list(request):
-    if not is_distributor(request.user):
+    if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
-    queryset = Customer.objects.filter(distributor=request.user)
+    if is_admin(request.user):
+        queryset = Customer.objects.all().select_related("distributor").order_by("-id")
+    else:
+        queryset = Customer.objects.filter(distributor=request.user).order_by("-id")
     total_count = queryset.count()
 
     query = request.GET.get("q", "").strip()
@@ -117,12 +122,15 @@ def customer_list(request):
     )
 
 
-@distributor_required
+@admin_or_distributor_required
 def edit_customer(request, pk):
-    if not is_distributor(request.user):
+    if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
-    customer = get_object_or_404(Customer, pk=pk, distributor=request.user)
+    if is_admin(request.user):
+        customer = get_object_or_404(Customer, pk=pk)
+    else:
+        customer = get_object_or_404(Customer, pk=pk, distributor=request.user)
     error = None
 
     if request.method == "POST":
@@ -148,12 +156,15 @@ def edit_customer(request, pk):
     )
 
 
-@distributor_required
+@admin_or_distributor_required
 def delete_customer(request, pk):
-    if not is_distributor(request.user):
+    if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
-    customer = get_object_or_404(Customer, pk=pk, distributor=request.user)
+    if is_admin(request.user):
+        customer = get_object_or_404(Customer, pk=pk)
+    else:
+        customer = get_object_or_404(Customer, pk=pk, distributor=request.user)
 
     if request.method == "POST":
         customer_name = customer.name
@@ -170,9 +181,9 @@ def delete_customer(request, pk):
 
 
 
-@distributor_required
+@admin_or_distributor_required
 def add_product(request):
-    if not is_distributor(request.user):
+    if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
     error = None
@@ -186,6 +197,8 @@ def add_product(request):
                 product.save()
 
                 messages.success(request, "Product added successfully.")
+                if is_admin(request.user):
+                    return redirect("product_list")
                 return redirect("distributor_dashboard")
             except Exception as e:
                 error = "Unable to add product right now. Please try again."
@@ -202,12 +215,15 @@ def add_product(request):
     )
 
 
-@distributor_required
+@admin_or_distributor_required
 def product_list(request):
-    if not is_distributor(request.user):
+    if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
-    queryset = Product.objects.filter(distributor=request.user)
+    if is_admin(request.user):
+        queryset = Product.objects.all().select_related("distributor").order_by("-id")
+    else:
+        queryset = Product.objects.filter(distributor=request.user).order_by("-id")
     total_count = queryset.count()
 
     query = request.GET.get("q", "").strip()
@@ -238,12 +254,15 @@ def product_list(request):
     )
 
 
-@distributor_required
+@admin_or_distributor_required
 def edit_product(request, pk):
-    if not is_distributor(request.user):
+    if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
-    product = get_object_or_404(Product, pk=pk, distributor=request.user)
+    if is_admin(request.user):
+        product = get_object_or_404(Product, pk=pk)
+    else:
+        product = get_object_or_404(Product, pk=pk, distributor=request.user)
     error = None
 
     if request.method == "POST":
@@ -269,12 +288,15 @@ def edit_product(request, pk):
     )
 
 
-@distributor_required
+@admin_or_distributor_required
 def delete_product(request, pk):
-    if not is_distributor(request.user):
+    if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
-    product = get_object_or_404(Product, pk=pk, distributor=request.user)
+    if is_admin(request.user):
+        product = get_object_or_404(Product, pk=pk)
+    else:
+        product = get_object_or_404(Product, pk=pk, distributor=request.user)
 
     if request.method == "POST":
         product_name = product.name
@@ -309,13 +331,17 @@ def generate_unique_invoice_number(user):
     return inv_num
 
 
-@distributor_required
+@admin_or_distributor_required
 def create_invoice(request):
-    if not is_distributor(request.user):
+    if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
-    customers_count = Customer.objects.filter(distributor=request.user).count()
-    products_count = Product.objects.filter(distributor=request.user).count()
+    if is_admin(request.user):
+        customers_count = Customer.objects.count()
+        products_count = Product.objects.count()
+    else:
+        customers_count = Customer.objects.filter(distributor=request.user).count()
+        products_count = Product.objects.filter(distributor=request.user).count()
 
     error = None
 
@@ -327,11 +353,13 @@ def create_invoice(request):
             try:
                 with transaction.atomic():
                     customer = form.cleaned_data.get("customer")
-                    if not customer or customer.distributor != request.user:
-                        raise ValueError("Selected customer does not belong to your account.")
+                    if not is_admin(request.user):
+                        if not customer or customer.distributor != request.user:
+                            raise ValueError("Selected customer does not belong to your account.")
 
-                    form.instance.distributor = request.user
-                    form.instance.invoice_number = generate_unique_invoice_number(request.user)
+                    dist_user = customer.distributor if (customer and customer.distributor) else request.user
+                    form.instance.distributor = dist_user
+                    form.instance.invoice_number = generate_unique_invoice_number(dist_user)
                     form.instance.subtotal = Decimal("0.00")
                     form.instance.total_gst = Decimal("0.00")
                     form.instance.grand_total = Decimal("0.00")
@@ -354,10 +382,13 @@ def create_invoice(request):
                                 continue
 
                             try:
-                                product = Product.objects.select_for_update().get(
-                                    id=form_product.id,
-                                    distributor=request.user
-                                )
+                                if is_admin(request.user):
+                                    product = Product.objects.select_for_update().get(id=form_product.id)
+                                else:
+                                    product = Product.objects.select_for_update().get(
+                                        id=form_product.id,
+                                        distributor=request.user
+                                    )
                             except Product.DoesNotExist:
                                 raise ValueError("Invalid product selection.")
 
@@ -426,7 +457,10 @@ def create_invoice(request):
         form = InvoiceForm(user=request.user)
         formset = InvoiceItemFormSet(user=request.user)
 
-    user_products = Product.objects.filter(distributor=request.user)
+    if is_admin(request.user):
+        user_products = Product.objects.all()
+    else:
+        user_products = Product.objects.filter(distributor=request.user)
     products_dict = {
         p.id: {
             "id": p.id,
@@ -453,12 +487,15 @@ def create_invoice(request):
     )
 
 
-@distributor_required(return_403=True)
+@admin_or_distributor_required(return_403=True)
 def product_details(request, pk):
-    if not is_distributor(request.user):
+    if not (is_distributor(request.user) or is_admin(request.user)):
         return JsonResponse({"error": "Unauthorized"}, status=403)
 
-    product = get_object_or_404(Product, pk=pk, distributor=request.user)
+    if is_admin(request.user):
+        product = get_object_or_404(Product, pk=pk)
+    else:
+        product = get_object_or_404(Product, pk=pk, distributor=request.user)
 
     return JsonResponse({
         "id": product.id,
@@ -477,21 +514,27 @@ def product_details(request, pk):
 
 
 def _generate_invoice_pdf_response(request, pk, as_attachment=False):
-    if not is_distributor(request.user):
+    if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
-    invoice = get_object_or_404(
-        Invoice.objects.select_related("customer", "distributor").prefetch_related("items", "items__product"),
-        pk=pk,
-        distributor=request.user
-    )
+    if is_admin(request.user):
+        invoice = get_object_or_404(
+            Invoice.objects.select_related("customer", "distributor").prefetch_related("items", "items__product"),
+            pk=pk
+        )
+    else:
+        invoice = get_object_or_404(
+            Invoice.objects.select_related("customer", "distributor").prefetch_related("items", "items__product"),
+            pk=pk,
+            distributor=request.user
+        )
 
     items = invoice.items.all()
     gross_total, total_discount = calculate_invoice_totals(items)
-    try:
-        distributor_profile = request.user.distributor_profile
-    except Exception:
-        distributor_profile = DistributorProfile.objects.filter(user=request.user).first()
+    dist_user = invoice.distributor or request.user
+    distributor_profile = getattr(dist_user, "distributor_profile", None)
+    if not distributor_profile:
+        distributor_profile = DistributorProfile.objects.filter(user=dist_user).first()
     qr_uri = generate_invoice_qr_base64(invoice)
     if not qr_uri and getattr(invoice, "qr_code", None) and invoice.qr_code.name:
         try:
@@ -504,7 +547,7 @@ def _generate_invoice_pdf_response(request, pk, as_attachment=False):
         "invoice": invoice,
         "items": items,
         "customer": invoice.customer,
-        "distributor": request.user,
+        "distributor": dist_user,
         "profile": distributor_profile,
         "gross_total": gross_total,
         "total_discount": total_discount,
@@ -521,7 +564,7 @@ def _generate_invoice_pdf_response(request, pk, as_attachment=False):
         pdf_bytes = None
 
     if not pdf_bytes:
-        logger.error(f"Unable to generate PDF invoice for invoice {invoice.pk} (distributor={request.user.pk})")
+        logger.error(f"Unable to generate PDF invoice for invoice {invoice.pk} (user={request.user.pk})")
         is_ajax = (
             request.headers.get("x-requested-with") == "XMLHttpRequest"
             or "application/json" in request.headers.get("Accept", "")
@@ -540,13 +583,13 @@ def _generate_invoice_pdf_response(request, pk, as_attachment=False):
     return response
 
 
-@distributor_required
+@admin_or_distributor_required
 def invoice_pdf_view(request, pk):
     as_attachment = (request.GET.get("download") == "1")
     return _generate_invoice_pdf_response(request, pk, as_attachment=as_attachment)
 
 
-@distributor_required
+@admin_or_distributor_required
 def invoice_pdf_download(request, pk):
     """
     Dedicated view for downloading the Invoice PDF with Content-Disposition: attachment.
@@ -554,24 +597,31 @@ def invoice_pdf_download(request, pk):
     return _generate_invoice_pdf_response(request, pk, as_attachment=True)
 
 
-@distributor_required
+@admin_or_distributor_required
 def invoice_detail(request, pk):
     """
     Invoice Detail / View page displaying full invoice details, items, customer info,
     and a prominent 'Download PDF' button.
     """
-    if not is_distributor(request.user):
+    if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
-    invoice = get_object_or_404(
-        Invoice.objects.select_related("customer", "distributor").prefetch_related("items", "items__product"),
-        pk=pk,
-        distributor=request.user
-    )
+    if is_admin(request.user):
+        invoice = get_object_or_404(
+            Invoice.objects.select_related("customer", "distributor").prefetch_related("items", "items__product"),
+            pk=pk
+        )
+    else:
+        invoice = get_object_or_404(
+            Invoice.objects.select_related("customer", "distributor").prefetch_related("items", "items__product"),
+            pk=pk,
+            distributor=request.user
+        )
 
     items = invoice.items.all()
     gross_total, total_discount = calculate_invoice_totals(items)
-    distributor_profile = getattr(request.user, "distributor_profile", None)
+    dist_user = invoice.distributor or request.user
+    distributor_profile = getattr(dist_user, "distributor_profile", None)
     qr_code_url = get_or_create_invoice_qr_url(invoice)
     qr_payload = build_invoice_qr_payload(invoice)
 
@@ -582,7 +632,7 @@ def invoice_detail(request, pk):
             "invoice": invoice,
             "items": items,
             "customer": invoice.customer,
-            "distributor": request.user,
+            "distributor": dist_user,
             "profile": distributor_profile,
             "gross_total": gross_total,
             "total_discount": total_discount,
@@ -593,7 +643,7 @@ def invoice_detail(request, pk):
     )
 
 
-@distributor_required
+@admin_or_distributor_required
 def invoice_preview_view(request, pk):
     """
     Dedicated preview page for an invoice.
@@ -602,18 +652,25 @@ def invoice_preview_view(request, pk):
     Reuses the saved QR image from media storage without regenerating.
     Returns 404 for non-existent or unauthorized invoices.
     """
-    if not is_distributor(request.user):
+    if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
-    invoice = get_object_or_404(
-        Invoice.objects.select_related("customer", "distributor").prefetch_related("items", "items__product"),
-        pk=pk,
-        distributor=request.user
-    )
+    if is_admin(request.user):
+        invoice = get_object_or_404(
+            Invoice.objects.select_related("customer", "distributor").prefetch_related("items", "items__product"),
+            pk=pk
+        )
+    else:
+        invoice = get_object_or_404(
+            Invoice.objects.select_related("customer", "distributor").prefetch_related("items", "items__product"),
+            pk=pk,
+            distributor=request.user
+        )
 
     items = invoice.items.all()
     gross_total, total_discount = calculate_invoice_totals(items)
-    distributor_profile = getattr(request.user, "distributor_profile", None)
+    dist_user = invoice.distributor or request.user
+    distributor_profile = getattr(dist_user, "distributor_profile", None)
     qr_code_url = get_or_create_invoice_qr_url(invoice)
     qr_payload = build_invoice_qr_payload(invoice)
 
@@ -624,7 +681,7 @@ def invoice_preview_view(request, pk):
             "invoice": invoice,
             "items": items,
             "customer": invoice.customer,
-            "distributor": request.user,
+            "distributor": dist_user,
             "profile": distributor_profile,
             "gross_total": gross_total,
             "total_discount": total_discount,
@@ -636,23 +693,34 @@ def invoice_preview_view(request, pk):
 
 
 
-@distributor_required
+@admin_or_distributor_required
 def invoice_list(request):
-    if not is_distributor(request.user):
+    if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
     from django.db.models import Count
-    queryset = Invoice.objects.filter(
-        distributor=request.user
-    ).select_related(
-        "customer"
-    ).prefetch_related(
-        "items"
-    ).annotate(
-        item_count=Count("items", distinct=True),
-        total_quantity=Coalesce(Sum("items__quantity"), Value(0), output_field=IntegerField()),
-        total_item_qty=Coalesce(Sum("items__quantity"), Value(0), output_field=IntegerField())
-    ).order_by("-created_at")
+    if is_admin(request.user):
+        queryset = Invoice.objects.all().select_related(
+            "customer", "distributor"
+        ).prefetch_related(
+            "items"
+        ).annotate(
+            item_count=Count("items", distinct=True),
+            total_quantity=Coalesce(Sum("items__quantity"), Value(0), output_field=IntegerField()),
+            total_item_qty=Coalesce(Sum("items__quantity"), Value(0), output_field=IntegerField())
+        ).order_by("-created_at")
+    else:
+        queryset = Invoice.objects.filter(
+            distributor=request.user
+        ).select_related(
+            "customer"
+        ).prefetch_related(
+            "items"
+        ).annotate(
+            item_count=Count("items", distinct=True),
+            total_quantity=Coalesce(Sum("items__quantity"), Value(0), output_field=IntegerField()),
+            total_item_qty=Coalesce(Sum("items__quantity"), Value(0), output_field=IntegerField())
+        ).order_by("-created_at")
 
     total_count = queryset.count()
     query = request.GET.get("q", "").strip()
@@ -682,16 +750,22 @@ def invoice_list(request):
     )
 
 
-@distributor_required
+@admin_or_distributor_required
 def invoice_qr_view(request, pk):
-    if not is_distributor(request.user):
+    if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
-    invoice = get_object_or_404(
-        Invoice.objects.select_related("customer").prefetch_related("items"),
-        pk=pk,
-        distributor=request.user
-    )
+    if is_admin(request.user):
+        invoice = get_object_or_404(
+            Invoice.objects.select_related("customer").prefetch_related("items"),
+            pk=pk
+        )
+    else:
+        invoice = get_object_or_404(
+            Invoice.objects.select_related("customer").prefetch_related("items"),
+            pk=pk,
+            distributor=request.user
+        )
 
     if request.GET.get("format") == "json":
         payload = build_invoice_qr_payload(invoice)
@@ -718,14 +792,14 @@ def invoice_qr_view(request, pk):
     return response
 
 
-@distributor_required
+@admin_or_distributor_required
 def qr_decoder_view(request):
     """
     Renders the modern QR Code Decoder & Invoice Inspection interface.
     Allows distributors and admins to upload/scan invoice QR codes,
     decoding their payloads and displaying rich database-verified invoice details.
     """
-    if not is_distributor(request.user):
+    if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
     return render(

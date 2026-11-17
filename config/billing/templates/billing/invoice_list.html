@@ -1,9 +1,15 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invoices | Advance Billing System</title>
+
+    <!-- Local Offline Bootstrap 5 CSS -->
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}">
+    <!-- Local Offline Bootstrap Icons -->
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
     <style>
         * {
             box-sizing: border-box;
@@ -658,12 +664,27 @@
         </div>
 
         <nav class="sidebar-nav">
+            {% if request.user.is_staff or request.user.is_superuser %}
+            <a href="{% url 'admin_dashboard' %}" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                </svg>
+                <span>Dashboard</span>
+            </a>
+            <a href="{% url 'admin_reports' %}" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+                <span>Reports & Analytics</span>
+            </a>
+            {% else %}
             <a href="{% url 'distributor_dashboard' %}" class="nav-item">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
                 </svg>
                 <span>Dashboard</span>
             </a>
+            {% endif %}
 
             <a href="{% url 'customer_list' %}" class="nav-item">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -693,12 +714,21 @@
                 <span>Create Invoice</span>
             </a>
 
+            <a href="{% url 'qr_decoder' %}" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                </svg>
+                <span>Decode QR Code</span>
+            </a>
+
+            {% if not request.user.is_staff and not request.user.is_superuser %}
             <a href="{% url 'distributor_profile' %}" class="nav-item">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                 </svg>
                 <span>Profile</span>
             </a>
+            {% endif %}
         </nav>
 
         <div class="sidebar-footer">
@@ -734,6 +764,17 @@
                     <span>+ Create Invoice</span>
                 </a>
 
+                {% if request.user.is_staff or request.user.is_superuser %}
+                <div class="user-profile-badge">
+                    <div class="avatar-circle" style="background-color: #2563eb;">
+                        {{ request.user.first_name|default:request.user.username|slice:":1"|upper }}
+                    </div>
+                    <div class="user-info">
+                        <span class="user-name">{{ request.user.get_full_name|default:request.user.username }}</span>
+                        <span class="user-role" style="color: #2563eb; font-weight: 600;">Administrator</span>
+                    </div>
+                </div>
+                {% else %}
                 <a href="{% url 'distributor_profile' %}" class="user-profile-badge">
                     <div class="avatar-circle">
                         {{ request.user.first_name|default:request.user.username|slice:":1"|upper }}
@@ -743,6 +784,7 @@
                         <span class="user-role">Distributor</span>
                     </div>
                 </a>
+                {% endif %}
             </div>
         </header>
 
@@ -757,101 +799,127 @@
                 </div>
             {% endif %}
 
-            <div class="page-card">
+            <div class="page-card p-4">
                 <!-- Search Controls -->
-                <div class="search-container">
-                    <form method="GET" action="{% url 'invoice_list' %}" class="search-form">
-                        <div class="search-input-wrapper">
-                            <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                            </svg>
-                            <input type="text" name="q" value="{{ query }}" placeholder="Search by invoice number or customer..." class="search-input" id="id_search_input" />
-                        </div>
-                        <button type="submit" class="search-btn">Search</button>
-                        {% if query %}
-                            <a href="{% url 'invoice_list' %}" class="clear-search-link">Clear</a>
-                        {% endif %}
-                    </form>
+                <div class="row align-items-center mb-4 g-3">
+                    <div class="col-md-7 col-lg-6">
+                        <form method="GET" action="{% url 'invoice_list' %}" class="d-flex">
+                            <div class="input-group">
+                                <span class="input-group-text bg-white border-end-0">
+                                    <i class="bi bi-search text-muted"></i>
+                                </span>
+                                <input type="text" name="q" value="{{ query }}" placeholder="Search by invoice number or customer..." class="form-control border-start-0 ps-0" id="id_search_input" aria-label="Search invoices">
+                                <button type="submit" class="btn btn-primary px-3">Search</button>
+                                {% if query %}
+                                    <a href="{% url 'invoice_list' %}" class="btn btn-outline-secondary">Clear</a>
+                                {% endif %}
+                            </div>
+                        </form>
+                    </div>
 
-                    <div class="results-summary">
+                    <div class="col-md-5 col-lg-6 text-md-end text-muted small">
                         {% if query %}
-                            {{ filtered_count }} invoice{% if filtered_count != 1 %}s{% endif %} found
+                            <span class="badge bg-light text-dark border p-2">
+                                <i class="bi bi-funnel me-1"></i>{{ filtered_count }} invoice{% if filtered_count != 1 %}s{% endif %} found
+                            </span>
                         {% else %}
-                            {{ total_count }} invoice{% if total_count != 1 %}s{% endif %}
+                            <span class="text-secondary fw-semibold">
+                                Total: {{ total_count }} invoice{% if total_count != 1 %}s{% endif %}
+                            </span>
                         {% endif %}
                     </div>
                 </div>
 
                 <!-- Invoice Table or Empty States -->
                 {% if page_obj.object_list %}
-                    <div class="table-responsive">
-                        <table class="invoice-table">
-                            <thead>
+                    <div class="table-responsive rounded-3 border">
+                        <table class="table table-hover table-bordered table-striped align-middle mb-0">
+                            <thead class="table-light">
                                 <tr>
-                                    <th>#</th>
-                                    <th>Invoice No.</th>
-                                    <th>Customer</th>
-                                    <th>Date</th>
-                                    <th>Product Summary</th>
-                                    <th>Items / Qty</th>
-                                    <th>Grand Total</th>
-                                    <th>Actions</th>
+                                    <th scope="col" class="text-nowrap py-3 px-3">Invoice Number</th>
+                                    <th scope="col" class="text-nowrap py-3 px-3">Customer Name</th>
+                                    <th scope="col" class="text-nowrap py-3 px-3">Invoice Date</th>
+                                    <th scope="col" class="text-nowrap py-3 px-3">Due Date</th>
+                                    <th scope="col" class="text-nowrap text-end py-3 px-3">Total Amount</th>
+                                    <th scope="col" class="text-nowrap text-center py-3 px-3">Payment Status</th>
+                                    <th scope="col" class="text-nowrap text-center py-3 px-3">Invoice Status</th>
+                                    <th scope="col" class="text-nowrap text-center py-3 px-3">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for invoice in page_obj.object_list %}
                                     <tr>
-                                        <td class="badge-cell">{{ page_obj.start_index|add:forloop.counter0 }}</td>
-                                        <td>
-                                            <span class="inv-number">{{ invoice.invoice_number }}</span>
+                                        <td class="px-3 fw-bold text-primary font-monospace">
+                                            {{ invoice.invoice_number }}
                                         </td>
-                                        <td>
-                                            <strong>{{ invoice.customer.name }}</strong>
+                                        <td class="px-3">
+                                            <div class="fw-semibold text-dark">{{ invoice.customer.name }}</div>
+                                            {% if invoice.customer.phone %}
+                                                <small class="text-muted d-block">{{ invoice.customer.phone }}</small>
+                                            {% endif %}
                                         </td>
-                                        <td>{{ invoice.invoice_date|date:"d M Y" }}</td>
-                                        <td>
-                                            <div style="max-width: 280px; font-size: 13px; line-height: 1.4;">
-                                                {% for item in invoice.items.all %}
-                                                    <span style="font-weight: 600; color: #374151;">{{ item.product_name }}</span> <span style="color: #6b7280;">× {{ item.quantity }}</span>{% if not forloop.last %}, {% endif %}
-                                                {% empty %}
-                                                    <span class="text-muted" style="color: #9ca3af; font-style: italic;">No items available</span>
-                                                {% endfor %}
-                                            </div>
+                                        <td class="px-3 text-nowrap">
+                                            {{ invoice.invoice_date|date:"d M Y" }}
                                         </td>
-                                        <td>
-                                            <div style="font-size: 13px; color: #374151;">
-                                                <strong>{{ invoice.total_item_qty }}</strong> units
-                                                <div style="font-size: 11px; color: #6b7280;">{{ invoice.item_count|default:invoice.items.all|length }} line{% if invoice.item_count != 1 %}s{% endif %}</div>
-                                            </div>
+                                        <td class="px-3 text-nowrap">
+                                            {% if invoice.due_date %}
+                                                {{ invoice.due_date|date:"d M Y" }}
+                                            {% else %}
+                                                <span class="text-muted">—</span>
+                                            {% endif %}
                                         </td>
-                                        <td class="grand-total">₹{{ invoice.grand_total }}</td>
-                                        <td>
-                                            <div class="action-btns">
-                                                <a href="{% url 'invoice_preview' invoice.pk %}" class="pdf-action-btn" style="background-color: #2563eb;" title="Preview Invoice">
-                                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                                    </svg>
-                                                    <span>Preview</span>
+                                        <td class="px-3 text-end text-nowrap">
+                                            <span class="fw-bold text-dark">₹{{ invoice.grand_total }}</span>
+                                        </td>
+                                        <td class="px-3 text-center text-nowrap">
+                                            {% if invoice.payment_status %}
+                                                {% if invoice.payment_status|lower == 'paid' %}
+                                                    <span class="badge bg-success">Paid</span>
+                                                {% elif invoice.payment_status|lower == 'pending' %}
+                                                    <span class="badge bg-warning text-dark">Pending</span>
+                                                {% elif invoice.payment_status|lower == 'overdue' %}
+                                                    <span class="badge bg-danger">Overdue</span>
+                                                {% elif invoice.payment_status|lower == 'draft' %}
+                                                    <span class="badge bg-secondary">Draft</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">{{ invoice.payment_status|title }}</span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="badge bg-success">Paid</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="px-3 text-center text-nowrap">
+                                            {% if invoice.status %}
+                                                {% if invoice.status|lower == 'paid' or invoice.status|lower == 'completed' %}
+                                                    <span class="badge bg-success">{{ invoice.status|title }}</span>
+                                                {% elif invoice.status|lower == 'pending' %}
+                                                    <span class="badge bg-warning text-dark">Pending</span>
+                                                {% elif invoice.status|lower == 'overdue' %}
+                                                    <span class="badge bg-danger">Overdue</span>
+                                                {% elif invoice.status|lower == 'draft' %}
+                                                    <span class="badge bg-secondary">Draft</span>
+                                                {% else %}
+                                                    <span class="badge bg-info text-dark">{{ invoice.status|title }}</span>
+                                                {% endif %}
+                                            {% elif invoice.invoice_status %}
+                                                <span class="badge bg-secondary">{{ invoice.invoice_status|title }}</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Draft</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="px-3 text-center text-nowrap">
+                                            <div class="btn-group btn-group-sm" role="group" aria-label="Invoice Actions">
+                                                <a href="{% url 'invoice_preview' invoice.pk %}" class="btn btn-outline-primary" title="Preview Invoice">
+                                                    <i class="bi bi-eye me-1"></i>Preview
                                                 </a>
-                                                <a href="{% url 'invoice_detail' invoice.pk %}" class="pdf-action-btn" style="background-color: #4b5563;" title="View Details">
-                                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                                    </svg>
-                                                    <span>View</span>
+                                                <a href="{% url 'invoice_detail' invoice.pk %}" class="btn btn-outline-secondary" title="View Details">
+                                                    <i class="bi bi-card-text me-1"></i>View
                                                 </a>
-                                                <a href="{% url 'invoice_pdf_download' invoice.pk %}" class="pdf-action-btn" title="Download PDF">
-                                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                                    </svg>
-                                                    <span>PDF</span>
+                                                <a href="{% url 'invoice_pdf_download' invoice.pk %}" class="btn btn-outline-danger" title="Download PDF">
+                                                    <i class="bi bi-file-earmark-pdf me-1"></i>PDF
                                                 </a>
-                                                <button type="button" onclick="openQrModal('{{ invoice.pk }}', '{{ invoice.invoice_number|escapejs }}', '{{ invoice.customer.name|escapejs }}', '{{ invoice.total_item_qty }}', '{{ invoice.grand_total }}')" class="qr-action-btn" title="View Invoice QR Code">
-                                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
-                                                    </svg>
-                                                    <span>View QR</span>
+                                                <button type="button" onclick="openQrModal('{{ invoice.pk }}', '{{ invoice.invoice_number|escapejs }}', '{{ invoice.customer.name|escapejs }}', '{{ invoice.total_item_qty }}', '{{ invoice.grand_total }}')" class="btn btn-outline-success" title="View Invoice QR Code">
+                                                    <i class="bi bi-qr-code me-1"></i>QR
                                                 </button>
                                             </div>
                                         </td>
@@ -863,57 +931,75 @@
 
                     <!-- Pagination -->
                     {% if page_obj.has_other_pages %}
-                        <div class="pagination-container">
-                            <div class="pagination-info">
-                                Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} invoices
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 mt-4 pt-2">
+                            <div class="text-muted small">
+                                Showing <strong>{{ page_obj.start_index }}</strong> to <strong>{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> invoices
                             </div>
-                            <nav class="pagination-nav">
-                                {% if page_obj.has_previous %}
-                                    <a href="?{% if query %}q={{ query }}&{% endif %}page={{ page_obj.previous_page_number }}" class="page-link">← Previous</a>
-                                {% else %}
-                                    <span class="page-link disabled">← Previous</span>
-                                {% endif %}
-
-                                {% for num in page_obj.paginator.page_range %}
-                                    {% if page_obj.number == num %}
-                                        <span class="page-link active">{{ num }}</span>
-                                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                                        <a href="?{% if query %}q={{ query }}&{% endif %}page={{ num }}" class="page-link">{{ num }}</a>
+                            <nav aria-label="Invoice pagination">
+                                <ul class="pagination pagination-sm mb-0">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?{% if query %}q={{ query }}&{% endif %}page={{ page_obj.previous_page_number }}" aria-label="Previous">
+                                                &laquo; Previous
+                                            </a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">&laquo; Previous</span>
+                                        </li>
                                     {% endif %}
-                                {% endfor %}
 
-                                {% if page_obj.has_next %}
-                                    <a href="?{% if query %}q={{ query }}&{% endif %}page={{ page_obj.next_page_number }}" class="page-link">Next →</a>
-                                {% else %}
-                                    <span class="page-link disabled">Next →</span>
-                                {% endif %}
+                                    {% for num in page_obj.paginator.page_range %}
+                                        {% if page_obj.number == num %}
+                                            <li class="page-item active" aria-current="page">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?{% if query %}q={{ query }}&{% endif %}page={{ num }}">{{ num }}</a>
+                                            </li>
+                                        {% endif %}
+                                    {% endfor %}
+
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?{% if query %}q={{ query }}&{% endif %}page={{ page_obj.next_page_number }}" aria-label="Next">
+                                                Next &raquo;
+                                            </a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">Next &raquo;</span>
+                                        </li>
+                                    {% endif %}
+                                </ul>
                             </nav>
                         </div>
                     {% endif %}
 
                 {% elif query %}
                     <!-- No Search Results State -->
-                    <div class="empty-state">
-                        <div class="empty-state-icon">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                            </svg>
+                    <div class="text-center py-5 my-4 border rounded-3 bg-light">
+                        <div class="mb-3 text-muted">
+                            <i class="bi bi-search" style="font-size: 2.5rem;"></i>
                         </div>
-                        <h3>No invoices match your search</h3>
-                        <p>We couldn't find any invoices matching "<strong>{{ query }}</strong>".</p>
-                        <a href="{% url 'invoice_list' %}" class="empty-btn-secondary">Clear Search</a>
+                        <h4 class="fw-bold text-dark">No invoices match your search</h4>
+                        <p class="text-muted mb-3">We couldn't find any invoices matching "<strong>{{ query }}</strong>".</p>
+                        <a href="{% url 'invoice_list' %}" class="btn btn-outline-secondary btn-sm px-3">
+                            <i class="bi bi-x-circle me-1"></i> Clear Search
+                        </a>
                     </div>
                 {% else %}
                     <!-- No Invoices State -->
-                    <div class="empty-state">
-                        <div class="empty-state-icon">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                            </svg>
+                    <div class="text-center py-5 my-4 border rounded-3 bg-light">
+                        <div class="mb-3 text-muted">
+                            <i class="bi bi-receipt" style="font-size: 2.5rem;"></i>
                         </div>
-                        <h3>No Invoices Found</h3>
-                        <p>Create your first invoice to get started.</p>
-                        <a href="{% url 'create_invoice' %}" class="empty-btn">+ Create Invoice</a>
+                        <h4 class="fw-bold text-dark">No Invoices Found</h4>
+                        <p class="text-muted mb-3">Create your first invoice to get started.</p>
+                        <a href="{% url 'create_invoice' %}" class="btn btn-primary btn-sm px-3">
+                            <i class="bi bi-plus-lg me-1"></i> Create Invoice
+                        </a>
                     </div>
                 {% endif %}
             </div>
@@ -1000,5 +1086,7 @@
             }
         };
     </script>
+    <!-- Local Offline Bootstrap 5 JS Bundle -->
+    <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
 </body>
 </html>

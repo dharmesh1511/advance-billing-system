@@ -21,19 +21,34 @@
             <div class="brand-logo" aria-hidden="true">AB</div>
             <div class="brand-text-container">
                 <span class="brand-title-text">Advance Billing</span>
-                <span class="brand-subtitle-text">Distributor Portal</span>
+                <span class="brand-subtitle-text">{% if request.user.is_staff or request.user.is_superuser %}Admin Panel{% else %}Distributor Portal{% endif %}</span>
             </div>
         </div>
 
         <nav class="sidebar-nav" aria-label="Main Navigation">
             <div class="nav-section-title">Operations</div>
 
+            {% if request.user.is_staff or request.user.is_superuser %}
+            <a href="{% url 'admin_dashboard' %}" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                </svg>
+                <span>Dashboard</span>
+            </a>
+            <a href="{% url 'admin_reports' %}" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+                <span>Reports & Analytics</span>
+            </a>
+            {% else %}
             <a href="{% url 'distributor_dashboard' %}" class="nav-item {% block nav_dashboard %}{% endblock %}">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
                 </svg>
                 <span>Dashboard</span>
             </a>
+            {% endif %}
 
             <a href="{% url 'customer_list' %}" class="nav-item {% block nav_customers %}{% endblock %}">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -70,6 +85,7 @@
                 <span>Decode QR Code</span>
             </a>
 
+            {% if not request.user.is_staff and not request.user.is_superuser %}
             <div class="nav-section-title" style="margin-top: 12px;">Account</div>
 
             <a href="{% url 'distributor_profile' %}" class="nav-item {% block nav_profile %}{% endblock %}">
@@ -78,6 +94,7 @@
                 </svg>
                 <span>Profile</span>
             </a>
+            {% endif %}
         </nav>
 
         <div class="sidebar-footer">
@@ -98,7 +115,7 @@
                 {% block breadcrumbs %}
                 <nav class="breadcrumb-nav" aria-label="Breadcrumb">
                     <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a href="{% url 'distributor_dashboard' %}">Dashboard</a></li>
+                        <li class="breadcrumb-item"><a href="{% if request.user.is_staff or request.user.is_superuser %}{% url 'admin_dashboard' %}{% else %}{% url 'distributor_dashboard' %}{% endif %}">Dashboard</a></li>
                         {% block breadcrumb_items %}{% endblock %}
                     </ol>
                 </nav>
@@ -110,6 +127,17 @@
             <div class="header-actions">
                 {% block header_actions %}{% endblock %}
 
+                {% if request.user.is_staff or request.user.is_superuser %}
+                <div class="user-profile-badge" title="Administrator Account">
+                    <div class="avatar-circle" style="background-color: #2563eb;">
+                        {{ request.user.username|slice:":1"|upper|default:"A" }}
+                    </div>
+                    <div class="user-info">
+                        <span class="user-name">{{ request.user.get_full_name|default:request.user.username }}</span>
+                        <span class="user-role" style="color: #2563eb; font-weight: 600;">Administrator</span>
+                    </div>
+                </div>
+                {% else %}
                 <a href="{% url 'distributor_profile' %}" class="user-profile-badge" title="View Profile">
                     <div class="avatar-circle">
                         {{ request.user.username|slice:":1"|upper|default:"D" }}
@@ -119,6 +147,7 @@
                         <span class="user-role">Distributor</span>
                     </div>
                 </a>
+                {% endif %}
             </div>
         </header>
 
