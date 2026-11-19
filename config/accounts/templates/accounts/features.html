@@ -1,0 +1,445 @@
+{% extends "accounts/base_public.html" %}
+{% load static %}
+
+{% block title %}Features & Capabilities | Advance Billing System{% endblock %}
+{% block meta_description %}Explore the full suite of features: dynamic invoicing, customer directories, product
+catalogs, A4 PDF generation, and scannable QR verification.{% endblock %}
+
+{% block content %}
+<!-- PAGE HEADER BANNER -->
+<section class="page-header-banner">
+    <div class="container">
+        <span class="page-header-tag">Comprehensive Capabilities</span>
+        <h1 class="page-header-title">Platform Features & Tools</h1>
+        <p class="page-header-desc">
+            Discover how Advance Billing System empowers distributors with precision invoicing, real-time calculations,
+            automated tax handling, and verifiable QR codes.
+        </p>
+    </div>
+</section>
+
+<!-- MAIN FEATURES SECTION -->
+<section class="py-5" style="background-color: #ffffff;">
+    <div class="container py-4">
+
+        <!-- FEATURE 1: INVOICE MANAGEMENT -->
+        <div class="row align-items-center g-5 mb-5 pb-4 border-bottom">
+            <div class="col-lg-6">
+                <div
+                    class="d-inline-flex align-items-center gap-2 px-3 py-1 bg-primary-subtle text-primary border border-primary-subtle rounded-pill small fw-bold mb-3">
+                    <i class="bi bi-receipt"></i> INVOICING ENGINE
+                </div>
+                <h2 class="fw-bold text-dark mb-3">Dynamic Invoice Management & Tracking</h2>
+                <p class="text-muted mb-4">
+                    Create itemized commercial invoices in seconds. Our calculation engine automatically totals line
+                    items, factors in quantity and unit rates, applies GST percentages, and manages custom discounts
+                    without any manual calculation errors.
+                </p>
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            <div>
+                                <strong class="text-dark small d-block">Automated Math</strong>
+                                <span class="text-muted small">Subtotals, tax slabs, discounts, and grand totals.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            <div>
+                                <strong class="text-dark small d-block">Status Badges</strong>
+                                <span class="text-muted small">Track Paid, Pending, Overdue, and Draft invoices.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            <div>
+                                <strong class="text-dark small d-block">Interactive Preview</strong>
+                                <span class="text-muted small">Inspect formatted invoice screens before printing.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            <div>
+                                <strong class="text-dark small d-block">Fast Search</strong>
+                                <span class="text-muted small">Locate invoices instantly by number or customer
+                                    name.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="p-4 bg-light rounded-4 border shadow-sm">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="fw-bold text-dark"><i class="bi bi-file-text me-1 text-primary"></i> Invoice
+                            Preview Mockup</span>
+                        <span class="badge bg-success">PAID</span>
+                    </div>
+                    <div class="bg-white p-3 rounded-3 border mb-3">
+                        <div class="d-flex justify-content-between small text-muted mb-2">
+                            <span>Invoice No: <strong>INV-2026-0042</strong></span>
+                            <span>Date: <strong>18 Nov 2026</strong></span>
+                        </div>
+                        <div class="d-flex justify-content-between small text-muted">
+                            <span>Client: <strong>Metro Distributing Corp</strong></span>
+                            <span>Payment: <strong>Direct Bank Transfer</strong></span>
+                        </div>
+                    </div>
+                    <div class="table-responsive bg-white rounded-3 border mb-3">
+                        <table class="table table-sm table-bordered align-middle mb-0 small">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Item</th>
+                                    <th class="text-center">Qty</th>
+                                    <th class="text-end">Rate</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Commercial Solar Inverter 5kVA</td>
+                                    <td class="text-center">2</td>
+                                    <td class="text-end">₹32,000</td>
+                                    <td class="text-end fw-semibold">₹64,000</td>
+                                </tr>
+                                <tr>
+                                    <td>Heavy Duty Battery 200Ah</td>
+                                    <td class="text-center">4</td>
+                                    <td class="text-end">₹14,500</td>
+                                    <td class="text-end fw-semibold">₹58,000</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center small px-2">
+                        <span class="text-muted">GST (18%): ₹21,960</span>
+                        <span class="fw-bold text-dark fs-6">Grand Total: <span
+                                class="text-primary">₹1,43,960</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FEATURE 2: CUSTOMER DIRECTORY -->
+        <div class="row align-items-center g-5 mb-5 pb-4 border-bottom flex-lg-row-reverse">
+            <div class="col-lg-6">
+                <div
+                    class="d-inline-flex align-items-center gap-2 px-3 py-1 bg-success-subtle text-success border border-success-subtle rounded-pill small fw-bold mb-3">
+                    <i class="bi bi-people-fill"></i> CLIENT CRM
+                </div>
+                <h2 class="fw-bold text-dark mb-3">Structured Customer Management</h2>
+                <p class="text-muted mb-4">
+                    Store complete client profiles including telephone contacts, corporate emails, delivery addresses,
+                    state codes, and verified GSTIN numbers. Quickly pull existing customer details when creating an
+                    invoice with one click.
+                </p>
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            <div>
+                                <strong class="text-dark small d-block">GSTIN Storage</strong>
+                                <span class="text-muted small">Record tax identification for compliant B2B
+                                    billing.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            <div>
+                                <strong class="text-dark small d-block">Billing Histories</strong>
+                                <span class="text-muted small">Review all prior invoices generated for each
+                                    client.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            <div>
+                                <strong class="text-dark small d-block">Quick Edit & Update</strong>
+                                <span class="text-muted small">Modify customer addresses or contact numbers
+                                    anytime.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            <div>
+                                <strong class="text-dark small d-block">Instant Lookups</strong>
+                                <span class="text-muted small">Live search by customer name, phone, or email.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="p-4 bg-light rounded-4 border shadow-sm">
+                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-person-lines-fill me-1 text-success"></i>
+                        Customer Directory Card</h6>
+                    <div class="p-3 bg-white rounded-3 border mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong class="text-dark">Apex Retail Logistics Pvt Ltd</strong>
+                            <span class="badge bg-primary-subtle text-primary border small">Active Customer</span>
+                        </div>
+                        <div class="small text-muted mb-1"><i class="bi bi-telephone me-2"></i> +91 98765 43210</div>
+                        <div class="small text-muted mb-1"><i class="bi bi-envelope me-2"></i> billing@apexlogistics.in
+                        </div>
+                        <div class="small text-muted mb-1"><i class="bi bi-geo-alt me-2"></i> Industrial Area, Sector
+                            58, Gurugram</div>
+                        <div class="small text-muted"><i class="bi bi-card-checklist me-2"></i> GSTIN:
+                            <strong>07AAAAA0000A1Z5</strong>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center small px-2 text-muted">
+                        <span>Total Invoices: <strong>34 Invoices</strong></span>
+                        <span>Total Billed: <strong class="text-success">₹8,92,400</strong></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FEATURE 3: PDF INVOICE GENERATION -->
+        <div class="row align-items-center g-5 mb-5 pb-4 border-bottom">
+            <div class="col-lg-6">
+                <div
+                    class="d-inline-flex align-items-center gap-2 px-3 py-1 bg-danger-subtle text-danger border border-danger-subtle rounded-pill small fw-bold mb-3">
+                    <i class="bi bi-file-earmark-pdf-fill"></i> PRINT ENGINE
+                </div>
+                <h2 class="fw-bold text-dark mb-3">Pixel-Perfect A4 PDF Invoices</h2>
+                <p class="text-muted mb-4">
+                    Equipped with deep ReportLab and xhtml2pdf integration, our system compiles beautiful, standardized
+                    A4 portrait documents complete with your branding, distributor details, table grids, GST breakdowns,
+                    and scannable QR verification code.
+                </p>
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            <div>
+                                <strong class="text-dark small d-block">One-Click Download</strong>
+                                <span class="text-muted small">Instant browser download with sanitized filenames.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            <div>
+                                <strong class="text-dark small d-block">Standard A4 Layout</strong>
+                                <span class="text-muted small">Formatted to avoid awkward page breaks across
+                                    tables.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            <div>
+                                <strong class="text-dark small d-block">Distributor Branding</strong>
+                                <span class="text-muted small">Automatic company name, address, and logo
+                                    embedding.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            <div>
+                                <strong class="text-dark small d-block">Failure Guard</strong>
+                                <span class="text-muted small">Graceful backend error handling with clear alerts.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="p-4 bg-light rounded-4 border shadow-sm text-center">
+                    <div class="p-4 bg-white rounded-3 border d-inline-block shadow-sm"
+                        style="max-width: 380px; width: 100%;">
+                        <div
+                            class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3 text-start">
+                            <div>
+                                <h6 class="fw-bold mb-0 text-dark">TAX INVOICE</h6>
+                                <small class="text-muted">Advance Billing System</small>
+                            </div>
+                            <i class="bi bi-receipt-cutoff fs-2 text-primary"></i>
+                        </div>
+                        <div class="text-start small text-muted mb-3">
+                            <div>Original for Recipient</div>
+                            <div class="fw-bold text-dark">INV-2026-9021</div>
+                        </div>
+                        <div class="p-3 bg-light rounded-3 text-center my-3 border border-dashed">
+                            <i class="bi bi-qr-code text-dark" style="font-size: 80px;"></i>
+                            <div class="small text-muted mt-1" style="font-size: 11px;">Scannable Payload Embedded</div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top small">
+                            <span class="text-muted">Format: <strong>A4 Portrait</strong></span>
+                            <span class="text-danger fw-bold"><i class="bi bi-file-earmark-pdf me-1"></i> PDF
+                                Ready</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FEATURE 4: DYNAMIC QR CODE ENGINE -->
+        <div class="row align-items-center g-5 mb-5 pb-4 border-bottom flex-lg-row-reverse">
+            <div class="col-lg-6">
+                <div
+                    class="d-inline-flex align-items-center gap-2 px-3 py-1 bg-success-subtle text-success border border-success-subtle rounded-pill small fw-bold mb-3">
+                    <i class="bi bi-qr-code-scan"></i> SECURITY & VERIFICATION
+                </div>
+                <h2 class="fw-bold text-dark mb-3">Dynamic QR Codes & Verification</h2>
+                <p class="text-muted mb-4">
+                    Every invoice includes a dynamically generated QR code that packages invoice number, client
+                    identity, gross total, and verification timestamps. Built-in decoder tool allows distributors to
+                    upload and verify invoice QR codes directly on the web.
+                </p>
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            <div>
+                                <strong class="text-dark small d-block">Offline Compatible</strong>
+                                <span class="text-muted small">Embeds full Base64 PNG data into PDFs without external
+                                    CDN.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            <div>
+                                <strong class="text-dark small d-block">QR Modal Preview</strong>
+                                <span class="text-muted small">One-click QR preview modal directly from the invoice
+                                    list.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            <div>
+                                <strong class="text-dark small d-block">Downloadable QR</strong>
+                                <span class="text-muted small">Export QR image standalone for packaging slips or
+                                    stickers.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            <div>
+                                <strong class="text-dark small d-block">Decoder Tool</strong>
+                                <span class="text-muted small">Web-based scanner to decode and inspect invoice
+                                    payloads.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="p-4 bg-light rounded-4 border shadow-sm">
+                    <div class="p-3 bg-white rounded-3 border mb-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="p-3 bg-light rounded-3 border text-center">
+                                <i class="bi bi-qr-code fs-1 text-dark"></i>
+                            </div>
+                            <div>
+                                <span class="badge bg-success-subtle text-success border small mb-1">Payload
+                                    Verified</span>
+                                <h6 class="fw-bold text-dark mb-1">Decoded Invoice Data</h6>
+                                <small class="text-muted">Extracted from invoice QR matrix payload</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-3 bg-white rounded-3 border font-monospace small"
+                        style="font-size: 12px; line-height: 1.6; color: #1e293b;">
+                        <div>{</div>
+                        <div class="ps-3">"invoice_id": "INV-2026-0891",</div>
+                        <div class="ps-3">"customer": "Quantum Logistics Ltd",</div>
+                        <div class="ps-3">"total_amount": "42850.00",</div>
+                        <div class="ps-3">"items_count": 6,</div>
+                        <div class="ps-3">"issued_date": "2026-11-18",</div>
+                        <div class="ps-3">"status": "PAID"</div>
+                        <div>}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FEATURE 5 & 6: PRODUCT & REPORTS -->
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="p-4 bg-light rounded-4 border h-100">
+                    <div class="feature-icon-box mb-3">
+                        <i class="bi bi-box-seam-fill"></i>
+                    </div>
+                    <h4 class="fw-bold text-dark mb-2">Product & SKU Catalog Management</h4>
+                    <p class="text-muted small mb-3">
+                        Organize your products with custom SKUs, tax categories, descriptions, and default unit prices.
+                        Filter through products in real-time when populating new billing entries.
+                    </p>
+                    <ul class="list-unstyled small text-muted mb-0">
+                        <li class="mb-2"><i class="bi bi-check text-success fs-5 me-1"></i> Unique SKU tracking</li>
+                        <li class="mb-2"><i class="bi bi-check text-success fs-5 me-1"></i> Customizable unit rates and
+                            taxes</li>
+                        <li><i class="bi bi-check text-success fs-5 me-1"></i> Fast autocomplete in invoice builder</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="p-4 bg-light rounded-4 border h-100">
+                    <div class="feature-icon-box mb-3">
+                        <i class="bi bi-graph-up-arrow"></i>
+                    </div>
+                    <h4 class="fw-bold text-dark mb-2">Financial Reports & Statistics</h4>
+                    <p class="text-muted small mb-3">
+                        Review billing summaries across custom date ranges. Analyze revenue trajectories, track GST
+                        collected, and export clean CSV reports ready for accounting audits.
+                    </p>
+                    <ul class="list-unstyled small text-muted mb-0">
+                        <li class="mb-2"><i class="bi bi-check text-success fs-5 me-1"></i> Comprehensive date-range
+                            filters</li>
+                        <li class="mb-2"><i class="bi bi-check text-success fs-5 me-1"></i> Exportable CSV and PDF
+                            statements</li>
+                        <li><i class="bi bi-check text-success fs-5 me-1"></i> Subtotal and tax collections analytics
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<!-- CTA SECTION -->
+<section class="cta-banner-section">
+    <div class="container">
+        <div class="cta-banner-card text-center">
+            <h2 class="fw-bold mb-3" style="font-size: 32px;">Experience All Features Today</h2>
+            <p class="text-slate-300 mx-auto mb-4" style="max-width: 540px; font-size: 16px; color: #cbd5e1;">
+                Get started with your free distributor profile and explore automated, scannable billing.
+            </p>
+            <div class="d-flex justify-content-center flex-wrap gap-3">
+                <a href="{% url 'distributor_register' %}" class="btn btn-primary px-4 py-3 fw-bold rounded-3 shadow">
+                    Register as Distributor
+                </a>
+                <a href="{% url 'distributor_login' %}" class="btn btn-outline-light px-4 py-3 fw-semibold rounded-3">
+                    Distributor Login
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,164 @@
+{% extends "accounts/base_public.html" %}
+{% load static %}
+
+{% block title %}About Us | Advance Billing System{% endblock %}
+{% block meta_description %}Learn about the mission, architecture, and technology behind Advance Billing
+System—delivering high-performance, compliant commercial billing solutions.{% endblock %}
+
+{% block content %}
+<!-- PAGE HEADER BANNER -->
+<section class="page-header-banner">
+    <div class="container">
+        <span class="page-header-tag">Our Mission & Platform</span>
+        <h1 class="page-header-title">About Advance Billing System</h1>
+        <p class="page-header-desc">
+            Empowering modern commercial enterprises and distributor networks with secure, automated, and audit-ready
+            billing technology.
+        </p>
+    </div>
+</section>
+
+<!-- MISSION & STORY -->
+<section class="py-5" style="background-color: #ffffff;">
+    <div class="container py-4">
+        <div class="row align-items-center g-5 mb-5 pb-4 border-bottom">
+            <div class="col-lg-6">
+                <span class="section-tag">Who We Are</span>
+                <h2 class="fw-bold text-dark mb-3">Engineered to Eliminate Invoicing Friction</h2>
+                <p class="text-body mb-3">
+                    Advance Billing System was designed to address the persistent challenges in commercial distribution:
+                    arithmetic invoicing errors, inconsistent PDF layouts, untracked client billing records, and the
+                    absence of scannable transaction verification.
+                </p>
+                <p class="text-muted mb-4">
+                    Our platform brings together dynamic arithmetic engines, certified A4 PDF generation via ReportLab
+                    and xhtml2pdf, and offline-compatible QR codes. Distributors can create, manage, and dispatch
+                    professional invoices in seconds, while maintaining an uncompromised audit trail.
+                </p>
+                <div class="d-flex gap-3">
+                    <div class="p-3 bg-light rounded-3 border">
+                        <strong class="d-block text-dark fs-5 fw-bold text-primary">100%</strong>
+                        <small class="text-muted">GST Compliant Calculation</small>
+                    </div>
+                    <div class="p-3 bg-light rounded-3 border">
+                        <strong class="d-block text-dark fs-5 fw-bold text-success">A4</strong>
+                        <small class="text-muted">Standardized PDF Export</small>
+                    </div>
+                    <div class="p-3 bg-light rounded-3 border">
+                        <strong class="d-block text-dark fs-5 fw-bold text-dark">QR</strong>
+                        <small class="text-muted">Dynamic Verification Code</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="p-4 p-md-5 bg-dark text-white rounded-4 shadow-lg position-relative overflow-hidden">
+                    <div class="d-flex align-items-center gap-3 mb-4">
+                        <div class="brand-icon-box" style="width: 50px; height: 50px; font-size: 24px;">
+                            <i class="bi bi-receipt-cutoff"></i>
+                        </div>
+                        <div>
+                            <h4 class="fw-bold mb-0 text-white">Advance Billing</h4>
+                            <span class="text-slate-400 small" style="color: #94a3b8;">Commercial SaaS
+                                Architecture</span>
+                        </div>
+                    </div>
+                    <p class="text-slate-300 small mb-4" style="color: #cbd5e1; line-height: 1.7;">
+                        "Our core objective is to deliver a billing system that distributors love using every single
+                        day: fast, zero-clutter, perfectly calculated, and instantly exportable to certified PDF
+                        documents."
+                    </p>
+                    <div class="d-flex align-items-center justify-content-between pt-3 border-top border-secondary">
+                        <span class="badge bg-primary px-3 py-2">Enterprise Ready</span>
+                        <span class="small text-slate-400" style="color: #94a3b8;">Version 2.0 Production</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CORE PILLARS -->
+        <div class="section-header">
+            <span class="section-tag">Core Architecture</span>
+            <h2 class="section-title">Built on Four Technical Pillars</h2>
+            <p class="section-subtitle">
+                Robust engineering decisions that guarantee reliability and compliance.
+            </p>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <div class="col-lg-3 col-md-6">
+                <div class="p-4 bg-light rounded-3 border h-100">
+                    <div class="feature-icon-box mb-3">
+                        <i class="bi bi-shield-check"></i>
+                    </div>
+                    <h5 class="fw-bold text-dark mb-2">Automated Compliance</h5>
+                    <p class="text-muted small mb-0">
+                        Built-in GST distribution, precise rounding, and mandatory tax invoice fields ensure every
+                        dispatch is audit-compliant.
+                    </p>
+                </div>
+            </div>
+
+            <div class="col-lg-3 col-md-6">
+                <div class="p-4 bg-light rounded-3 border h-100">
+                    <div class="feature-icon-box mb-3">
+                        <i class="bi bi-file-earmark-pdf"></i>
+                    </div>
+                    <h5 class="fw-bold text-dark mb-2">High-Speed PDFs</h5>
+                    <p class="text-muted small mb-0">
+                        Native ReportLab and xhtml2pdf backend pipeline converts HTML billing data into print-ready A4
+                        PDFs in milliseconds.
+                    </p>
+                </div>
+            </div>
+
+            <div class="col-lg-3 col-md-6">
+                <div class="p-4 bg-light rounded-3 border h-100">
+                    <div class="feature-icon-box mb-3">
+                        <i class="bi bi-qr-code"></i>
+                    </div>
+                    <h5 class="fw-bold text-dark mb-2">Cryptographic QR</h5>
+                    <p class="text-muted small mb-0">
+                        Embeds invoice payloads directly into PNG matrix data URIs, enabling offline mobile scanning and
+                        instant receipt verification.
+                    </p>
+                </div>
+            </div>
+
+            <div class="col-lg-3 col-md-6">
+                <div class="p-4 bg-light rounded-3 border h-100">
+                    <div class="feature-icon-box mb-3">
+                        <i class="bi bi-lock-fill"></i>
+                    </div>
+                    <h5 class="fw-bold text-dark mb-2">Role Isolation</h5>
+                    <p class="text-muted small mb-0">
+                        Strict session management, CSRF validation, and decorator-level authorization to protect
+                        distributor data boundaries.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<!-- CTA SECTION -->
+<section class="cta-banner-section">
+    <div class="container">
+        <div class="cta-banner-card text-center">
+            <h2 class="fw-bold mb-3" style="font-size: 32px;">Join Advance Billing System</h2>
+            <p class="text-slate-300 mx-auto mb-4" style="max-width: 540px; font-size: 16px; color: #cbd5e1;">
+                Start issuing certified invoices and streamlining your distributor operations today.
+            </p>
+            <div class="d-flex justify-content-center flex-wrap gap-3">
+                <a href="{% url 'distributor_register' %}" class="btn btn-primary px-4 py-3 fw-bold rounded-3 shadow">
+                    Create Distributor Account
+                </a>
+                <a href="{% url 'distributor_login' %}" class="btn btn-outline-light px-4 py-3 fw-semibold rounded-3">
+                    Distributor Login
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

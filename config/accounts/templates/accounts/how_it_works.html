@@ -1,0 +1,263 @@
+{% extends "accounts/base_public.html" %}
+{% load static %}
+
+{% block title %}How It Works | Advance Billing System{% endblock %}
+{% block meta_description %}Learn the complete 5-step billing lifecycle: onboarding, customer and product management,
+dynamic invoicing, QR code generation, and A4 PDF export.{% endblock %}
+
+{% block content %}
+<!-- PAGE HEADER BANNER -->
+<section class="page-header-banner">
+    <div class="container">
+        <span class="page-header-tag">Operational Workflow</span>
+        <h1 class="page-header-title">How Advance Billing Works</h1>
+        <p class="page-header-desc">
+            A frictionless, five-step billing journey from initial distributor onboarding to exporting verified,
+            scannable A4 PDF invoices.
+        </p>
+    </div>
+</section>
+
+<!-- WORKFLOW STEPS -->
+<section class="py-5" style="background-color: #ffffff;">
+    <div class="container py-4">
+
+        <!-- STEP 1 -->
+        <div class="row align-items-center g-5 mb-5 pb-4 border-bottom">
+            <div class="col-lg-2 text-center text-lg-start">
+                <div class="d-inline-flex align-items-center justify-content-center bg-dark text-white rounded-4 fw-bold fs-2 shadow"
+                    style="width: 80px; height: 80px;">
+                    01
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <span
+                    class="badge bg-primary-subtle text-primary border border-primary-subtle small fw-bold mb-2">ONBOARDING</span>
+                <h3 class="fw-bold text-dark mb-2">Create Your Distributor Profile</h3>
+                <p class="text-muted mb-0">
+                    Register in less than two minutes with your username, email, phone number, and business details.
+                    After setting up your secure password, your dedicated distributor workspace is ready instantly
+                    without complex approval wait times.
+                </p>
+            </div>
+            <div class="col-lg-4">
+                <div class="p-3 bg-light rounded-3 border text-center">
+                    <i class="bi bi-person-check-fill text-primary fs-1 mb-2"></i>
+                    <h6 class="fw-bold text-dark mb-1">Instant Activation</h6>
+                    <small class="text-muted">Direct access to all billing & customer modules</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 2 -->
+        <div class="row align-items-center g-5 mb-5 pb-4 border-bottom">
+            <div class="col-lg-2 text-center text-lg-start">
+                <div class="d-inline-flex align-items-center justify-content-center bg-dark text-white rounded-4 fw-bold fs-2 shadow"
+                    style="width: 80px; height: 80px;">
+                    02
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <span class="badge bg-success-subtle text-success border border-success-subtle small fw-bold mb-2">DATA
+                    SETUP</span>
+                <h3 class="fw-bold text-dark mb-2">Add Customers & Product Catalogs</h3>
+                <p class="text-muted mb-0">
+                    Seed your master directory with client contacts, addresses, and GSTIN numbers. Add inventory items
+                    with custom SKUs, tax categories, and default unit prices. Once saved, these details autofill your
+                    invoices with a single keystroke.
+                </p>
+            </div>
+            <div class="col-lg-4">
+                <div class="p-3 bg-light rounded-3 border text-center">
+                    <i class="bi bi-database-fill-check text-success fs-1 mb-2"></i>
+                    <h6 class="fw-bold text-dark mb-1">Centralized Catalog</h6>
+                    <small class="text-muted">Prevents duplicate entries and ensures consistent rates</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 3 -->
+        <div class="row align-items-center g-5 mb-5 pb-4 border-bottom">
+            <div class="col-lg-2 text-center text-lg-start">
+                <div class="d-inline-flex align-items-center justify-content-center bg-dark text-white rounded-4 fw-bold fs-2 shadow"
+                    style="width: 80px; height: 80px;">
+                    03
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <span
+                    class="badge bg-info-subtle text-info-emphasis border border-info-subtle small fw-bold mb-2">CALCULATION</span>
+                <h3 class="fw-bold text-dark mb-2">Assemble & Preview Dynamic Invoices</h3>
+                <p class="text-muted mb-0">
+                    Select your customer and append line items with their quantities. The invoice engine calculates
+                    individual totals, sums subtotals, factors in GST rates, and applies discounts in real-time. Inspect
+                    the formatted draft before finalizing.
+                </p>
+            </div>
+            <div class="col-lg-4">
+                <div class="p-3 bg-light rounded-3 border text-center">
+                    <i class="bi bi-calculator text-info fs-1 mb-2"></i>
+                    <h6 class="fw-bold text-dark mb-1">Zero Manual Errors</h6>
+                    <small class="text-muted">Automated GST and subtotal arithmetic engine</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 4 -->
+        <div class="row align-items-center g-5 mb-5 pb-4 border-bottom">
+            <div class="col-lg-2 text-center text-lg-start">
+                <div class="d-inline-flex align-items-center justify-content-center bg-dark text-white rounded-4 fw-bold fs-2 shadow"
+                    style="width: 80px; height: 80px;">
+                    04
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <span
+                    class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle small fw-bold mb-2">SECURITY</span>
+                <h3 class="fw-bold text-dark mb-2">Dynamic QR Code Generation</h3>
+                <p class="text-muted mb-0">
+                    Upon invoice creation, our backend compiles a cryptographic payload combining the invoice number,
+                    distributor id, client identity, gross amount, and issue date into an offline-verifiable matrix QR
+                    code, embedded cleanly on every document.
+                </p>
+            </div>
+            <div class="col-lg-4">
+                <div class="p-3 bg-light rounded-3 border text-center">
+                    <i class="bi bi-qr-code text-warning fs-1 mb-2"></i>
+                    <h6 class="fw-bold text-dark mb-1">Scannable Verification</h6>
+                    <small class="text-muted">Compatible with mobile cameras and web decoder</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 5 -->
+        <div class="row align-items-center g-5">
+            <div class="col-lg-2 text-center text-lg-start">
+                <div class="d-inline-flex align-items-center justify-content-center bg-dark text-white rounded-4 fw-bold fs-2 shadow"
+                    style="width: 80px; height: 80px;">
+                    05
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <span
+                    class="badge bg-danger-subtle text-danger border border-danger-subtle small fw-bold mb-2">EXPORT</span>
+                <h3 class="fw-bold text-dark mb-2">Download & Print A4 PDF Invoices</h3>
+                <p class="text-muted mb-0">
+                    Download standardized A4 PDF invoices anytime with one click. Invoices are archived permanently in
+                    your history, allowing you to re-download, preview QR codes, review status indicators, or print
+                    client copies at your convenience.
+                </p>
+            </div>
+            <div class="col-lg-4">
+                <div class="p-3 bg-light rounded-3 border text-center">
+                    <i class="bi bi-printer-fill text-danger fs-1 mb-2"></i>
+                    <h6 class="fw-bold text-dark mb-1">Print & Share Ready</h6>
+                    <small class="text-muted">Standardized A4 portrait formatting</small>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<!-- FREQUENTLY ASKED QUESTIONS -->
+<section class="py-5" style="background-color: var(--gray-bg);">
+    <div class="container py-4">
+        <div class="section-header">
+            <span class="section-tag">FAQ</span>
+            <h2 class="section-title">Common Questions</h2>
+            <p class="section-subtitle">
+                Clear answers regarding our billing workflows and invoice exports.
+            </p>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="accordion shadow-sm rounded-3" id="workflowFaqAccordion">
+                    <div class="accordion-item border-0 mb-2 rounded-3 overflow-hidden">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button fw-bold text-dark" type="button" data-bs-toggle="collapse"
+                                data-bs-target="#faq1">
+                                Are the QR codes scannable without internet access?
+                            </button>
+                        </h2>
+                        <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#workflowFaqAccordion">
+                            <div class="accordion-body text-muted small">
+                                Yes. The QR code contains the full structured JSON payload of the invoice (invoice
+                                number, customer, total amount, timestamp) embedded directly into the matrix, making it
+                                readable by standard mobile cameras and barcode scanners even offline.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item border-0 mb-2 rounded-3 overflow-hidden">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed fw-bold text-dark" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#faq2">
+                                How does the system calculate GST and discounts?
+                            </button>
+                        </h2>
+                        <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#workflowFaqAccordion">
+                            <div class="accordion-body text-muted small">
+                                Each product line item has a specified rate and quantity. The system calculates line
+                                totals, aggregates the subtotal, adds the configured GST rate, applies discounts, and
+                                computes the final grand total with two-decimal precision.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item border-0 mb-2 rounded-3 overflow-hidden">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed fw-bold text-dark" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#faq3">
+                                Can I download the invoice PDF more than once?
+                            </button>
+                        </h2>
+                        <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#workflowFaqAccordion">
+                            <div class="accordion-body text-muted small">
+                                Absolutely. All invoices are permanently saved in your distributor invoice listing. You
+                                can download the PDF, preview the invoice online, or view its QR code whenever required.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item border-0 rounded-3 overflow-hidden">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed fw-bold text-dark" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#faq4">
+                                Is distributor registration open to any business?
+                            </button>
+                        </h2>
+                        <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#workflowFaqAccordion">
+                            <div class="accordion-body text-muted small">
+                                Yes. Any commercial distributor, vendor, or business owner can create an account using
+                                our registration form and begin managing customers and invoices immediately.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA SECTION -->
+<section class="cta-banner-section">
+    <div class="container">
+        <div class="cta-banner-card text-center">
+            <h2 class="fw-bold mb-3" style="font-size: 32px;">Ready to Try It Out?</h2>
+            <p class="text-slate-300 mx-auto mb-4" style="max-width: 540px; font-size: 16px; color: #cbd5e1;">
+                Set up your distributor profile in two minutes and create your first certified invoice.
+            </p>
+            <div class="d-flex justify-content-center flex-wrap gap-3">
+                <a href="{% url 'distributor_register' %}" class="btn btn-primary px-4 py-3 fw-bold rounded-3 shadow">
+                    Create Distributor Account
+                </a>
+                <a href="{% url 'distributor_login' %}" class="btn btn-outline-light px-4 py-3 fw-semibold rounded-3">
+                    Distributor Login
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

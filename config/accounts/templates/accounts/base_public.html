@@ -1,0 +1,482 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Advance Billing System | Smart Billing & Invoicing{% endblock %}</title>
+    <meta name="description" content="{% block meta_description %}Manage invoices, customers, products and business reports from one powerful billing platform.{% endblock %}">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Local Offline Bootstrap 5 CSS -->
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}">
+    <!-- Local Offline Bootstrap Icons -->
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
+
+    <style>
+        :root {
+            --navy-deep: #070d19;
+            --navy-dark: #0f172a;
+            --navy-surface: #1e293b;
+            --navy-light: #334155;
+            --blue-accent: #2563eb;
+            --blue-hover: #1d4ed8;
+            --blue-soft: #dbeafe;
+            --blue-glow: rgba(37, 99, 235, 0.25);
+            --emerald-accent: #10b981;
+            --emerald-soft: #d1fae5;
+            --gray-bg: #f8fafc;
+            --gray-surface: #ffffff;
+            --gray-border: #e2e8f0;
+            --text-heading: #0f172a;
+            --text-body: #475569;
+            --text-muted: #64748b;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--gray-bg);
+            color: var(--text-body);
+            line-height: 1.6;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        main {
+            flex: 1 0 auto;
+        }
+
+        a {
+            text-decoration: none;
+            transition: all 0.2s ease-in-out;
+        }
+
+        /* ---------------- NAVBAR ---------------- */
+        .navbar-custom {
+            background-color: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            position: sticky;
+            top: 0;
+            z-index: 1030;
+            padding: 14px 0;
+            transition: all 0.3s ease;
+        }
+
+        .navbar-brand-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-icon-box {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #ffffff;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+        }
+
+        .brand-text-block {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand-title {
+            font-size: 18px;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: -0.5px;
+            line-height: 1.2;
+        }
+
+        .brand-tagline {
+            font-size: 11px;
+            color: #94a3b8;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+
+        .nav-link-custom {
+            color: #cbd5e1 !important;
+            font-size: 14.5px;
+            font-weight: 500;
+            padding: 8px 16px !important;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .nav-link-custom:hover {
+            color: #ffffff !important;
+            background-color: rgba(255, 255, 255, 0.06);
+        }
+
+        .nav-link-custom.active {
+            color: #ffffff !important;
+            background-color: rgba(37, 99, 235, 0.2);
+            font-weight: 600;
+        }
+
+        .nav-link-custom.active::after {
+            content: "";
+            position: absolute;
+            bottom: 2px;
+            left: 16px;
+            right: 16px;
+            height: 2px;
+            background: #38bdf8;
+            border-radius: 2px;
+        }
+
+        .btn-nav-distributor {
+            color: #ffffff;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            border: 1px solid #3b82f6;
+            font-size: 13.5px;
+            font-weight: 600;
+            padding: 8px 18px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .btn-nav-distributor:hover {
+            color: #ffffff;
+            background: linear-gradient(135deg, #1d4ed8, #1e40af);
+            box-shadow: 0 6px 16px rgba(37, 99, 235, 0.45);
+            transform: translateY(-1px);
+        }
+
+        .btn-nav-register {
+            color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            font-size: 13.5px;
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-nav-register:hover {
+            color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.14);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .navbar-toggler {
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 6px 10px;
+            color: #ffffff;
+        }
+
+        .navbar-toggler:focus {
+            box-shadow: none;
+            border-color: #3b82f6;
+        }
+
+        /* ---------------- COMMON PAGE BANNER ---------------- */
+        .page-header-banner {
+            background-color: var(--navy-dark);
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(37, 99, 235, 0.18) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.12) 0%, transparent 45%),
+                linear-gradient(180deg, #0f172a 0%, #070d19 100%);
+            color: #ffffff;
+            padding: 70px 0 60px 0;
+            text-align: center;
+            position: relative;
+        }
+
+        .page-header-tag {
+            display: inline-block;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #60a5fa;
+            background-color: rgba(37, 99, 235, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 4px 14px;
+            border-radius: 9999px;
+            margin-bottom: 16px;
+        }
+
+        .page-header-title {
+            font-size: 38px;
+            font-weight: 800;
+            letter-spacing: -0.8px;
+            margin-bottom: 12px;
+            color: #ffffff;
+        }
+
+        .page-header-desc {
+            font-size: 16.5px;
+            color: #94a3b8;
+            max-width: 620px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* ---------------- CTA BANNER ---------------- */
+        .cta-banner-section {
+            background-color: #ffffff;
+            padding: 80px 0;
+        }
+
+        .cta-banner-card {
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            border-radius: var(--radius-xl);
+            padding: 50px 40px;
+            color: #ffffff;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .cta-banner-card::before {
+            content: "";
+            position: absolute;
+            top: -50%;
+            right: -10%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(37, 99, 235, 0.25) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        /* ---------------- FOOTER ---------------- */
+        .footer-section {
+            background-color: var(--navy-deep);
+            color: #94a3b8;
+            padding: 70px 0 30px 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            margin-top: auto;
+        }
+
+        .footer-title {
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 18px;
+            letter-spacing: 0.2px;
+        }
+
+        .footer-links {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .footer-links li {
+            margin-bottom: 10px;
+        }
+
+        .footer-links a {
+            color: #94a3b8;
+            font-size: 14px;
+            transition: color 0.2s ease;
+        }
+
+        .footer-links a:hover {
+            color: #ffffff;
+            padding-left: 3px;
+        }
+
+        .footer-bottom {
+            padding-top: 30px;
+            margin-top: 50px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 13px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        @media (min-width: 768px) {
+            .footer-bottom {
+                flex-direction: row;
+            }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <header>
+        <nav class="navbar navbar-expand-lg navbar-dark navbar-custom" aria-label="Main Navigation">
+            <div class="container">
+                <a class="navbar-brand navbar-brand-wrapper" href="{% url 'home' %}">
+                    <div class="brand-icon-box">
+                        <i class="bi bi-receipt-cutoff"></i>
+                    </div>
+                    <div class="brand-text-block">
+                        <span class="brand-title">Advance Billing</span>
+                        <span class="brand-tagline">Enterprise Suite</span>
+                    </div>
+                </a>
+
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMainCollapse" aria-controls="navbarMainCollapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <div class="collapse navbar-collapse" id="navbarMainCollapse">
+                    <ul class="navbar-nav mx-auto mb-2 mb-lg-0">
+                        <li class="nav-item">
+                            <a class="nav-link nav-link-custom {% if request.resolver_match.url_name == 'home' %}active{% endif %}" href="{% url 'home' %}">Home</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link nav-link-custom {% if request.resolver_match.url_name == 'features' %}active{% endif %}" href="{% url 'features' %}">Features</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link nav-link-custom {% if request.resolver_match.url_name == 'how_it_works' %}active{% endif %}" href="{% url 'how_it_works' %}">How It Works</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link nav-link-custom {% if request.resolver_match.url_name in 'about,about_us' %}active{% endif %}" href="{% url 'about' %}">About Us</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link nav-link-custom {% if request.resolver_match.url_name in 'contact,contact_us' %}active{% endif %}" href="{% url 'contact' %}">Contact</a>
+                        </li>
+                    </ul>
+
+                    <!-- DISTRIBUTOR ACTION BUTTONS -->
+                    <div class="d-flex align-items-center gap-2 mt-3 mt-lg-0">
+                        <a href="{% url 'distributor_login' %}" class="btn-nav-distributor" title="Access Distributor Portal">
+                            <i class="bi bi-box-arrow-in-right"></i>
+                            <span>Distributor Login</span>
+                        </a>
+                        <a href="{% url 'distributor_register' %}" class="btn-nav-register" title="Register Distributor Account">
+                            <i class="bi bi-person-plus"></i>
+                            <span>Register</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- FLASH MESSAGES -->
+    {% if messages %}
+    <div class="container mt-3">
+        {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show shadow-sm rounded-3" role="alert">
+            <i class="bi {% if message.tags == 'success' %}bi-check-circle-fill text-success{% else %}bi-info-circle-fill text-primary{% endif %} me-2"></i>
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- MAIN PAGE CONTENT -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer-section">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-lg-4 col-md-6">
+                    <div class="navbar-brand-wrapper mb-3">
+                        <div class="brand-icon-box" style="width: 36px; height: 36px; font-size: 18px;">
+                            <i class="bi bi-receipt-cutoff"></i>
+                        </div>
+                        <div class="brand-text-block">
+                            <span class="brand-title" style="font-size: 16px;">Advance Billing</span>
+                            <span class="brand-tagline">Enterprise Suite</span>
+                        </div>
+                    </div>
+                    <p style="font-size: 13.5px; line-height: 1.6; max-width: 320px;">
+                        A comprehensive, modern billing management platform with dynamic QR verification, professional PDF generation, and streamlined distributor workflows.
+                    </p>
+                </div>
+
+                <div class="col-lg-3 col-md-6 col-6">
+                    <h5 class="footer-title">Navigation</h5>
+                    <ul class="footer-links">
+                        <li><a href="{% url 'home' %}">Home</a></li>
+                        <li><a href="{% url 'features' %}">Features</a></li>
+                        <li><a href="{% url 'how_it_works' %}">How It Works</a></li>
+                        <li><a href="{% url 'about' %}">About Us</a></li>
+                        <li><a href="{% url 'contact' %}">Contact</a></li>
+                    </ul>
+                </div>
+
+                <div class="col-lg-3 col-md-6 col-6">
+                    <h5 class="footer-title">Distributor Portal</h5>
+                    <ul class="footer-links">
+                        <li><a href="{% url 'distributor_login' %}">Distributor Login</a></li>
+                        <li><a href="{% url 'distributor_register' %}">Distributor Registration</a></li>
+                        <li><a href="{% url 'forgot_password' %}">Reset Password</a></li>
+                    </ul>
+                </div>
+
+                <div class="col-lg-2 col-md-6">
+                    <h5 class="footer-title">Security</h5>
+                    <p style="font-size: 13px; line-height: 1.6; color: #94a3b8;">
+                        Protected with modern CSRF validation, secure sessions, and verified invoice QR payloads.
+                    </p>
+                    <div class="d-flex gap-2 text-slate-400" style="font-size: 14px;">
+                        <span class="badge bg-secondary p-2"><i class="bi bi-shield-check me-1"></i> Verified</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <div>
+                    &copy; {% now "Y" %} Advance Billing System. All rights reserved.
+                </div>
+                <div>
+                    Designed for High-Performance Billing & Distribution
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Local Offline Bootstrap 5 JS Bundle -->
+    <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

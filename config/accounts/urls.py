@@ -33,6 +33,13 @@ urlpatterns = [
     path("api/products/", billing_api_views.ProductListCreateAPIView.as_view(), name="api_product_list_create"),
     path("api/products/<int:pk>/", billing_api_views.ProductDetailAPIView.as_view(), name="api_product_detail"),
     path("api/qr/decode/", billing_api_views.QRCodeDecodeAPIView.as_view(), name="api_qr_decode"),
+    path("", views.home_view, name="home"),
+    path("features/", views.features_view, name="features"),
+    path("how-it-works/", views.how_it_works_view, name="how_it_works"),
+    path("about/", views.about_view, name="about"),
+    path("about-us/", views.about_view, name="about_us"),
+    path("contact/", views.contact_view, name="contact"),
+    path("contact-us/", views.contact_view, name="contact_us"),
     path("adminpanel/register/", views.admin_register_view, name="admin_register"),
 
     path("admin/register/", views.admin_register_view, name="admin_register_alias"),

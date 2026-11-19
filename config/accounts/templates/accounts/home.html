@@ -1,0 +1,829 @@
+{% extends "accounts/base_public.html" %}
+{% load static %}
+
+{% block title %}Advance Billing System | Smart Billing. Simple Business Management.{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Hero section styles */
+    .hero-section {
+        background-color: var(--navy-dark);
+        background-image:
+            radial-gradient(circle at 10% 20%, rgba(37, 99, 235, 0.18) 0%, transparent 40%),
+            radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.12) 0%, transparent 45%),
+            linear-gradient(180deg, #0f172a 0%, #070d19 100%);
+        color: #ffffff;
+        padding: 85px 0 105px 0;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .hero-section::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 40px;
+        background: linear-gradient(to top, var(--gray-bg), transparent);
+        pointer-events: none;
+    }
+
+    .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 16px;
+        border-radius: 9999px;
+        font-size: 13px;
+        font-weight: 600;
+        background-color: rgba(37, 99, 235, 0.15);
+        border: 1px solid rgba(59, 130, 246, 0.35);
+        color: #60a5fa;
+        margin-bottom: 24px;
+    }
+
+    .hero-badge-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #38bdf8;
+        box-shadow: 0 0 10px #38bdf8;
+        animation: pulse-dot 2s infinite;
+    }
+
+    @keyframes pulse-dot {
+
+        0%,
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        50% {
+            opacity: 0.5;
+            transform: scale(1.2);
+        }
+    }
+
+    .hero-title {
+        font-size: 48px;
+        font-weight: 800;
+        line-height: 1.15;
+        letter-spacing: -1px;
+        margin-bottom: 20px;
+        background: linear-gradient(135deg, #ffffff 65%, #60a5fa 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .hero-description {
+        font-size: 18px;
+        color: #94a3b8;
+        margin-bottom: 36px;
+        max-width: 580px;
+        line-height: 1.6;
+    }
+
+    .hero-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-bottom: 40px;
+    }
+
+    .btn-hero-primary {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: #ffffff;
+        font-size: 15px;
+        font-weight: 600;
+        padding: 13px 26px;
+        border-radius: 12px;
+        border: 1px solid #3b82f6;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+        transition: all 0.25s ease;
+    }
+
+    .btn-hero-primary:hover {
+        color: #ffffff;
+        background: linear-gradient(135deg, #1d4ed8, #1e40af);
+        transform: translateY(-2px);
+        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.45);
+    }
+
+    .btn-hero-login {
+        background-color: rgba(255, 255, 255, 0.08);
+        color: #ffffff;
+        font-size: 15px;
+        font-weight: 600;
+        padding: 13px 24px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.25s ease;
+    }
+
+    .btn-hero-login:hover {
+        color: #ffffff;
+        background-color: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.35);
+        transform: translateY(-2px);
+    }
+
+    .btn-hero-features {
+        background-color: transparent;
+        color: #94a3b8;
+        font-size: 15px;
+        font-weight: 600;
+        padding: 13px 20px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s ease;
+    }
+
+    .btn-hero-features:hover {
+        color: #ffffff;
+    }
+
+    .hero-trust-bar {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        flex-wrap: wrap;
+        padding-top: 14px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .trust-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: #94a3b8;
+        font-weight: 500;
+    }
+
+    .trust-item i {
+        color: #38bdf8;
+        font-size: 16px;
+    }
+
+    /* Dashboard Mockup Card */
+    .dashboard-mockup {
+        background: #1e293b;
+        border-radius: var(--radius-xl);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow:
+            0 25px 50px -12px rgba(0, 0, 0, 0.5),
+            0 0 0 1px rgba(255, 255, 255, 0.05);
+        padding: 24px;
+        color: #ffffff;
+        position: relative;
+        transform: perspective(1000px) rotateY(-4deg) rotateX(2deg);
+        transition: transform 0.4s ease;
+    }
+
+    .dashboard-mockup:hover {
+        transform: perspective(1000px) rotateY(0deg) rotateX(0deg);
+    }
+
+    .mockup-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 16px;
+        margin-bottom: 18px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .mockup-dots {
+        display: flex;
+        gap: 6px;
+    }
+
+    .mockup-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+    }
+
+    .mockup-dot.red {
+        background-color: #ef4444;
+    }
+
+    .mockup-dot.yellow {
+        background-color: #f59e0b;
+    }
+
+    .mockup-dot.green {
+        background-color: #10b981;
+    }
+
+    .mockup-status {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        background: rgba(16, 185, 129, 0.15);
+        color: #34d399;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .mockup-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .mockup-kpi-card {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+        padding: 12px 14px;
+    }
+
+    .mockup-kpi-label {
+        font-size: 11px;
+        color: #94a3b8;
+        font-weight: 500;
+        margin-bottom: 4px;
+    }
+
+    .mockup-kpi-val {
+        font-size: 18px;
+        font-weight: 700;
+        color: #ffffff;
+        letter-spacing: -0.3px;
+    }
+
+    .mockup-invoice-row {
+        background: rgba(15, 23, 42, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 12px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+    }
+
+    .mockup-inv-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .mockup-inv-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(37, 99, 235, 0.2);
+        color: #60a5fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+    }
+
+    .mockup-inv-no {
+        font-size: 12.5px;
+        font-weight: 700;
+        color: #f1f5f9;
+    }
+
+    .mockup-inv-client {
+        font-size: 11px;
+        color: #94a3b8;
+    }
+
+    .mockup-inv-badge {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: #10b981;
+        background: rgba(16, 185, 129, 0.15);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        border-radius: 6px;
+        padding: 2px 8px;
+    }
+
+    .mockup-qr-banner {
+        background: linear-gradient(135deg, rgba(37, 99, 235, 0.15), rgba(16, 185, 129, 0.15));
+        border: 1px dashed rgba(59, 130, 246, 0.4);
+        border-radius: 12px;
+        padding: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .mockup-qr-icon-box {
+        width: 38px;
+        height: 38px;
+        background: #ffffff;
+        color: #0f172a;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        flex-shrink: 0;
+    }
+
+    .mockup-qr-text {
+        font-size: 11.5px;
+        color: #e2e8f0;
+        line-height: 1.4;
+    }
+
+    /* Section Styling */
+    .section-header {
+        text-align: center;
+        max-width: 680px;
+        margin: 0 auto 55px auto;
+    }
+
+    .section-tag {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--blue-accent);
+        background-color: var(--blue-soft);
+        padding: 4px 14px;
+        border-radius: 9999px;
+        margin-bottom: 12px;
+    }
+
+    .section-title {
+        font-size: 34px;
+        font-weight: 800;
+        color: var(--text-heading);
+        letter-spacing: -0.8px;
+        line-height: 1.25;
+        margin-bottom: 14px;
+    }
+
+    .section-subtitle {
+        font-size: 16px;
+        color: var(--text-muted);
+        line-height: 1.6;
+    }
+
+    .feature-card-home {
+        background: #ffffff;
+        border-radius: var(--radius-lg);
+        padding: 30px 26px;
+        border: 1px solid var(--gray-border);
+        height: 100%;
+        transition: all 0.25s ease;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .feature-card-home:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-lg);
+        border-color: #93c5fd;
+    }
+
+    .feature-icon-box {
+        width: 50px;
+        height: 50px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #eff6ff, #dbeafe);
+        color: var(--blue-accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        margin-bottom: 20px;
+    }
+
+    .mockup-dot.yellow {
+        background-color: #f59e0b;
+    }
+
+    .mockup-dot.green {
+        background-color: #10b981;
+    }
+
+    /* Portal Card */
+    .portal-box-home {
+        background: #ffffff;
+        border-radius: var(--radius-xl);
+        padding: 44px 38px;
+        border: 1px solid var(--gray-border);
+        box-shadow: var(--shadow-lg);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .portal-box-home::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 5px;
+        background: linear-gradient(90deg, #10b981, #2563eb);
+    }
+
+    .step-pill-home {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background-color: var(--navy-dark);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 14px;
+        margin-bottom: 14px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- HERO SECTION -->
+<section class="hero-section">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <div class="hero-badge">
+                    <span class="hero-badge-dot"></span>
+                    <span>Modern Billing & Distribution Platform</span>
+                </div>
+                <h1 class="hero-title">Smart Billing. Simple Business Management.</h1>
+                <p class="hero-description">
+                    Manage invoices, customers, products and business reports from one powerful billing platform.
+                </p>
+
+                <div class="hero-buttons">
+                    <a href="{% url 'distributor_register' %}" class="btn-hero-primary">
+                        <span>Get Started Free</span>
+                        <i class="bi bi-arrow-right"></i>
+                    </a>
+                    <a href="{% url 'distributor_login' %}" class="btn-hero-login">
+                        <i class="bi bi-box-arrow-in-right"></i>
+                        <span>Distributor Login</span>
+                    </a>
+                    <a href="{% url 'features' %}" class="btn-hero-features">
+                        <span>View Features</span>
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </div>
+
+                <div class="hero-trust-bar">
+                    <div class="trust-item">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span>Dynamic QR Verification</span>
+                    </div>
+                    <div class="trust-item">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span>Pixel-Perfect A4 PDFs</span>
+                    </div>
+                    <div class="trust-item">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span>Automated GST Calculation</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <!-- Dashboard Mockup Graphic -->
+                <div class="dashboard-mockup">
+                    <div class="mockup-header">
+                        <div class="mockup-dots">
+                            <span class="mockup-dot red"></span>
+                            <span class="mockup-dot yellow"></span>
+                            <span class="mockup-dot green"></span>
+                        </div>
+                        <span class="mockup-status">
+                            <i class="bi bi-shield-check"></i> System Operational
+                        </span>
+                    </div>
+
+                    <div class="mockup-kpi-grid">
+                        <div class="mockup-kpi-card">
+                            <div class="mockup-kpi-label">Monthly Invoicing</div>
+                            <div class="mockup-kpi-val text-primary">₹3,84,500</div>
+                        </div>
+                        <div class="mockup-kpi-card">
+                            <div class="mockup-kpi-label">Verified Invoices</div>
+                            <div class="mockup-kpi-val text-success">1,248</div>
+                        </div>
+                    </div>
+
+                    <div class="mockup-invoice-row">
+                        <div class="mockup-inv-left">
+                            <div class="mockup-inv-icon">
+                                <i class="bi bi-file-earmark-text"></i>
+                            </div>
+                            <div>
+                                <div class="mockup-inv-no">INV-2026-0891</div>
+                                <div class="mockup-inv-client">Quantum Logistics Ltd</div>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold" style="font-size: 13px;">₹42,850.00</div>
+                            <span class="mockup-inv-badge">PAID</span>
+                        </div>
+                    </div>
+
+                    <div class="mockup-qr-banner">
+                        <div class="mockup-qr-icon-box">
+                            <i class="bi bi-qr-code"></i>
+                        </div>
+                        <div class="mockup-qr-text">
+                            <strong style="color: #ffffff;">Embedded Cryptographic QR Code</strong><br>
+                            Scannable invoice verification payload generated automatically for every transaction.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- DISTRIBUTOR PORTAL HIGHLIGHT -->
+<section class="py-5" style="background-color: #ffffff;">
+    <div class="container py-4">
+        <div class="row align-items-center g-4">
+            <div class="col-lg-6">
+                <span class="section-tag">Dedicated Workspace</span>
+                <h2 class="section-title">Built Specially for Distributors & Suppliers</h2>
+                <p class="section-subtitle mb-4">
+                    Take full control of your daily commercial operations with an interface designed to speed up
+                    invoicing, reduce billing disputes, and organize your client records.
+                </p>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-sm-6">
+                        <div class="p-3 bg-light rounded-3 h-100 border">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-people-fill text-primary fs-5"></i>
+                                <span class="fw-bold text-dark">Customer Directory</span>
+                            </div>
+                            <small class="text-muted">Maintain phone, email, GSTIN, and billing addresses in one secure
+                                database.</small>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="p-3 bg-light rounded-3 h-100 border">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-box-seam-fill text-success fs-5"></i>
+                                <span class="fw-bold text-dark">Product Catalog</span>
+                            </div>
+                            <small class="text-muted">Track SKUs, unit rates, tax categories, and maintain structured
+                                stock lists.</small>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="p-3 bg-light rounded-3 h-100 border">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-receipt text-primary fs-5"></i>
+                                <span class="fw-bold text-dark">Dynamic Invoicing</span>
+                            </div>
+                            <small class="text-muted">Generate itemized billing drafts with real-time tax and discount
+                                calculation.</small>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="p-3 bg-light rounded-3 h-100 border">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-qr-code-scan text-success fs-5"></i>
+                                <span class="fw-bold text-dark">Instant QR & PDF</span>
+                            </div>
+                            <small class="text-muted">Print certified A4 invoices with dynamic scannable QR
+                                verification.</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap gap-3">
+                    <a href="{% url 'distributor_login' %}" class="btn btn-primary px-4 py-2 fw-semibold rounded-3">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> Distributor Login
+                    </a>
+                    <a href="{% url 'distributor_register' %}"
+                        class="btn btn-outline-secondary px-4 py-2 fw-semibold rounded-3">
+                        <i class="bi bi-person-plus me-1"></i> Register New Distributor
+                    </a>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="portal-box-home">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <span
+                            class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fw-bold">DISTRIBUTOR
+                            ACCESS</span>
+                        <i class="bi bi-shop text-success fs-3"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark mb-2">Everything you need to bill clients faster</h3>
+                    <p class="text-muted small mb-4">
+                        Join our platform to streamline invoicing, generate compliant receipts, and provide clients with
+                        instant QR code payment verifications.
+                    </p>
+
+                    <ul class="list-unstyled mb-4">
+                        <li class="d-flex align-items-center gap-2 mb-2 text-dark small fw-medium">
+                            <i class="bi bi-check-circle-fill text-success"></i> Customer management with GSTIN tracking
+                        </li>
+                        <li class="d-flex align-items-center gap-2 mb-2 text-dark small fw-medium">
+                            <i class="bi bi-check-circle-fill text-success"></i> Product SKU management & unit pricing
+                        </li>
+                        <li class="d-flex align-items-center gap-2 mb-2 text-dark small fw-medium">
+                            <i class="bi bi-check-circle-fill text-success"></i> Automated tax, discount, and subtotal
+                            calculation
+                        </li>
+                        <li class="d-flex align-items-center gap-2 mb-2 text-dark small fw-medium">
+                            <i class="bi bi-check-circle-fill text-success"></i> Print-ready A4 PDF invoice generator
+                        </li>
+                        <li class="d-flex align-items-center gap-2 mb-2 text-dark small fw-medium">
+                            <i class="bi bi-check-circle-fill text-success"></i> Integrated QR code decoder tool
+                        </li>
+                    </ul>
+
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'distributor_login' %}" class="btn btn-primary py-2 fw-semibold rounded-3">
+                            Login to Your Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CORE FEATURES OVERVIEW -->
+<section class="py-5" style="background-color: var(--gray-bg);">
+    <div class="container py-4">
+        <div class="section-header">
+            <span class="section-tag">Core Capabilities</span>
+            <h2 class="section-title">Designed for Accuracy and Speed</h2>
+            <p class="section-subtitle">
+                Discover the billing tools that save hours of bookkeeping and prevent costly invoice mistakes.
+            </p>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-4 col-md-6">
+                <div class="feature-card-home">
+                    <div class="feature-icon-box">
+                        <i class="bi bi-receipt"></i>
+                    </div>
+                    <h4 class="fw-bold text-dark mb-2">Invoice Management</h4>
+                    <p class="text-muted small mb-0">Create, preview, and track invoices with auto-calculated subtotals,
+                        GST, and status tracking.</p>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <div class="feature-card-home">
+                    <div class="feature-icon-box">
+                        <i class="bi bi-people-fill"></i>
+                    </div>
+                    <h4 class="fw-bold text-dark mb-2">Customer Management</h4>
+                    <p class="text-muted small mb-0">Organize client directories with phone, address, and purchase
+                        histories accessible instantly.</p>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <div class="feature-card-home">
+                    <div class="feature-icon-box">
+                        <i class="bi bi-box-seam-fill"></i>
+                    </div>
+                    <h4 class="fw-bold text-dark mb-2">Product Catalog</h4>
+                    <p class="text-muted small mb-0">Maintain structured SKU inventories, pricing rates, and tax
+                        category classifications.</p>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <div class="feature-card-home">
+                    <div class="feature-icon-box">
+                        <i class="bi bi-file-earmark-pdf-fill"></i>
+                    </div>
+                    <h4 class="fw-bold text-dark mb-2">PDF Invoice Generation</h4>
+                    <p class="text-muted small mb-0">Download pixel-perfect, print-ready A4 PDF documents powered by
+                        ReportLab & xhtml2pdf.</p>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <div class="feature-card-home">
+                    <div class="feature-icon-box">
+                        <i class="bi bi-qr-code-scan"></i>
+                    </div>
+                    <h4 class="fw-bold text-dark mb-2">QR Code Generation</h4>
+                    <p class="text-muted small mb-0">Embed dynamic scannable verification QR codes into every downloaded
+                        invoice PDF.</p>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <div class="feature-card-home">
+                    <div class="feature-icon-box">
+                        <i class="bi bi-graph-up-arrow"></i>
+                    </div>
+                    <h4 class="fw-bold text-dark mb-2">Reports & Analytics</h4>
+                    <p class="text-muted small mb-0">Access detailed billing insights, date-range summaries, and
+                        exportable data files.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-5">
+            <a href="{% url 'features' %}" class="btn btn-outline-primary px-4 py-2 fw-semibold rounded-3">
+                Explore All Features in Detail <i class="bi bi-arrow-right ms-1"></i>
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- HOW IT WORKS PREVIEW -->
+<section class="py-5" style="background-color: #ffffff;">
+    <div class="container py-4">
+        <div class="section-header">
+            <span class="section-tag">Simple Workflow</span>
+            <h2 class="section-title">How It Works in 5 Easy Steps</h2>
+            <p class="section-subtitle">
+                From registration to generating certified invoice PDFs in just minutes.
+            </p>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg col-md-4 col-sm-6">
+                <div class="p-4 bg-light rounded-3 border h-100 text-center">
+                    <div class="step-pill-home mx-auto">01</div>
+                    <h6 class="fw-bold text-dark">Register Account</h6>
+                    <small class="text-muted">Sign up as a distributor in under 2 minutes.</small>
+                </div>
+            </div>
+            <div class="col-lg col-md-4 col-sm-6">
+                <div class="p-4 bg-light rounded-3 border h-100 text-center">
+                    <div class="step-pill-home mx-auto">02</div>
+                    <h6 class="fw-bold text-dark">Setup Directory</h6>
+                    <small class="text-muted">Add your customers and product pricing.</small>
+                </div>
+            </div>
+            <div class="col-lg col-md-4 col-sm-6">
+                <div class="p-4 bg-light rounded-3 border h-100 text-center">
+                    <div class="step-pill-home mx-auto">03</div>
+                    <h6 class="fw-bold text-dark">Create Invoice</h6>
+                    <small class="text-muted">Pick customer and products with live totals.</small>
+                </div>
+            </div>
+            <div class="col-lg col-md-4 col-sm-6">
+                <div class="p-4 bg-light rounded-3 border h-100 text-center">
+                    <div class="step-pill-home mx-auto">04</div>
+                    <h6 class="fw-bold text-dark">Generate QR</h6>
+                    <small class="text-muted">Automated scannable verification code created.</small>
+                </div>
+            </div>
+            <div class="col-lg col-md-4 col-sm-6">
+                <div class="p-4 bg-light rounded-3 border h-100 text-center">
+                    <div class="step-pill-home mx-auto">05</div>
+                    <h6 class="fw-bold text-dark">Export PDF</h6>
+                    <small class="text-muted">Download, print, or share certified invoices.</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-5">
+            <a href="{% url 'how_it_works' %}" class="btn btn-outline-secondary px-4 py-2 fw-semibold rounded-3">
+                Read Full Workflow Guide <i class="bi bi-arrow-right ms-1"></i>
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- CTA SECTION -->
+<section class="cta-banner-section">
+    <div class="container">
+        <div class="cta-banner-card text-center">
+            <h2 class="fw-bold mb-3" style="font-size: 32px;">Ready to Upgrade Your Invoicing?</h2>
+            <p class="text-slate-300 mx-auto mb-4" style="max-width: 560px; font-size: 16px; color: #cbd5e1;">
+                Join distributors and business operators using Advance Billing System for faster payments and error-free
+                invoices.
+            </p>
+            <div class="d-flex justify-content-center flex-wrap gap-3">
+                <a href="{% url 'distributor_register' %}" class="btn btn-primary px-4 py-3 fw-bold rounded-3 shadow">
+                    Create Distributor Account
+                </a>
+                <a href="{% url 'distributor_login' %}" class="btn btn-outline-light px-4 py-3 fw-semibold rounded-3">
+                    Distributor Login
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
