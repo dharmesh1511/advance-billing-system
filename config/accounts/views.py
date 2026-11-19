@@ -363,10 +363,37 @@ def admin_dashboard(request):
             "customer", "distributor"
         ).order_by("-invoice_date", "-id")[:6]
 
+        # Recent customers
+        recent_customers = Customer.objects.select_related(
+            "distributor"
+        ).order_by("-created_at", "-id")[:5]
+
+        # Recent products
+        recent_products = Product.objects.select_related(
+            "distributor"
+        ).order_by("-created_at", "-id")[:5]
+
         # Recent active distributors with profile
         recent_distributors = DistributorProfile.objects.select_related(
             "user"
         ).order_by("-id")[:5]
+
+        # Invoice Status Summary metrics
+        qr_verified_count = Invoice.objects.exclude(qr_code="").exclude(qr_code__isnull=True).count()
+        avg_invoice_val = (total_sales / total_invoices) if total_invoices > 0 else Decimal("0.00")
+
+        invoice_status_summary = {
+            "total_count": total_invoices,
+            "paid_count": total_invoices,
+            "qr_verified_count": qr_verified_count,
+            "compliance_rate": "100%",
+            "total_sales": total_sales,
+            "total_subtotal": total_subtotal,
+            "total_gst": total_gst,
+            "avg_invoice_val": avg_invoice_val,
+            "today_count": today_invoices,
+            "today_sales": today_sales,
+        }
 
     except Exception as e:
         logger.error(f"Error loading admin dashboard stats: {e}", exc_info=True)
@@ -381,7 +408,21 @@ def admin_dashboard(request):
         product_count = 0
         admin_count = 0
         recent_invoices = []
+        recent_customers = []
+        recent_products = []
         recent_distributors = []
+        invoice_status_summary = {
+            "total_count": 0,
+            "paid_count": 0,
+            "qr_verified_count": 0,
+            "compliance_rate": "100%",
+            "total_sales": Decimal("0.00"),
+            "total_subtotal": Decimal("0.00"),
+            "total_gst": Decimal("0.00"),
+            "avg_invoice_val": Decimal("0.00"),
+            "today_count": 0,
+            "today_sales": Decimal("0.00"),
+        }
 
     context = {
         "total_sales": total_sales,
@@ -395,7 +436,10 @@ def admin_dashboard(request):
         "product_count": product_count,
         "admin_count": admin_count,
         "recent_invoices": recent_invoices,
+        "recent_customers": recent_customers,
+        "recent_products": recent_products,
         "recent_distributors": recent_distributors,
+        "invoice_status_summary": invoice_status_summary,
     }
 
     return render(

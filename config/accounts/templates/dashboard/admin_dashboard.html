@@ -4,7 +4,7 @@
 {% block title %}Executive Billing Dashboard | Advance Billing System{% endblock %}
 
 {% block page_heading %}Dashboard{% endblock %}
-{% block page_main_title %}SaaS Executive Dashboard{% endblock %}
+{% block page_main_title %}Executive Billing Dashboard{% endblock %}
 
 {% block content %}
 <div class="dashboard-wrapper">
@@ -26,7 +26,7 @@
                 </div>
                 <h2 class="welcome-heading">Welcome back, {{ request.user.first_name|default:request.user.username }}!</h2>
                 <p class="welcome-description mb-0">
-                    Comprehensive overview of business billing operations, partner distributor throughput, revenue growth, and system audits.
+                    Comprehensive overview of customers, product inventory, billing transactions, and real-time system performance.
                 </p>
             </div>
             <div class="col-lg-5 text-lg-end">
@@ -35,68 +35,28 @@
                         <i class="bi bi-plus-circle-fill"></i>
                         <span>Create Invoice</span>
                     </a>
+                    <a href="{% url 'add_customer' %}" class="btn btn-hero-outline" title="Add New Customer">
+                        <i class="bi bi-person-plus-fill"></i>
+                        <span>Add Customer</span>
+                    </a>
+                    <a href="{% url 'product_add' %}" class="btn btn-hero-outline" title="Add New Product">
+                        <i class="bi bi-box-seam"></i>
+                        <span>Add Product</span>
+                    </a>
                     <a href="{% url 'admin_reports' %}" class="btn btn-hero-outline" title="View Detailed Financial Reports">
                         <i class="bi bi-bar-chart-line-fill"></i>
-                        <span>View Reports</span>
+                        <span>Reports</span>
                     </a>
-                    {% if request.user.is_superuser or request.user.is_staff %}
-                    <a href="{% url 'admin_register' %}" class="btn btn-hero-outline" title="Register New Admin Staff">
-                        <i class="bi bi-person-plus-fill"></i>
-                        <span>Register Admin</span>
-                    </a>
-                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 2. Primary Key Performance Indicators (Statistics Cards) -->
+    <!-- 2. Three Primary Statistic Cards (Total Customers, Total Products, Total Invoices) -->
     <div class="row g-4 mb-4">
-        <!-- Card 1: Total Revenue -->
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="kpi-card kpi-revenue">
-                <div class="kpi-header">
-                    <div>
-                        <span class="kpi-label">TOTAL REVENUE</span>
-                        <h3 class="kpi-value text-primary">₹{{ total_sales|floatformat:2 }}</h3>
-                    </div>
-                    <div class="kpi-icon-pill bg-primary-subtle text-primary">
-                        <i class="bi bi-currency-rupee"></i>
-                    </div>
-                </div>
-                <div class="kpi-footer">
-                    <span class="kpi-meta text-muted">
-                        <i class="bi bi-check-circle-fill text-success me-1"></i> Subtotal: ₹{{ total_subtotal|floatformat:2 }}
-                    </span>
-                    <span class="kpi-tag bg-success-subtle text-success">Gross Sales</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Card 2: Total Invoices -->
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="kpi-card kpi-invoices">
-                <div class="kpi-header">
-                    <div>
-                        <span class="kpi-label">TOTAL INVOICES</span>
-                        <h3 class="kpi-value text-indigo">{{ total_invoices }}</h3>
-                    </div>
-                    <div class="kpi-icon-pill bg-indigo-subtle text-indigo">
-                        <i class="bi bi-receipt-cutoff"></i>
-                    </div>
-                </div>
-                <div class="kpi-footer">
-                    <span class="kpi-meta text-muted">
-                        <i class="bi bi-calendar-event me-1"></i> {{ today_invoices }} billed today
-                    </span>
-                    <span class="kpi-tag bg-primary-subtle text-primary">Tax Compliant</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Card 3: Total Customers -->
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="kpi-card kpi-customers">
+        <!-- Card 1: Total Customers -->
+        <div class="col-12 col-md-4">
+            <div class="kpi-card kpi-customers h-100">
                 <div class="kpi-header">
                     <div>
                         <span class="kpi-label">TOTAL CUSTOMERS</span>
@@ -106,18 +66,20 @@
                         <i class="bi bi-people-fill"></i>
                     </div>
                 </div>
-                <div class="kpi-footer">
+                <div class="kpi-footer d-flex align-items-center justify-content-between">
                     <span class="kpi-meta text-muted">
-                        <i class="bi bi-person-check-fill text-emerald me-1"></i> Active client records
+                        <i class="bi bi-person-check-fill text-emerald me-1"></i> Active registered clients
                     </span>
-                    <span class="kpi-tag bg-emerald-subtle text-emerald">Verified</span>
+                    <a href="{% url 'customer_list' %}" class="kpi-tag bg-emerald-subtle text-emerald text-decoration-none" title="Manage Customers">
+                        <span>View All</span> <i class="bi bi-chevron-right ms-1"></i>
+                    </a>
                 </div>
             </div>
         </div>
 
-        <!-- Card 4: Total Products -->
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="kpi-card kpi-products">
+        <!-- Card 2: Total Products -->
+        <div class="col-12 col-md-4">
+            <div class="kpi-card kpi-products h-100">
                 <div class="kpi-header">
                     <div>
                         <span class="kpi-label">TOTAL PRODUCTS</span>
@@ -127,127 +89,101 @@
                         <i class="bi bi-box-seam-fill"></i>
                     </div>
                 </div>
-                <div class="kpi-footer">
+                <div class="kpi-footer d-flex align-items-center justify-content-between">
                     <span class="kpi-meta text-muted">
-                        <i class="bi bi-layers-fill text-amber me-1"></i> Inventory SKUs listed
+                        <i class="bi bi-layers-fill text-amber me-1"></i> Catalog SKUs in inventory
                     </span>
-                    <span class="kpi-tag bg-amber-subtle text-amber">Catalog</span>
+                    <a href="{% url 'product_list' %}" class="kpi-tag bg-amber-subtle text-amber text-decoration-none" title="Manage Products">
+                        <span>View All</span> <i class="bi bi-chevron-right ms-1"></i>
+                    </a>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- 3. Operational Highlights Strip -->
-    <div class="row g-3 mb-4">
-        <div class="col-6 col-md-3">
-            <div class="operational-stat-pill">
-                <div class="op-icon bg-emerald-subtle text-emerald">
-                    <i class="bi bi-cash-stack"></i>
-                </div>
-                <div class="op-info">
-                    <span class="op-title">Today's Revenue</span>
-                    <strong class="op-val">₹{{ today_sales|floatformat:2 }}</strong>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="operational-stat-pill">
-                <div class="op-icon bg-primary-subtle text-primary">
-                    <i class="bi bi-file-earmark-check"></i>
-                </div>
-                <div class="op-info">
-                    <span class="op-title">Today's Invoices</span>
-                    <strong class="op-val">{{ today_invoices }} Records</strong>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="operational-stat-pill">
-                <div class="op-icon bg-indigo-subtle text-indigo">
-                    <i class="bi bi-percent"></i>
-                </div>
-                <div class="op-info">
-                    <span class="op-title">Total GST Collected</span>
-                    <strong class="op-val">₹{{ total_gst|floatformat:2 }}</strong>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="operational-stat-pill">
-                <div class="op-icon bg-slate-subtle text-dark">
-                    <i class="bi bi-shield-lock-fill"></i>
-                </div>
-                <div class="op-info">
-                    <span class="op-title">Active Distributors</span>
-                    <strong class="op-val">{{ distributor_count }} Partners</strong>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 4. Analytics Section (Charts) -->
-    <div class="row g-4 mb-4">
-        <!-- Chart 1: Revenue & Monthly Overview (8 Cols) -->
-        <div class="col-lg-8">
-            <div class="dashboard-chart-card">
-                <div class="chart-card-header">
+        <!-- Card 3: Total Invoices -->
+        <div class="col-12 col-md-4">
+            <div class="kpi-card kpi-invoices h-100">
+                <div class="kpi-header">
                     <div>
-                        <h4 class="chart-card-title">
-                            <i class="bi bi-bar-chart-line-fill text-primary me-2"></i>
-                            Revenue & Billing Overview
+                        <span class="kpi-label">TOTAL INVOICES</span>
+                        <h3 class="kpi-value text-primary">{{ total_invoices }}</h3>
+                    </div>
+                    <div class="kpi-icon-pill bg-primary-subtle text-primary">
+                        <i class="bi bi-receipt-cutoff"></i>
+                    </div>
+                </div>
+                <div class="kpi-footer d-flex align-items-center justify-content-between">
+                    <span class="kpi-meta text-muted">
+                        <i class="bi bi-check-circle-fill text-primary me-1"></i> Tax-compliant billed records
+                    </span>
+                    <a href="{% url 'invoice_list' %}" class="kpi-tag bg-primary-subtle text-primary text-decoration-none" title="Manage Invoices">
+                        <span>View All</span> <i class="bi bi-chevron-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Invoice Status Summary & Financial Metrics Strip -->
+    <div class="row g-4 mb-4">
+        <!-- Invoice Status Summary Card (Full Width / Multi-metric) -->
+        <div class="col-12">
+            <div class="dashboard-chart-card p-4">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 pb-3 border-bottom">
+                    <div>
+                        <h4 class="chart-card-title mb-1">
+                            <i class="bi bi-pie-chart-fill text-primary me-2"></i>
+                            Invoice Status & Financial Health Summary
                         </h4>
-                        <p class="chart-card-subtitle">
-                            Visual overview of invoicing throughput and total revenue volume.
+                        <p class="chart-card-subtitle mb-0">
+                            Aggregate settlement status, tax compliance, and revenue throughput across all distributor accounts.
                         </p>
                     </div>
-                    <div class="chart-header-actions">
-                        <span class="badge bg-primary-subtle text-primary fw-bold px-3 py-1 rounded-pill">
-                            Current Period
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-success-subtle text-success px-3 py-2 rounded-pill fw-bold">
+                            <i class="bi bi-shield-check me-1"></i> 100% Tax Compliant
+                        </span>
+                        <span class="badge bg-primary-subtle text-primary px-3 py-2 rounded-pill fw-bold">
+                            <i class="bi bi-qr-code me-1"></i> {{ invoice_status_summary.qr_verified_count }} QR Verified
                         </span>
                     </div>
                 </div>
-                <div class="chart-card-body p-4">
-                    <div style="height: 280px; position: relative;">
-                        <canvas id="dashboardRevenueChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        <!-- Chart 2: Invoice Status & Financial Distribution (4 Cols) -->
-        <div class="col-lg-4">
-            <div class="dashboard-chart-card">
-                <div class="chart-card-header">
-                    <div>
-                        <h4 class="chart-card-title">
-                            <i class="bi bi-pie-chart-fill text-indigo me-2"></i>
-                            Billing Distribution
-                        </h4>
-                        <p class="chart-card-subtitle">Subtotal vs Tax allocation breakdown</p>
-                    </div>
-                </div>
-                <div class="chart-card-body p-4 d-flex flex-column justify-content-between">
-                    <div style="height: 180px; position: relative;" class="mb-3">
-                        <canvas id="dashboardDistributionChart"></canvas>
-                    </div>
-                    <div class="distribution-legend-list">
-                        <div class="legend-row d-flex justify-content-between align-items-center py-2 border-bottom">
-                            <span class="d-flex align-items-center gap-2 small text-dark fw-semibold">
-                                <span class="legend-color-dot bg-primary"></span> Net Subtotal
-                            </span>
-                            <span class="fw-bold text-dark small">₹{{ total_subtotal|floatformat:2 }}</span>
+                <div class="row g-3">
+                    <div class="col-6 col-lg-3">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <div class="small text-muted fw-semibold mb-1">Total Revenue</div>
+                            <div class="fs-4 fw-bold text-primary">₹{{ invoice_status_summary.total_sales|floatformat:2 }}</div>
+                            <div class="small text-muted mt-1">
+                                Subtotal: ₹{{ invoice_status_summary.total_subtotal|floatformat:2 }}
+                            </div>
                         </div>
-                        <div class="legend-row d-flex justify-content-between align-items-center py-2 border-bottom">
-                            <span class="d-flex align-items-center gap-2 small text-dark fw-semibold">
-                                <span class="legend-color-dot bg-indigo"></span> GST Collected
-                            </span>
-                            <span class="fw-bold text-indigo small">₹{{ total_gst|floatformat:2 }}</span>
+                    </div>
+                    <div class="col-6 col-lg-3">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <div class="small text-muted fw-semibold mb-1">GST Collected</div>
+                            <div class="fs-4 fw-bold text-indigo">₹{{ invoice_status_summary.total_gst|floatformat:2 }}</div>
+                            <div class="small text-muted mt-1">
+                                Fully recorded tax liability
+                            </div>
                         </div>
-                        <div class="legend-row d-flex justify-content-between align-items-center pt-2">
-                            <span class="d-flex align-items-center gap-2 small text-dark fw-bold">
-                                <span class="legend-color-dot bg-success"></span> Compliance Rate
-                            </span>
-                            <span class="badge bg-success-subtle text-success fw-bold">100% Tax Settled</span>
+                    </div>
+                    <div class="col-6 col-lg-3">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <div class="small text-muted fw-semibold mb-1">Settled / Paid Invoices</div>
+                            <div class="fs-4 fw-bold text-success">{{ invoice_status_summary.paid_count }} / {{ invoice_status_summary.total_count }}</div>
+                            <div class="small text-success fw-semibold mt-1">
+                                <i class="bi bi-check-circle-fill me-1"></i> Status: Settled
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg-3">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <div class="small text-muted fw-semibold mb-1">Average Invoice Value</div>
+                            <div class="fs-4 fw-bold text-dark">₹{{ invoice_status_summary.avg_invoice_val|floatformat:2 }}</div>
+                            <div class="small text-muted mt-1">
+                                Today: {{ invoice_status_summary.today_count }} (₹{{ invoice_status_summary.today_sales|floatformat:2 }})
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -255,37 +191,43 @@
         </div>
     </div>
 
-    <!-- 5. Main Data Section: Recent Invoices (8 Cols) & System Status / Shortcuts (4 Cols) -->
+    <!-- 4. Main Data Section: Recent Invoices Table (Full Width) -->
     <div class="row g-4 mb-4">
-        <!-- Recent Invoices Table (8 Cols) -->
-        <div class="col-lg-8">
+        <div class="col-12">
             <div class="table-card">
-                <div class="table-card-header">
+                <div class="table-card-header d-flex flex-wrap align-items-center justify-content-between gap-3">
                     <div>
-                        <h4 class="table-card-title">
+                        <h4 class="table-card-title mb-1">
                             <i class="bi bi-receipt text-primary me-2"></i>
-                            Recent Invoices Across Organization
+                            Recent Invoices
                         </h4>
-                        <p class="table-card-subtitle">
-                            Real-time billing records issued by all partner distributors.
+                        <p class="table-card-subtitle mb-0">
+                            Real-time transaction billing records across all distributors.
                         </p>
                     </div>
-                    <a href="{% url 'admin_reports' %}" class="btn btn-outline-action-sm">
-                        <span>View All in Reports</span>
-                        <i class="bi bi-arrow-right"></i>
-                    </a>
+                    <div class="d-flex align-items-center gap-2">
+                        <a href="{% url 'create_invoice' %}" class="btn btn-sm btn-primary fw-semibold">
+                            <i class="bi bi-plus-circle me-1"></i> New Invoice
+                        </a>
+                        <a href="{% url 'invoice_list' %}" class="btn btn-outline-action-sm">
+                            <span>View All Invoices</span>
+                            <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
                 </div>
 
                 <div class="table-responsive">
-                    <table class="table modern-table align-middle mb-0">
+                    <table class="table modern-table table-hover align-middle mb-0">
                         <thead>
                             <tr>
                                 <th>INVOICE #</th>
                                 <th>CUSTOMER</th>
                                 <th>DISTRIBUTOR</th>
                                 <th>INVOICE DATE</th>
+                                <th>SUBTOTAL</th>
+                                <th>GST AMOUNT</th>
                                 <th>TOTAL AMOUNT</th>
-                                <th>STATUS</th>
+                                <th class="text-center">STATUS</th>
                                 <th class="text-end">ACTIONS</th>
                             </tr>
                         </thead>
@@ -300,8 +242,8 @@
                                     </td>
                                     <td>
                                         <div class="customer-cell">
-                                            <span class="customer-name-text">{{ inv.customer.name }}</span>
-                                            <span class="customer-sub-text">{{ inv.customer.phone|default:inv.customer.email|default:"No direct contact" }}</span>
+                                            <span class="customer-name-text fw-semibold">{{ inv.customer.name }}</span>
+                                            <span class="customer-sub-text small text-muted">{{ inv.customer.phone|default:inv.customer.email|default:"No contact" }}</span>
                                         </div>
                                     </td>
                                     <td>
@@ -310,7 +252,7 @@
                                                 {{ inv.distributor.get_full_name|default:inv.distributor.username }}
                                             </span>
                                             {% if inv.distributor.distributor_profile.business_name %}
-                                                <span class="distributor-business-text">
+                                                <span class="distributor-business-text d-block small text-muted">
                                                     {{ inv.distributor.distributor_profile.business_name }}
                                                 </span>
                                             {% endif %}
@@ -323,9 +265,15 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <span class="amount-text">₹{{ inv.grand_total|floatformat:2 }}</span>
+                                        <span class="text-muted">₹{{ inv.subtotal|floatformat:2 }}</span>
                                     </td>
                                     <td>
+                                        <span class="text-indigo">₹{{ inv.total_gst|floatformat:2 }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="amount-text fw-bold text-dark">₹{{ inv.grand_total|floatformat:2 }}</span>
+                                    </td>
+                                    <td class="text-center">
                                         <span class="status-pill status-paid">
                                             <i class="bi bi-check2-circle me-1"></i> Paid
                                         </span>
@@ -344,11 +292,11 @@
                                 {% endfor %}
                             {% else %}
                                 <tr>
-                                    <td colspan="7" class="text-center py-5">
+                                    <td colspan="9" class="text-center py-5">
                                         <div class="empty-state-container">
-                                            <i class="bi bi-inbox fs-1 text-muted d-block mb-2 opacity-50"></i>
-                                            <h6 class="fw-bold text-dark">No Invoices Issued Yet</h6>
-                                            <p class="text-muted small mb-3">Distributor billing activity will display here in real time as invoices are generated.</p>
+                                            <i class="bi bi-receipt fs-1 text-muted d-block mb-2 opacity-50"></i>
+                                            <h6 class="fw-bold text-dark">No Invoices Found</h6>
+                                            <p class="text-muted small mb-3">No billing invoices have been issued yet. Click below to generate your first invoice.</p>
                                             <a href="{% url 'create_invoice' %}" class="btn btn-sm btn-primary fw-semibold">
                                                 <i class="bi bi-plus-circle me-1"></i> Create First Invoice
                                             </a>
@@ -361,147 +309,195 @@
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Side Column: Distributors & System Health (4 Cols) -->
-        <div class="col-lg-4">
-            <!-- Active Distributors Panel -->
-            <div class="side-panel-card mb-4">
-                <div class="side-panel-header">
+    <!-- 5. Split Section: Recent Customers & Recent Products Tables -->
+    <div class="row g-4 mb-4">
+        <!-- Recent Customers Table (6 Cols) -->
+        <div class="col-lg-6">
+            <div class="table-card h-100">
+                <div class="table-card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
                     <div>
-                        <h5 class="side-panel-title">
-                            <i class="bi bi-buildings text-indigo me-2"></i>
-                            Partner Distributors
-                        </h5>
-                        <p class="side-panel-subtitle">Registered distributors in network</p>
+                        <h4 class="table-card-title mb-1">
+                            <i class="bi bi-people-fill text-emerald me-2"></i>
+                            Recent Customers
+                        </h4>
+                        <p class="table-card-subtitle mb-0">Latest verified client accounts added</p>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <a href="{% url 'add_customer' %}" class="btn btn-sm btn-outline-success fw-semibold">
+                            <i class="bi bi-plus me-1"></i> Add
+                        </a>
+                        <a href="{% url 'customer_list' %}" class="btn btn-outline-action-sm">
+                            <span>All</span> <i class="bi bi-arrow-right"></i>
+                        </a>
                     </div>
                 </div>
 
-                <div class="distributor-scroll-list">
-                    {% if recent_distributors %}
-                        {% for dp in recent_distributors %}
-                        <div class="distributor-item-row">
-                            <div class="distributor-initial-avatar">
-                                {{ dp.user.first_name|default:dp.user.username|slice:":1"|upper }}
-                            </div>
-                            <div class="distributor-info-meta">
-                                <span class="distributor-biz-name">{{ dp.business_name|default:dp.user.username }}</span>
-                                <span class="distributor-user-email">
-                                    <i class="bi bi-envelope me-1"></i> {{ dp.user.email|default:"No email" }}
-                                </span>
-                            </div>
-                            <span class="verified-shield-icon" title="Verified Distributor Account">
-                                <i class="bi bi-patch-check-fill"></i>
-                            </span>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <div class="text-center py-4 text-muted small">
-                            <i class="bi bi-people fs-2 d-block mb-1 opacity-50"></i>
-                            No distributors registered yet
-                        </div>
-                    {% endif %}
+                <div class="table-responsive">
+                    <table class="table modern-table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>CUSTOMER</th>
+                                <th>CONTACT</th>
+                                <th>LOCATION</th>
+                                <th>DISTRIBUTOR</th>
+                                <th class="text-end">ACTION</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if recent_customers %}
+                                {% for cust in recent_customers %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="avatar-sm-circle bg-emerald-subtle text-emerald fw-bold" style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px;">
+                                                {{ cust.name|slice:":1"|upper }}
+                                            </div>
+                                            <span class="fw-semibold text-dark">{{ cust.name }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="small">
+                                            <div><i class="bi bi-telephone text-muted me-1"></i> {{ cust.phone|default:"-" }}</div>
+                                            {% if cust.email %}
+                                                <div class="text-muted"><i class="bi bi-envelope text-muted me-1"></i> {{ cust.email }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">
+                                            {{ cust.city|default:cust.state|default:"Registered" }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="small text-muted">
+                                            {{ cust.distributor.get_full_name|default:cust.distributor.username|default:"General" }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="{% url 'customer_edit' cust.pk %}" class="btn-action-icon" title="Edit Customer Details">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-5">
+                                        <div class="empty-state-container">
+                                            <i class="bi bi-people fs-1 text-muted d-block mb-2 opacity-50"></i>
+                                            <h6 class="fw-bold text-dark">No Customers Added Yet</h6>
+                                            <p class="text-muted small mb-3">Registered clients will be listed here dynamically.</p>
+                                            <a href="{% url 'add_customer' %}" class="btn btn-sm btn-success fw-semibold">
+                                                <i class="bi bi-person-plus me-1"></i> Add First Customer
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
+        </div>
 
-            <!-- Platform & Security Health Card -->
-            <div class="side-panel-card mb-4">
-                <div class="side-panel-header">
+        <!-- Recent Products Table (6 Cols) -->
+        <div class="col-lg-6">
+            <div class="table-card h-100">
+                <div class="table-card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
                     <div>
-                        <h5 class="side-panel-title">
-                            <i class="bi bi-shield-check text-success me-2"></i>
-                            System & Security Health
-                        </h5>
-                        <p class="side-panel-subtitle">Core engine operational status</p>
+                        <h4 class="table-card-title mb-1">
+                            <i class="bi bi-box-seam-fill text-amber me-2"></i>
+                            Recent Products
+                        </h4>
+                        <p class="table-card-subtitle mb-0">Latest items added to inventory catalog</p>
                     </div>
-                    <span class="badge bg-success-subtle text-success fw-bold px-2 py-1 small rounded-pill">
-                        100% Online
-                    </span>
-                </div>
-
-                <div class="health-checklist">
-                    <div class="health-check-row">
-                        <div class="health-name">
-                            <i class="bi bi-lock-fill text-success"></i>
-                            <span>Multi-Factor Session & OTP</span>
-                        </div>
-                        <span class="health-badge-status">Guarded</span>
-                    </div>
-
-                    <div class="health-check-row">
-                        <div class="health-name">
-                            <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
-                            <span>xhtml2pdf & ReportLab Engine</span>
-                        </div>
-                        <span class="health-badge-status">Active</span>
-                    </div>
-
-                    <div class="health-check-row">
-                        <div class="health-name">
-                            <i class="bi bi-qr-code text-primary"></i>
-                            <span>High-Res Dynamic QR Vector</span>
-                        </div>
-                        <span class="health-badge-status">Active</span>
-                    </div>
-
-                    <div class="health-check-row">
-                        <div class="health-name">
-                            <i class="bi bi-database text-dark"></i>
-                            <span>Django ORM & SQLite Storage</span>
-                        </div>
-                        <span class="health-badge-status">Connected</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Quick Action Shortcuts Grid -->
-            <div class="side-panel-card">
-                <div class="side-panel-header">
-                    <div>
-                        <h5 class="side-panel-title">
-                            <i class="bi bi-lightning-charge-fill text-amber me-2"></i>
-                            Quick Actions
-                        </h5>
-                        <p class="side-panel-subtitle">Immediate administrative tools</p>
+                    <div class="d-flex align-items-center gap-2">
+                        <a href="{% url 'product_add' %}" class="btn btn-sm btn-outline-warning text-dark fw-semibold">
+                            <i class="bi bi-plus me-1"></i> Add
+                        </a>
+                        <a href="{% url 'product_list' %}" class="btn btn-outline-action-sm">
+                            <span>All</span> <i class="bi bi-arrow-right"></i>
+                        </a>
                     </div>
                 </div>
 
-                <div class="row g-2">
-                    <div class="col-6">
-                        <a href="{% url 'create_invoice' %}" class="quick-action-tile">
-                            <i class="bi bi-plus-circle-fill text-primary"></i>
-                            <span>Create Invoice</span>
-                        </a>
-                    </div>
-                    <div class="col-6">
-                        <a href="{% url 'customer_register' %}" class="quick-action-tile">
-                            <i class="bi bi-person-plus-fill text-emerald"></i>
-                            <span>Add Customer</span>
-                        </a>
-                    </div>
-                    <div class="col-6">
-                        <a href="{% url 'product_add' %}" class="quick-action-tile">
-                            <i class="bi bi-box-seam-fill text-amber"></i>
-                            <span>Add Product</span>
-                        </a>
-                    </div>
-                    <div class="col-6">
-                        <a href="{% url 'admin_reports' %}" class="quick-action-tile">
-                            <i class="bi bi-bar-chart-line-fill text-indigo"></i>
-                            <span>View Reports</span>
-                        </a>
-                    </div>
-                    <div class="col-6">
-                        <a href="{% url 'qr_decoder_page' %}" class="quick-action-tile">
-                            <i class="bi bi-qr-code-scan text-success"></i>
-                            <span>Decode QR</span>
-                        </a>
-                    </div>
-                    <div class="col-6">
-                        <a href="/django-admin/" target="_blank" class="quick-action-tile">
-                            <i class="bi bi-database-fill-gear text-dark"></i>
-                            <span>Django Admin</span>
-                        </a>
-                    </div>
+                <div class="table-responsive">
+                    <table class="table modern-table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>PRODUCT NAME</th>
+                                <th>CATEGORY</th>
+                                <th>PRICE</th>
+                                <th>STOCK</th>
+                                <th>STATUS</th>
+                                <th class="text-end">ACTION</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if recent_products %}
+                                {% for prod in recent_products %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="avatar-sm-circle bg-amber-subtle text-amber fw-bold" style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px;">
+                                                <i class="bi bi-box"></i>
+                                            </div>
+                                            <div>
+                                                <span class="fw-semibold text-dark d-block">{{ prod.name }}</span>
+                                                <span class="small text-muted">{{ prod.sku|default:"No SKU" }}</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">
+                                            {{ prod.category|default:"General" }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold text-dark">₹{{ prod.price|floatformat:2 }}</span>
+                                        <span class="small text-muted d-block">{{ prod.gst_rate }}% GST</span>
+                                    </td>
+                                    <td>
+                                        {% if prod.stock > 10 %}
+                                            <span class="badge bg-success-subtle text-success">{{ prod.stock }} {{ prod.unit }}</span>
+                                        {% elif prod.stock > 0 %}
+                                            <span class="badge bg-warning-subtle text-warning">{{ prod.stock }} Low</span>
+                                        {% else %}
+                                            <span class="badge bg-danger-subtle text-danger">Out of Stock</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if prod.is_active %}
+                                            <span class="status-pill status-paid py-1 px-2" style="font-size: 11px;">Active</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="{% url 'product_edit' prod.pk %}" class="btn-action-icon" title="Edit Product">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-5">
+                                        <div class="empty-state-container">
+                                            <i class="bi bi-box-seam fs-1 text-muted d-block mb-2 opacity-50"></i>
+                                            <h6 class="fw-bold text-dark">No Products Found</h6>
+                                            <p class="text-muted small mb-3">Add items to your product catalog to start billing.</p>
+                                            <a href="{% url 'product_add' %}" class="btn btn-sm btn-warning text-dark fw-semibold">
+                                                <i class="bi bi-plus-circle me-1"></i> Add First Product
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -511,149 +507,13 @@
 {% endblock %}
 
 {% block extra_js %}
-<!-- Local Offline Chart.js 4.4.4 -->
-<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
-
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-    // 1. Format Live Date
+    // Format Live Date
     const dateEl = document.getElementById("currentDateText");
     if (dateEl) {
         const options = { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' };
         dateEl.textContent = new Date().toLocaleDateString('en-US', options);
-    }
-
-    // 2. Initialize Revenue Overview Chart
-    const revCanvas = document.getElementById("dashboardRevenueChart");
-    if (revCanvas && typeof Chart !== "undefined") {
-        const revCtx = revCanvas.getContext("2d");
-
-        // Parse dynamic figures from Django template
-        const totalSalesVal = parseFloat("{{ total_sales|default:'0' }}") || 0;
-        const totalSubtotalVal = parseFloat("{{ total_subtotal|default:'0' }}") || 0;
-        const totalGstVal = parseFloat("{{ total_gst|default:'0' }}") || 0;
-        const totalInvoicesVal = parseInt("{{ total_invoices|default:'0' }}") || 0;
-
-        // Generate realistic 6-period analytics distribution
-        const labels = ['5 Months Ago', '4 Months Ago', '3 Months Ago', '2 Months Ago', 'Last Month', 'Current Month'];
-        
-        let salesData = [];
-        if (totalSalesVal > 0) {
-            salesData = [
-                Math.round(totalSalesVal * 0.08),
-                Math.round(totalSalesVal * 0.12),
-                Math.round(totalSalesVal * 0.18),
-                Math.round(totalSalesVal * 0.22),
-                Math.round(totalSalesVal * 0.25),
-                Math.round(totalSalesVal * 0.15)
-            ];
-            // Adjust last to match exactly totalSalesVal
-            const sumFirst5 = salesData.slice(0, 5).reduce((a, b) => a + b, 0);
-            salesData[5] = Math.max(0, Math.round(totalSalesVal - sumFirst5));
-        } else {
-            salesData = [0, 0, 0, 0, 0, 0];
-        }
-
-        const gradient = revCtx.createLinearGradient(0, 0, 0, 260);
-        gradient.addColorStop(0, 'rgba(37, 99, 235, 0.25)');
-        gradient.addColorStop(1, 'rgba(37, 99, 235, 0.00)');
-
-        new Chart(revCtx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Revenue (₹)',
-                    data: salesData,
-                    borderColor: '#2563EB',
-                    backgroundColor: gradient,
-                    borderWidth: 2.5,
-                    fill: true,
-                    tension: 0.35,
-                    pointBackgroundColor: '#2563EB',
-                    pointBorderColor: '#ffffff',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: '#172033',
-                        titleFont: { size: 12, weight: 'bold' },
-                        bodyFont: { size: 12 },
-                        padding: 10,
-                        cornerRadius: 8,
-                        callbacks: {
-                            label: function (ctx) {
-                                return ' Revenue: ₹' + ctx.parsed.y.toLocaleString('en-IN');
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#64748B', font: { size: 11, weight: '600' } }
-                    },
-                    y: {
-                        grid: { color: '#E5EAF1' },
-                        ticks: {
-                            color: '#64748B',
-                            font: { size: 11 },
-                            callback: function (val) {
-                                if (val >= 100000) return '₹' + (val / 100000).toFixed(1) + 'L';
-                                if (val >= 1000) return '₹' + (val / 1000).toFixed(0) + 'k';
-                                return '₹' + val;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    // 3. Initialize Financial Distribution Chart
-    const distCanvas = document.getElementById("dashboardDistributionChart");
-    if (distCanvas && typeof Chart !== "undefined") {
-        const distCtx = distCanvas.getContext("2d");
-        const subtotal = parseFloat("{{ total_subtotal|default:'0' }}") || 1;
-        const gst = parseFloat("{{ total_gst|default:'0' }}") || 0;
-
-        new Chart(distCtx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Subtotal Net', 'GST Amount'],
-                datasets: [{
-                    data: [subtotal, Math.max(gst, 0.01)],
-                    backgroundColor: ['#2563EB', '#6366F1'],
-                    hoverBackgroundColor: ['#1D4ED8', '#4F46E5'],
-                    borderWidth: 2,
-                    borderColor: '#ffffff'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '72%',
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: '#172033',
-                        cornerRadius: 8,
-                        callbacks: {
-                            label: function (ctx) {
-                                return ' ' + ctx.label + ': ₹' + ctx.parsed.toLocaleString('en-IN');
-                            }
-                        }
-                    }
-                }
-            }
-        });
     }
 });
 </script>
