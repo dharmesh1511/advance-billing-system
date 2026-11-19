@@ -1,0 +1,127 @@
+{% extends "billing/base_distributor.html" %}
+{% load static %}
+
+{% block title %}{{ customer.name }} - Customer Details | Advance Billing System{% endblock %}
+{% block nav_customers %}active{% endblock %}
+
+{% block content %}
+<div class="content-header d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <a href="{% url 'customer_list' %}" class="btn btn-sm btn-outline-secondary mb-2">
+            &larr; Back to Customers
+        </a>
+        <h1 class="h3 fw-bold text-dark mb-0">{{ customer.name }}</h1>
+        <p class="text-muted small mb-0">Customer Details &amp; Billing History</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'customer_edit' customer.pk %}" class="btn btn-primary btn-sm">
+            Edit Customer
+        </a>
+        <a href="{% url 'create_invoice' %}" class="btn btn-success btn-sm">
+            Create Invoice
+        </a>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Customer Profile Information -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <div class="avatar-lg bg-primary-subtle text-primary rounded-circle mx-auto d-flex align-items-center justify-content-center mb-3" style="width: 64px; height: 64px; font-size: 24px; font-weight: 700;">
+                        {{ customer.name|slice:":1"|upper }}
+                    </div>
+                    <h5 class="fw-bold mb-1">{{ customer.name }}</h5>
+                    <span class="badge bg-light text-dark border">
+                        Distributor: {{ customer.distributor.get_full_name|default:customer.distributor.username }}
+                    </span>
+                </div>
+
+                <div class="border-top pt-3">
+                    <div class="mb-3">
+                        <small class="text-muted d-block">Phone Number</small>
+                        <span class="fw-semibold text-dark">{{ customer.phone|default:"Not provided" }}</span>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted d-block">Email Address</small>
+                        <span class="fw-semibold text-dark">{{ customer.email|default:"Not provided" }}</span>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted d-block">Location</small>
+                        <span class="fw-semibold text-dark">
+                            {{ customer.city|default:"" }}{% if customer.city and customer.state %}, {% endif %}{{ customer.state|default:"" }}
+                            {% if customer.pincode %}({{ customer.pincode }}){% endif %}
+                        </span>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted d-block">Full Address</small>
+                        <span class="text-dark">{{ customer.address|default:"Not provided" }}</span>
+                    </div>
+                    <div>
+                        <small class="text-muted d-block">Added On</small>
+                        <span class="text-dark">{{ customer.created_at|date:"d M Y, h:i A" }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Related Invoices for This Customer -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0">Invoices for {{ customer.name }}</h5>
+                <span class="badge bg-primary">{{ invoices|length }} Invoices</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Invoice #</th>
+                                <th>Date</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if invoices %}
+                                {% for inv in invoices %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'invoice_preview' inv.pk %}" class="fw-bold text-primary">
+                                            #{{ inv.invoice_number }}
+                                        </a>
+                                    </td>
+                                    <td>{{ inv.invoice_date|date:"d M Y" }}</td>
+                                    <td class="fw-bold">₹{{ inv.grand_total|floatformat:2 }}</td>
+                                    <td>
+                                        <span class="badge bg-success">Paid</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="{% url 'invoice_preview' inv.pk %}" class="btn btn-sm btn-outline-primary py-0 px-2" title="Preview">
+                                            View
+                                        </a>
+                                        <a href="{% url 'invoice_pdf_download' inv.pk %}" class="btn btn-sm btn-outline-secondary py-0 px-2" title="PDF">
+                                            PDF
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">
+                                        No invoices recorded for this customer yet.
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

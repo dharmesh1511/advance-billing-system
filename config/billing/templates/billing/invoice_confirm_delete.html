@@ -1,0 +1,38 @@
+{% extends "billing/base_distributor.html" %}
+{% load static %}
+
+{% block title %}Delete Invoice {{ invoice.invoice_number }} | Advance Billing System{% endblock %}
+{% block nav_invoices %}active{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-4">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4 text-center">
+                <div class="avatar-lg bg-danger-subtle text-danger rounded-circle mx-auto d-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px; font-size: 28px;">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+
+                <h4 class="fw-bold mb-2">Delete Invoice?</h4>
+                <p class="text-muted mb-4">
+                    Are you sure you want to delete invoice <strong class="text-dark">#{{ invoice.invoice_number }}</strong>?
+                    Total Amount: <strong>₹{{ invoice.grand_total|floatformat:2 }}</strong> for <strong>{{ invoice.customer.name }}</strong>.
+                    <br><small class="text-danger">This action will cancel the invoice and restore product inventory quantities.</small>
+                </p>
+
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-center gap-3">
+                        <a href="{% url 'invoice_list' %}" class="btn btn-outline-secondary px-4">
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn btn-danger px-4">
+                            Confirm Delete
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 from django.shortcuts import render, redirect, get_object_or_404
 
 from django.contrib import messages
-from django.db.models import Q, Count, Sum, Value, IntegerField, ProtectedError, RestrictedError
+from django.db.models import Q, Count, Sum, Value, IntegerField, ProtectedError, RestrictedError, F
 from django.db.models.functions import Coalesce
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
@@ -118,6 +118,32 @@ def customer_list(request):
             "query": query,
             "total_count": total_count,
             "filtered_count": filtered_count,
+        }
+    )
+
+
+@admin_or_distributor_required
+def customer_detail(request, pk):
+    """
+    Renders customer details and recent invoices.
+    Enforces distributor ownership filtering: returns 404 if distributor does not own this customer.
+    """
+    if not (is_distributor(request.user) or is_admin(request.user)):
+        return redirect("distributor_login")
+
+    if is_admin(request.user):
+        customer = get_object_or_404(Customer.objects.select_related("distributor"), pk=pk)
+        invoices = Invoice.objects.filter(customer=customer).select_related("distributor").order_by("-invoice_date", "-id")[:10]
+    else:
+        customer = get_object_or_404(Customer, pk=pk, distributor=request.user)
+        invoices = Invoice.objects.filter(customer=customer, distributor=request.user).order_by("-invoice_date", "-id")[:10]
+
+    return render(
+        request,
+        "billing/customer_detail.html",
+        {
+            "customer": customer,
+            "invoices": invoices,
         }
     )
 
@@ -353,11 +379,13 @@ def create_invoice(request):
             try:
                 with transaction.atomic():
                     customer = form.cleaned_data.get("customer")
-                    if not is_admin(request.user):
-                        if not customer or customer.distributor != request.user:
+                    if is_admin(request.user):
+                        dist_user = customer.distributor if (customer and customer.distributor) else request.user
+                    else:
+                        if not customer or customer.distributor_id != request.user.id:
                             raise ValueError("Selected customer does not belong to your account.")
+                        dist_user = request.user
 
-                    dist_user = customer.distributor if (customer and customer.distributor) else request.user
                     form.instance.distributor = dist_user
                     form.instance.invoice_number = generate_unique_invoice_number(dist_user)
                     form.instance.subtotal = Decimal("0.00")
@@ -484,6 +512,48 @@ def create_invoice(request):
             "products_json": products_dict,
             "error": error
         }
+    )
+
+
+@admin_or_distributor_required
+def product_detail(request, pk):
+    """
+    Renders product detail HTML view or returns JSON if requested via AJAX.
+    Enforces distributor ownership filtering: returns 404 if distributor does not own this product.
+    """
+    if not (is_distributor(request.user) or is_admin(request.user)):
+        return redirect("distributor_login")
+
+    if is_admin(request.user):
+        product = get_object_or_404(Product.objects.select_related("distributor"), pk=pk)
+    else:
+        product = get_object_or_404(Product, pk=pk, distributor=request.user)
+
+    is_ajax = (
+        request.headers.get("x-requested-with") == "XMLHttpRequest"
+        or "application/json" in request.headers.get("Accept", "")
+        or request.GET.get("format") == "json"
+    )
+    if is_ajax:
+        return JsonResponse({
+            "id": product.id,
+            "name": product.name,
+            "category": product.category or "",
+            "sku": product.sku or "",
+            "price": str(product.price),
+            "gst_rate": str(product.gst_rate),
+            "stock": product.stock,
+            "stock_quantity": product.stock,
+            "unit": product.unit or "piece",
+            "is_active": product.is_active,
+            "description": product.description or "",
+            "created_at": product.created_at.strftime("%b %d, %Y, %I:%M %p") if product.created_at else "",
+        })
+
+    return render(
+        request,
+        "billing/product_detail.html",
+        {"product": product}
     )
 
 
@@ -640,6 +710,60 @@ def invoice_detail(request, pk):
             "qr_code_url": qr_code_url,
             "qr_payload": qr_payload,
         }
+    )
+
+
+@admin_or_distributor_required
+def invoice_edit(request, pk):
+    """
+    Invoice edit view.
+    Enforces distributor ownership filtering: returns 404 if distributor does not own this invoice.
+    Invoices with verified cryptographic QR codes are protected audit records.
+    """
+    if not (is_distributor(request.user) or is_admin(request.user)):
+        return redirect("distributor_login")
+
+    if is_admin(request.user):
+        invoice = get_object_or_404(Invoice, pk=pk)
+    else:
+        invoice = get_object_or_404(Invoice, pk=pk, distributor=request.user)
+
+    messages.info(request, f'Invoice "{invoice.invoice_number}" is a tax-compliant record with embedded QR code verification.')
+    return redirect("invoice_detail", pk=invoice.pk)
+
+
+@admin_or_distributor_required
+def invoice_delete(request, pk):
+    """
+    Allows deleting an invoice.
+    Enforces distributor ownership filtering: returns 404 if distributor does not own this invoice.
+    """
+    if not (is_distributor(request.user) or is_admin(request.user)):
+        return redirect("distributor_login")
+
+    if is_admin(request.user):
+        invoice = get_object_or_404(Invoice, pk=pk)
+    else:
+        invoice = get_object_or_404(Invoice, pk=pk, distributor=request.user)
+
+    if request.method == "POST":
+        inv_num = invoice.invoice_number
+        try:
+            with transaction.atomic():
+                for item in invoice.items.select_related("product"):
+                    if item.product:
+                        Product.objects.filter(pk=item.product.pk).update(stock=F("stock") + item.quantity)
+                invoice.delete()
+            messages.success(request, f'Invoice "{inv_num}" deleted successfully.')
+        except Exception as e:
+            logger.error(f"Error deleting invoice {pk}: {e}")
+            messages.error(request, f'Unable to delete invoice "{inv_num}".')
+        return redirect("invoice_list")
+
+    return render(
+        request,
+        "billing/invoice_confirm_delete.html",
+        {"invoice": invoice}
     )
 
 
