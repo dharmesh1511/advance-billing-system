@@ -1,782 +1,395 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add New Customer | Advance Billing System</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+{% extends base_template %}
+{% load static %}
 
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f3f4f6;
-            color: #111827;
-            min-height: 100vh;
-            display: flex;
-        }
+{% block title %}Add New Customer | Advance Billing System{% endblock %}
+{% block page_heading %}Customers{% endblock %}
+{% block page_main_title %}Add Customer{% endblock %}
+{% block nav_customers %}active{% endblock %}
 
-        /* Sidebar Layout - Modern SaaS Theme */
-        .sidebar {
-            width: 260px;
-            height: 100vh;
-            position: sticky;
-            top: 0;
-            background-color: #0f172a;
-            color: #ffffff;
-            display: flex;
-            flex-direction: column;
-            flex-shrink: 0;
-            transition: all 0.3s ease;
-            z-index: 100;
-            overflow-y: auto;
-            overflow-x: hidden;
-            border-right: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 2px 0 16px rgba(0, 0, 0, 0.12);
-        }
+{% block extra_css %}
+<style>
+    .customer-form-card {
+        background-color: #ffffff;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+    }
+    .customer-form-header {
+        background: linear-gradient(135deg, #0F172A, #1E293B);
+        color: #ffffff;
+        padding: 24px 28px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .customer-form-body {
+        padding: 28px;
+    }
+    .form-section-title {
+        font-size: 13px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #64748B;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .form-section-divider {
+        height: 1px;
+        background-color: #E2E8F0;
+        margin: 24px 0;
+    }
+    .input-icon-group {
+        position: relative;
+    }
+    .input-icon-group .form-control,
+    .input-icon-group .form-select {
+        padding-left: 42px;
+    }
+    .input-icon-group .input-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94A3B8;
+        font-size: 16px;
+        z-index: 4;
+        pointer-events: none;
+    }
+    .input-icon-group textarea.form-control {
+        padding-left: 42px;
+    }
+    .input-icon-group .textarea-icon {
+        position: absolute;
+        left: 14px;
+        top: 14px;
+        color: #94A3B8;
+        font-size: 16px;
+        z-index: 4;
+        pointer-events: none;
+    }
+    .form-floating-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #334155;
+        margin-bottom: 6px;
+        display: inline-block;
+    }
+    .form-control:focus, .form-select:focus {
+        border-color: #3B82F6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+    .card-footer-actions {
+        background-color: #F8FAFC;
+        border-top: 1px solid #E2E8F0;
+        padding: 18px 28px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 12px;
+    }
+</style>
+{% endblock %}
 
-        .sidebar::-webkit-scrollbar {
-            width: 4px;
-        }
-        .sidebar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 4px;
-        }
-        .sidebar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .sidebar-brand {
-            padding: 22px 20px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            background: #0b1120;
-            flex-shrink: 0;
-        }
-
-        .brand-logo {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #16a34a, #15803d);
-            color: #ffffff;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-size: 17px;
-            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
-            flex-shrink: 0;
-            letter-spacing: -0.5px;
-        }
-
-        .brand-title {
-            font-size: 15px;
-            font-weight: 700;
-            color: #ffffff;
-            letter-spacing: -0.2px;
-            line-height: 1.25;
-        }
-
-        .sidebar-nav {
-            padding: 16px 12px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            overflow-y: auto;
-        }
-
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
-            color: #94a3b8;
-            text-decoration: none;
-            border-radius: 10px;
-            font-size: 13.5px;
-            font-weight: 500;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-        }
-
-        .nav-item:hover {
-            background-color: rgba(255, 255, 255, 0.07);
-            color: #ffffff;
-            transform: translateX(2px);
-        }
-
-        .nav-item.active {
-            background: linear-gradient(135deg, rgba(22, 163, 74, 0.95), rgba(21, 128, 61, 0.95));
-            color: #ffffff;
-            font-weight: 600;
-            box-shadow: 0 4px 14px rgba(22, 163, 74, 0.32);
-        }
-
-        .nav-item.active::before {
-            content: "";
-            position: absolute;
-            left: -12px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 4px;
-            height: 22px;
-            background-color: #4ade80;
-            border-radius: 0 4px 4px 0;
-            box-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
-        }
-
-        .nav-item svg {
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
-            transition: transform 0.2s ease;
-        }
-
-        .nav-item:hover svg {
-            transform: scale(1.05);
-        }
-
-        .sidebar-footer {
-            padding: 14px 16px;
-            margin-top: auto;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-            background: #0b1120;
-            flex-shrink: 0;
-        }
-
-        .logout-btn {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
-            color: #f87171;
-            background: rgba(239, 68, 68, 0.08);
-            border: 1px solid rgba(239, 68, 68, 0.18);
-            text-decoration: none;
-            border-radius: 10px;
-            font-size: 13.5px;
-            font-weight: 600;
-            transition: all 0.2s ease;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        .logout-btn:hover {
-            background-color: rgba(239, 68, 68, 0.18);
-            color: #ffffff;
-            border-color: rgba(239, 68, 68, 0.35);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
-        }
-
-        .logout-btn svg {
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
-        }
-
-        /* Main Content Area */
-        .main-wrapper {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-width: 0;
-        }
-
-        .top-header {
-            background-color: #ffffff;
-            padding: 18px 30px;
-            border-bottom: 1px solid #e5e7eb;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .header-title h1 {
-            font-size: 22px;
-            font-weight: 700;
-            color: #111827;
-        }
-
-        .header-title p {
-            font-size: 13px;
-            color: #6b7280;
-            margin-top: 2px;
-        }
-
-        .user-profile-badge {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .avatar-circle {
-            width: 38px;
-            height: 38px;
-            background-color: #16a34a;
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 15px;
-        }
-
-        .user-info {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .user-name {
-            font-size: 14px;
-            font-weight: 600;
-            color: #111827;
-        }
-
-        .user-role {
-            font-size: 12px;
-            color: #6b7280;
-        }
-
-        .content-body {
-            padding: 30px;
-            flex: 1;
-            max-width: 860px;
-            width: 100%;
-        }
-
-        /* Form Card */
-        .form-card {
-            background: #ffffff;
-            border-radius: 16px;
-            padding: 32px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            border: 1px solid #e5e7eb;
-        }
-
-        .form-card-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding-bottom: 20px;
-            margin-bottom: 24px;
-            border-bottom: 1px solid #f3f4f6;
-        }
-
-        .form-card-header svg {
-            width: 24px;
-            height: 24px;
-            color: #16a34a;
-        }
-
-        .form-card-title {
-            font-size: 18px;
-            font-weight: 700;
-            color: #111827;
-        }
-
-        .alert-error {
-            background-color: #fef2f2;
-            border: 1px solid #fecaca;
-            color: #dc2626;
-            padding: 14px 18px;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 24px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        /* Form Grid Layout */
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .form-group.full-width {
-            grid-column: span 2;
-        }
-
-        .form-label {
-            font-size: 14px;
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 8px;
-        }
-
-        .form-label .required-star {
-            color: #dc2626;
-        }
-
-        .form-input, .form-textarea {
-            width: 100%;
-            padding: 12px 16px;
-            font-size: 15px;
-            color: #111827;
-            background-color: #ffffff;
-            border: 1px solid #d1d5db;
-            border-radius: 10px;
-            outline: none;
-            transition: all 0.2s ease;
-            font-family: inherit;
-        }
-
-        .form-input:focus, .form-textarea:focus {
-            border-color: #16a34a;
-            box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
-        }
-
-        .form-input.is-invalid, .form-textarea.is-invalid {
-            border-color: #ef4444;
-            background-color: #fff5f5;
-        }
-
-        .form-input.is-invalid:focus, .form-textarea.is-invalid:focus {
-            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
-        }
-
-        .field-error {
-            color: #dc2626;
-            font-size: 13px;
-            font-weight: 500;
-            margin-top: 6px;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .form-actions {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 14px;
-            margin-top: 32px;
-            padding-top: 20px;
-            border-top: 1px solid #f3f4f6;
-        }
-
-        .btn-save {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 12px 26px;
-            background-color: #16a34a;
-            color: #ffffff;
-            border: none;
-            border-radius: 10px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        }
-
-        .btn-save:hover {
-            background-color: #15803d;
-        }
-
-        .btn-save:disabled {
-            background-color: #9ca3af;
-            cursor: not-allowed;
-        }
-
-        .btn-cancel {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 12px 24px;
-            background-color: #f3f4f6;
-            color: #374151;
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            font-size: 15px;
-            font-weight: 600;
-            text-decoration: none;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .btn-cancel:hover {
-            background-color: #e5e7eb;
-            color: #111827;
-        }
-
-        @media (max-width: 768px) {
-            body {
-                flex-direction: column;
-            }
-
-            .sidebar {
-                width: 100%;
-            }
-
-            .sidebar-nav {
-                flex-direction: row;
-                overflow-x: auto;
-                padding: 10px;
-            }
-
-            .top-header {
-                padding: 16px 20px;
-            }
-
-            .content-body {
-                padding: 20px;
-            }
-
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .form-group.full-width {
-                grid-column: span 1;
-            }
-
-            .form-actions {
-                flex-direction: column-reverse;
-                gap: 10px;
-            }
-
-            .btn-save, .btn-cancel {
-                width: 100%;
-            }
-        }
-    </style>
-</head>
-<body>
-
-    <!-- Sidebar Navigation -->
-    <aside class="sidebar">
-        <div class="sidebar-brand">
-            <div class="brand-logo">AB</div>
-            <div class="brand-title">Advance Billing</div>
+{% block content %}
+<div class="container-fluid py-3 px-0">
+    <!-- Breadcrumb & Header -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1 small">
+                    <li class="breadcrumb-item">
+                        {% if is_admin_portal %}
+                            <a href="{% url 'admin_dashboard' %}" class="text-decoration-none">Dashboard</a>
+                        {% else %}
+                            <a href="{% url 'distributor_dashboard' %}" class="text-decoration-none">Dashboard</a>
+                        {% endif %}
+                    </li>
+                    <li class="breadcrumb-item">
+                        {% if is_admin_portal %}
+                            <a href="{% url 'admin_customer_list' %}" class="text-decoration-none">Customers</a>
+                        {% else %}
+                            <a href="{% url 'customer_list' %}" class="text-decoration-none">Customers</a>
+                        {% endif %}
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">Add Customer</li>
+                </ol>
+            </nav>
+            <h1 class="h3 fw-bold text-dark mb-0">Add New Customer</h1>
         </div>
-
-        <nav class="sidebar-nav">
-            {% if request.user.is_staff or request.user.is_superuser %}
-            <a href="{% url 'admin_dashboard' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                </svg>
-                <span>Dashboard</span>
-            </a>
-            <a href="{% url 'admin_reports' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                </svg>
-                <span>Reports & Analytics</span>
-            </a>
+        <div>
+            {% if is_admin_portal %}
+                <a href="{% url 'admin_customer_list' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-left me-1"></i> Back to Directory
+                </a>
             {% else %}
-            <a href="{% url 'distributor_dashboard' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                </svg>
-                <span>Dashboard</span>
-            </a>
+                <a href="{% url 'customer_list' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-left me-1"></i> Back to Customers
+                </a>
             {% endif %}
-
-            <a href="{% url 'customer_list' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
-                </svg>
-                <span>Customers</span>
-            </a>
-
-            <a href="{% url 'add_customer' %}" class="nav-item active">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-                </svg>
-                <span>Add Customer</span>
-            </a>
-
-            <a href="{% url 'product_list' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                </svg>
-                <span>Products</span>
-            </a>
-
-            <a href="{% url 'invoice_list' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-                <span>Invoices</span>
-            </a>
-
-            <a href="{% url 'qr_decoder' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
-                </svg>
-                <span>Decode QR Code</span>
-            </a>
-
-            {% if request.user.is_staff or request.user.is_superuser %}
-            <a href="/django-admin/" target="_blank" class="nav-item" title="Django Core Admin">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path>
-                </svg>
-                <span>Django Admin</span>
-            </a>
-            <a href="{% url 'admin_register' %}" class="nav-item" title="Register Admin Staff">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-                </svg>
-                <span>Register Admin</span>
-            </a>
-            {% endif %}
-
-            {% if not request.user.is_staff and not request.user.is_superuser %}
-            <a href="{% url 'distributor_profile' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                </svg>
-                <span>Profile</span>
-            </a>
-            {% endif %}
-        </nav>
-
-        <div class="sidebar-footer">
-            <a href="{% url 'logout' %}" class="logout-btn">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-                </svg>
-                <span>Logout</span>
-            </a>
         </div>
-    </aside>
+    </div>
 
-    <!-- Main Wrapper -->
-    <div class="main-wrapper">
-        <header class="top-header">
-            <div class="header-title">
-                <h1>Add New Customer</h1>
-                <p>Enter customer details to create a new customer record.</p>
-            </div>
-
-            <a href="{% url 'distributor_profile' %}" class="user-profile-badge">
-                <div class="avatar-circle">
-                    {{ request.user.first_name|default:request.user.username|slice:":1"|upper }}
-                </div>
-                <div class="user-info">
-                    <span class="user-name">{{ request.user.get_full_name|default:request.user.username }}</span>
-                    <span class="user-role">Distributor</span>
-                </div>
-            </a>
-        </header>
-
-        <main class="content-body">
-            <div class="form-card">
-                <div class="form-card-header">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-                    </svg>
-                    <h2 class="form-card-title">Customer Information</h2>
-                </div>
-
-                {% if error %}
-                    <div class="alert-error" role="alert">
-                        ⚠ {{ error }}
+    <!-- Main Card -->
+    <div class="row justify-content-center">
+        <div class="col-12 col-xl-10">
+            <div class="customer-form-card">
+                <!-- Header Banner -->
+                <div class="customer-form-header">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-3 bg-primary bg-opacity-25 p-2 text-primary d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                            <i class="bi bi-person-plus-fill fs-4 text-white"></i>
+                        </div>
+                        <div>
+                            <h4 class="mb-1 fw-bold text-white">Customer Registration</h4>
+                            <p class="mb-0 text-white-50 small">Enter client contact details and business address for billing.</p>
+                        </div>
                     </div>
-                {% endif %}
+                </div>
 
-                <form method="POST" action="{% url 'add_customer' %}" id="add-customer-form" novalidate>
+                <!-- Form -->
+                <form method="POST" action="" novalidate id="addCustomerForm">
                     {% csrf_token %}
 
-                    <div class="form-grid">
-                        <!-- Full Name -->
-                        <div class="form-group">
-                            <label for="id_name" class="form-label">
-                                Full Name <span class="required-star">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                name="name"
-                                id="id_name"
-                                class="form-input {% if form.name.errors %}is-invalid{% endif %}"
-                                placeholder="Enter customer full name"
-                                value="{{ form.name.value|default:'' }}"
-                                aria-invalid="{% if form.name.errors %}true{% else %}false{% endif %}"
-                                {% if form.name.errors %}aria-describedby="name-error"{% endif %}
-                            >
-                            {% if form.name.errors %}
-                                <div id="name-error" class="field-error" role="alert">
-                                    ✕ {{ form.name.errors.0 }}
+                    <div class="customer-form-body">
+                        {% if error %}
+                            <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center gap-2 mb-4" role="alert">
+                                <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0"></i>
+                                <div>{{ error }}</div>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endif %}
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+                                {% for err in form.non_field_errors %}
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bi bi-exclamation-circle-fill"></i>
+                                        <span>{{ err }}</span>
+                                    </div>
+                                {% endfor %}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endif %}
+
+                        <!-- ADMIN SECTION: Distributor Assignment -->
+                        {% if is_admin_portal and form.distributor %}
+                            <div class="form-section-title text-primary">
+                                <i class="bi bi-building"></i> Account Assignment
+                            </div>
+                            <div class="row g-3 mb-3">
+                                <div class="col-12 col-md-8">
+                                    <label for="id_distributor" class="form-floating-label">
+                                        Assign to Distributor <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-icon-group">
+                                        <i class="bi bi-building input-icon"></i>
+                                        {{ form.distributor }}
+                                    </div>
+                                    {% if form.distributor.errors %}
+                                        <div class="text-danger small mt-1">
+                                            {% for err in form.distributor.errors %}
+                                                <div><i class="bi bi-exclamation-circle me-1"></i>{{ err }}</div>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <div class="form-text small text-muted">
+                                            Select the distributor organization this customer will belong to.
+                                        </div>
+                                    {% endif %}
                                 </div>
-                            {% endif %}
+                            </div>
+                            <div class="form-section-divider"></div>
+                        {% endif %}
+
+                        <!-- Basic Information -->
+                        <div class="form-section-title">
+                            <i class="bi bi-person-lines-fill"></i> Personal &amp; Contact Information
                         </div>
 
-                        <!-- Email Address -->
-                        <div class="form-group">
-                            <label for="id_email" class="form-label">
-                                Email Address
-                            </label>
-                            <input
-                                type="email"
-                                name="email"
-                                id="id_email"
-                                class="form-input {% if form.email.errors %}is-invalid{% endif %}"
-                                placeholder="Enter email address (optional)"
-                                value="{{ form.email.value|default:'' }}"
-                                aria-invalid="{% if form.email.errors %}true{% else %}false{% endif %}"
-                                {% if form.email.errors %}aria-describedby="email-error"{% endif %}
-                            >
-                            {% if form.email.errors %}
-                                <div id="email-error" class="field-error" role="alert">
-                                    ✕ {{ form.email.errors.0 }}
+                        <div class="row g-3">
+                            <!-- Name -->
+                            <div class="col-12 col-md-6">
+                                <label for="id_name" class="form-floating-label">
+                                    Full Name <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-icon-group">
+                                    <i class="bi bi-person-fill input-icon"></i>
+                                    <input type="text"
+                                           name="name"
+                                           id="id_name"
+                                           class="form-control {% if form.name.errors %}is-invalid{% endif %}"
+                                           placeholder="e.g. Rahul Sharma"
+                                           value="{{ form.name.value|default:'' }}"
+                                           required>
                                 </div>
-                            {% endif %}
+                                {% if form.name.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for err in form.name.errors %}{{ err }} {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Phone -->
+                            <div class="col-12 col-md-6">
+                                <label for="id_phone" class="form-floating-label">
+                                    Phone Number (10 digits) <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-icon-group">
+                                    <i class="bi bi-telephone-fill input-icon"></i>
+                                    <input type="tel"
+                                           name="phone"
+                                           id="id_phone"
+                                           maxlength="10"
+                                           class="form-control {% if form.phone.errors %}is-invalid{% endif %}"
+                                           placeholder="e.g. 9876543210"
+                                           value="{{ form.phone.value|default:'' }}"
+                                           required>
+                                </div>
+                                {% if form.phone.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for err in form.phone.errors %}{{ err }} {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <div class="form-text small text-muted">Valid 10-digit mobile number starting with 6, 7, 8, or 9.</div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Email -->
+                            <div class="col-12 col-md-6">
+                                <label for="id_email" class="form-floating-label">
+                                    Email Address <span class="text-muted fw-normal">(Optional)</span>
+                                </label>
+                                <div class="input-icon-group">
+                                    <i class="bi bi-envelope-fill input-icon"></i>
+                                    <input type="email"
+                                           name="email"
+                                           id="id_email"
+                                           class="form-control {% if form.email.errors %}is-invalid{% endif %}"
+                                           placeholder="e.g. rahul@example.com"
+                                           value="{{ form.email.value|default:'' }}">
+                                </div>
+                                {% if form.email.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for err in form.email.errors %}{{ err }} {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Pincode -->
+                            <div class="col-12 col-md-6">
+                                <label for="id_pincode" class="form-floating-label">
+                                    Pincode <span class="text-muted fw-normal">(Optional)</span>
+                                </label>
+                                <div class="input-icon-group">
+                                    <i class="bi bi-geo-alt-fill input-icon"></i>
+                                    <input type="text"
+                                           name="pincode"
+                                           id="id_pincode"
+                                           maxlength="6"
+                                           class="form-control {% if form.pincode.errors %}is-invalid{% endif %}"
+                                           placeholder="e.g. 400001"
+                                           value="{{ form.pincode.value|default:'' }}">
+                                </div>
+                                {% if form.pincode.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for err in form.pincode.errors %}{{ err }} {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
                         </div>
 
-                        <!-- Phone Number -->
-                        <div class="form-group">
-                            <label for="id_phone" class="form-label">
-                                Phone Number <span class="required-star">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                name="phone"
-                                id="id_phone"
-                                class="form-input {% if form.phone.errors %}is-invalid{% endif %}"
-                                placeholder="Enter 10-digit phone number"
-                                value="{{ form.phone.value|default:'' }}"
-                                aria-invalid="{% if form.phone.errors %}true{% else %}false{% endif %}"
-                                {% if form.phone.errors %}aria-describedby="phone-error"{% endif %}
-                            >
-                            {% if form.phone.errors %}
-                                <div id="phone-error" class="field-error" role="alert">
-                                    ✕ {{ form.phone.errors.0 }}
-                                </div>
-                            {% endif %}
+                        <div class="form-section-divider"></div>
+
+                        <!-- Address Details -->
+                        <div class="form-section-title">
+                            <i class="bi bi-geo-fill"></i> Address Details
                         </div>
 
-                        <!-- Pincode -->
-                        <div class="form-group">
-                            <label for="id_pincode" class="form-label">
-                                Pincode
-                            </label>
-                            <input
-                                type="text"
-                                name="pincode"
-                                id="id_pincode"
-                                class="form-input {% if form.pincode.errors %}is-invalid{% endif %}"
-                                placeholder="Enter 6-digit pincode (optional)"
-                                value="{{ form.pincode.value|default:'' }}"
-                                aria-invalid="{% if form.pincode.errors %}true{% else %}false{% endif %}"
-                                {% if form.pincode.errors %}aria-describedby="pincode-error"{% endif %}
-                            >
-                            {% if form.pincode.errors %}
-                                <div id="pincode-error" class="field-error" role="alert">
-                                    ✕ {{ form.pincode.errors.0 }}
+                        <div class="row g-3">
+                            <!-- Address -->
+                            <div class="col-12">
+                                <label for="id_address" class="form-floating-label">
+                                    Street Address <span class="text-muted fw-normal">(Optional)</span>
+                                </label>
+                                <div class="input-icon-group">
+                                    <i class="bi bi-house-door-fill textarea-icon"></i>
+                                    <textarea name="address"
+                                              id="id_address"
+                                              rows="3"
+                                              class="form-control {% if form.address.errors %}is-invalid{% endif %}"
+                                              placeholder="Flat / Building number, Street name, Landmark...">{{ form.address.value|default:'' }}</textarea>
                                 </div>
-                            {% endif %}
-                        </div>
+                                {% if form.address.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for err in form.address.errors %}{{ err }} {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
 
-                        <!-- Address -->
-                        <div class="form-group full-width">
-                            <label for="id_address" class="form-label">
-                                Address
-                            </label>
-                            <textarea
-                                name="address"
-                                id="id_address"
-                                class="form-textarea {% if form.address.errors %}is-invalid{% endif %}"
-                                placeholder="Enter complete customer address (optional)"
-                                rows="3"
-                                aria-invalid="{% if form.address.errors %}true{% else %}false{% endif %}"
-                                {% if form.address.errors %}aria-describedby="address-error"{% endif %}
-                            >{{ form.address.value|default:'' }}</textarea>
-                            {% if form.address.errors %}
-                                <div id="address-error" class="field-error" role="alert">
-                                    ✕ {{ form.address.errors.0 }}
+                            <!-- City -->
+                            <div class="col-12 col-md-6">
+                                <label for="id_city" class="form-floating-label">
+                                    City <span class="text-muted fw-normal">(Optional)</span>
+                                </label>
+                                <div class="input-icon-group">
+                                    <i class="bi bi-buildings input-icon"></i>
+                                    <input type="text"
+                                           name="city"
+                                           id="id_city"
+                                           class="form-control {% if form.city.errors %}is-invalid{% endif %}"
+                                           placeholder="e.g. Mumbai"
+                                           value="{{ form.city.value|default:'' }}">
                                 </div>
-                            {% endif %}
-                        </div>
+                                {% if form.city.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for err in form.city.errors %}{{ err }} {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
 
-                        <!-- City -->
-                        <div class="form-group">
-                            <label for="id_city" class="form-label">
-                                City
-                            </label>
-                            <input
-                                type="text"
-                                name="city"
-                                id="id_city"
-                                class="form-input {% if form.city.errors %}is-invalid{% endif %}"
-                                placeholder="Enter city (optional)"
-                                value="{{ form.city.value|default:'' }}"
-                                aria-invalid="{% if form.city.errors %}true{% else %}false{% endif %}"
-                                {% if form.city.errors %}aria-describedby="city-error"{% endif %}
-                            >
-                            {% if form.city.errors %}
-                                <div id="city-error" class="field-error" role="alert">
-                                    ✕ {{ form.city.errors.0 }}
+                            <!-- State -->
+                            <div class="col-12 col-md-6">
+                                <label for="id_state" class="form-floating-label">
+                                    State <span class="text-muted fw-normal">(Optional)</span>
+                                </label>
+                                <div class="input-icon-group">
+                                    <i class="bi bi-map-fill input-icon"></i>
+                                    <input type="text"
+                                           name="state"
+                                           id="id_state"
+                                           class="form-control {% if form.state.errors %}is-invalid{% endif %}"
+                                           placeholder="e.g. Maharashtra"
+                                           value="{{ form.state.value|default:'' }}">
                                 </div>
-                            {% endif %}
-                        </div>
-
-                        <!-- State -->
-                        <div class="form-group">
-                            <label for="id_state" class="form-label">
-                                State
-                            </label>
-                            <input
-                                type="text"
-                                name="state"
-                                id="id_state"
-                                class="form-input {% if form.state.errors %}is-invalid{% endif %}"
-                                placeholder="Enter state (optional)"
-                                value="{{ form.state.value|default:'' }}"
-                                aria-invalid="{% if form.state.errors %}true{% else %}false{% endif %}"
-                                {% if form.state.errors %}aria-describedby="state-error"{% endif %}
-                            >
-                            {% if form.state.errors %}
-                                <div id="state-error" class="field-error" role="alert">
-                                    ✕ {{ form.state.errors.0 }}
-                                </div>
-                            {% endif %}
+                                {% if form.state.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for err in form.state.errors %}{{ err }} {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Form Actions -->
-                    <div class="form-actions">
-                        <a href="{% url 'distributor_dashboard' %}" class="btn-cancel">
-                            Cancel
-                        </a>
-                        <button type="submit" id="submit-btn" class="btn-save">
-                            Add Customer
+                    <!-- Footer Actions -->
+                    <div class="card-footer-actions">
+                        {% if is_admin_portal %}
+                            <a href="{% url 'admin_customer_list' %}" class="btn btn-outline-secondary px-3">
+                                Cancel
+                            </a>
+                        {% else %}
+                            <a href="{% url 'customer_list' %}" class="btn btn-outline-secondary px-3">
+                                Cancel
+                            </a>
+                        {% endif %}
+                        <button type="submit" class="btn btn-primary px-4 fw-semibold" id="submitBtn">
+                            <i class="bi bi-check2-circle me-1"></i> Save Customer
                         </button>
                     </div>
                 </form>
             </div>
-        </main>
+        </div>
     </div>
-
-    <script>
-        document.getElementById('add-customer-form').addEventListener('submit', function () {
-            const submitBtn = document.getElementById('submit-btn');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.innerText = 'Adding Customer...';
-            }
-        });
-    </script>
-</body>
-</html>
+</div>
+{% endblock %}

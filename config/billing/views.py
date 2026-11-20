@@ -52,30 +52,41 @@ def add_customer(request):
         return redirect("distributor_login")
 
     error = None
+    is_admin_user = is_admin(request.user)
 
     if request.method == "POST":
-        form = CustomerForm(request.POST)
+        form = CustomerForm(request.POST, user=request.user)
         if form.is_valid():
             try:
                 customer = form.save(commit=False)
-                customer.distributor = request.user
+                if is_admin_user:
+                    customer.distributor = form.cleaned_data["distributor"]
+                else:
+                    customer.distributor = request.user
                 customer.save()
 
-                messages.success(request, "Customer added successfully.")
-                if is_admin(request.user):
-                    return redirect("customer_list")
-                return redirect("distributor_dashboard")
+                messages.success(request, f'Customer "{customer.name}" created successfully.')
+                if is_admin_user:
+                    return redirect("admin_customer_list")
+                return redirect("customer_list")
             except Exception as e:
+                logger.exception("Error adding customer: %s", e)
                 error = "Unable to add customer right now. Please try again."
+        else:
+            error = "Please correct the errors indicated below."
     else:
-        form = CustomerForm()
+        form = CustomerForm(user=request.user)
+
+    base_template = "adminpanel/base_admin.html" if is_admin_user else "billing/base_distributor.html"
 
     return render(
         request,
         "billing/add_customer.html",
         {
             "form": form,
-            "error": error
+            "error": error,
+            "is_admin_portal": is_admin_user,
+            "base_template": base_template,
         }
     )
 
@@ -131,12 +142,15 @@ def customer_detail(request, pk):
     if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
-    if is_admin(request.user):
+    is_admin_user = is_admin(request.user)
+    if is_admin_user:
         customer = get_object_or_404(Customer.objects.select_related("distributor"), pk=pk)
         invoices = Invoice.objects.filter(customer=customer).select_related("distributor").order_by("-invoice_date", "-id")[:10]
     else:
         customer = get_object_or_404(Customer, pk=pk, distributor=request.user)
         invoices = Invoice.objects.filter(customer=customer, distributor=request.user).order_by("-invoice_date", "-id")[:10]
+
+    base_template = "adminpanel/base_admin.html" if is_admin_user else "billing/base_distributor.html"
 
     return render(
         request,
@@ -144,6 +158,8 @@ def customer_detail(request, pk):
         {
             "customer": customer,
             "invoices": invoices,
+            "is_admin_portal": is_admin_user,
+            "base_template": base_template,
         }
     )
 
@@ -153,23 +169,34 @@ def edit_customer(request, pk):
     if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
-    if is_admin(request.user):
+    is_admin_user = is_admin(request.user)
+    if is_admin_user:
         customer = get_object_or_404(Customer, pk=pk)
     else:
         customer = get_object_or_404(Customer, pk=pk, distributor=request.user)
     error = None
 
     if request.method == "POST":
-        form = CustomerForm(request.POST, instance=customer)
+        form = CustomerForm(request.POST, instance=customer, user=request.user)
         if form.is_valid():
             try:
-                form.save()
-                messages.success(request, "Customer updated successfully.")
+                cust = form.save(commit=False)
+                if is_admin_user and "distributor" in form.cleaned_data:
+                    cust.distributor = form.cleaned_data["distributor"]
+                cust.save()
+                messages.success(request, f'Customer "{cust.name}" updated successfully.')
+                if is_admin_user:
+                    return redirect("admin_customer_list")
                 return redirect("customer_list")
             except Exception as e:
+                logger.exception("Error editing customer: %s", e)
                 error = "Unable to update customer information right now. Please try again."
+        else:
+            error = "Please correct the errors indicated below."
     else:
-        form = CustomerForm(instance=customer)
+        form = CustomerForm(instance=customer, user=request.user)
+
+    base_template = "adminpanel/base_admin.html" if is_admin_user else "billing/base_distributor.html"
 
     return render(
         request,
@@ -177,7 +204,9 @@ def edit_customer(request, pk):
         {
             "form": form,
             "customer": customer,
-            "error": error
+            "error": error,
+            "is_admin_portal": is_admin_user,
+            "base_template": base_template,
         }
     )
 
@@ -187,10 +216,13 @@ def delete_customer(request, pk):
     if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
-    if is_admin(request.user):
+    is_admin_user = is_admin(request.user)
+    if is_admin_user:
         customer = get_object_or_404(Customer, pk=pk)
     else:
         customer = get_object_or_404(Customer, pk=pk, distributor=request.user)
+
+    redirect_target = "admin_customer_list" if is_admin_user else "customer_list"
 
     if request.method == "POST":
         customer_name = customer.name
@@ -201,9 +233,9 @@ def delete_customer(request, pk):
             messages.error(request, f'"{customer_name}" cannot be deleted because it is used in existing billing records.')
         except Exception as e:
             messages.error(request, f'Unable to delete "{customer_name}" right now. Please try again.')
-        return redirect("customer_list")
+        return redirect(redirect_target)
 
-    return redirect("customer_list")
+    return redirect(redirect_target)
 
 
 

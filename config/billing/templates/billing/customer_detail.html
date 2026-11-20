@@ -1,15 +1,23 @@
-{% extends "billing/base_distributor.html" %}
+{% extends base_template|default:"billing/base_distributor.html" %}
 {% load static %}
 
 {% block title %}{{ customer.name }} - Customer Details | Advance Billing System{% endblock %}
+{% block page_heading %}Customers{% endblock %}
+{% block page_main_title %}{{ customer.name }}{% endblock %}
 {% block nav_customers %}active{% endblock %}
 
 {% block content %}
 <div class="content-header d-flex align-items-center justify-content-between mb-4">
     <div>
-        <a href="{% url 'customer_list' %}" class="btn btn-sm btn-outline-secondary mb-2">
-            &larr; Back to Customers
-        </a>
+        {% if is_admin_portal %}
+            <a href="{% url 'admin_customer_list' %}" class="btn btn-sm btn-outline-secondary mb-2">
+                &larr; Back to Directory
+            </a>
+        {% else %}
+            <a href="{% url 'customer_list' %}" class="btn btn-sm btn-outline-secondary mb-2">
+                &larr; Back to Customers
+            </a>
+        {% endif %}
         <h1 class="h3 fw-bold text-dark mb-0">{{ customer.name }}</h1>
         <p class="text-muted small mb-0">Customer Details &amp; Billing History</p>
     </div>
