@@ -5,159 +5,547 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Distributor Portal | Advance Billing System{% endblock %}</title>
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Base Stylesheet -->
-    <link rel="stylesheet" href="{% static 'css/distributor.css' %}">
+
+    <!-- Local Offline Bootstrap 5 CSS -->
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}">
+    <!-- Local Offline Bootstrap Icons -->
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
+
+    <style>
+        :root {
+            --bs-body-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --dist-sidebar-width: 260px;
+            --dist-navbar-height: 70px;
+            --dist-sidebar-bg: #0F172A;
+            --dist-sidebar-border: rgba(255, 255, 255, 0.08);
+            --dist-primary-green: #10B981;
+            --dist-primary-dark: #059669;
+            --dist-bg-light: #F8FAFC;
+            --dist-text-dark: #0F172A;
+            --dist-text-muted: #64748B;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--bs-body-font-family);
+            background-color: var(--dist-bg-light);
+            color: var(--dist-text-dark);
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        /* Mobile Sidebar Backdrop */
+        .dist-sidebar-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(2px);
+            z-index: 1040;
+        }
+
+        .dist-sidebar-backdrop.active {
+            display: block;
+        }
+
+        /* Fixed Left Sidebar */
+        .dist-sidebar {
+            width: var(--dist-sidebar-width);
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            background-color: var(--dist-sidebar-bg);
+            color: #FFFFFF;
+            display: flex;
+            flex-direction: column;
+            z-index: 1050;
+            border-right: 1px solid var(--dist-sidebar-border);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .dist-sidebar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .dist-sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+        }
+
+        /* Brand Header */
+        .dist-sidebar-brand {
+            height: var(--dist-navbar-height);
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--dist-sidebar-border);
+            background: #0B1120;
+            flex-shrink: 0;
+        }
+
+        .dist-brand-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: #FFFFFF;
+        }
+
+        .dist-brand-logo {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, #10B981, #059669);
+            color: #FFFFFF;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+            flex-shrink: 0;
+        }
+
+        .dist-brand-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dist-brand-title {
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            color: #FFFFFF;
+            line-height: 1.2;
+        }
+
+        .dist-brand-badge {
+            font-size: 11px;
+            font-weight: 600;
+            color: #10B981;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Navigation Menu */
+        .dist-sidebar-nav {
+            padding: 16px 12px;
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .dist-nav-heading {
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #64748B;
+            padding: 10px 14px 4px;
+        }
+
+        .dist-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            color: #94A3B8;
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 13.5px;
+            font-weight: 500;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .dist-nav-item:hover {
+            background-color: rgba(255, 255, 255, 0.08);
+            color: #FFFFFF;
+            transform: translateX(2px);
+        }
+
+        .dist-nav-item.active {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(5, 150, 105, 0.25));
+            color: #34D399;
+            font-weight: 600;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .dist-nav-item i {
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .dist-nav-item.active i {
+            color: #34D399;
+        }
+
+        /* Sidebar Footer User Card */
+        .dist-sidebar-footer {
+            padding: 14px 14px;
+            border-top: 1px solid var(--dist-sidebar-border);
+            background: rgba(0, 0, 0, 0.2);
+            flex-shrink: 0;
+        }
+
+        .dist-footer-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: #FFFFFF;
+        }
+
+        .dist-footer-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #10B981, #047857);
+            color: #FFFFFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .dist-footer-user {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .dist-footer-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #FFFFFF;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+        }
+
+        .dist-footer-role {
+            font-size: 11.5px;
+            color: #10B981;
+            display: block;
+        }
+
+        .dist-footer-logout {
+            color: #94A3B8;
+            padding: 6px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .dist-footer-logout:hover {
+            color: #EF4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        /* Main Content Wrapper */
+        .dist-main-wrapper {
+            margin-left: var(--dist-sidebar-width);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: margin-left 0.3s ease;
+        }
+
+        /* Top Header Navbar */
+        .dist-top-navbar {
+            height: var(--dist-navbar-height);
+            background: #FFFFFF;
+            border-bottom: 1px solid #E2E8F0;
+            position: sticky;
+            top: 0;
+            z-index: 1020;
+            padding: 0 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .dist-navbar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .dist-toggle-btn {
+            background: none;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .dist-toggle-btn:hover {
+            background: #F1F5F9;
+            color: #0F172A;
+        }
+
+        .dist-navbar-title-box h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0F172A;
+            margin: 0;
+            line-height: 1.2;
+        }
+
+        .dist-navbar-title-box p {
+            font-size: 12px;
+            color: #64748B;
+            margin: 2px 0 0;
+        }
+
+        .dist-navbar-right {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .dist-user-dropdown-btn {
+            background: none;
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 6px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #0F172A;
+            transition: all 0.15s ease;
+        }
+
+        .dist-user-dropdown-btn:hover {
+            background: #F8FAFC;
+            border-color: #CBD5E1;
+        }
+
+        /* Content Area */
+        .dist-content-area {
+            flex: 1;
+            padding: 28px;
+        }
+
+        @media (max-width: 991.98px) {
+            .dist-sidebar {
+                transform: translateX(-100%);
+            }
+            .dist-sidebar.open {
+                transform: translateX(0);
+            }
+            .dist-main-wrapper {
+                margin-left: 0;
+            }
+            .dist-top-navbar {
+                padding: 0 16px;
+            }
+            .dist-content-area {
+                padding: 20px 16px;
+            }
+        }
+    </style>
+
     {% block extra_css %}{% endblock %}
 </head>
 <body>
 
-    <!-- Sidebar Navigation -->
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-brand">
-            <div class="brand-logo" aria-hidden="true">AB</div>
-            <div class="brand-text-container">
-                <span class="brand-title-text">Advance Billing</span>
-                <span class="brand-subtitle-text">{% if request.user.is_staff or request.user.is_superuser %}Admin Panel{% else %}Distributor Portal{% endif %}</span>
-            </div>
+    <!-- Mobile Sidebar Backdrop -->
+    <div class="dist-sidebar-backdrop" id="distBackdrop"></div>
+
+    <!-- Fixed Vertical Sidebar -->
+    <aside class="dist-sidebar" id="distSidebar">
+        <!-- Brand Header -->
+        <div class="dist-sidebar-brand">
+            <a href="{% url 'distributor_dashboard' %}" class="dist-brand-link">
+                <div class="dist-brand-logo">AB</div>
+                <div class="dist-brand-info">
+                    <span class="dist-brand-title">Advance Billing</span>
+                    <span class="dist-brand-badge">Distributor Portal</span>
+                </div>
+            </a>
+            <button type="button" class="btn btn-sm btn-outline-secondary text-white d-lg-none border-0" id="distCloseSidebarBtn" aria-label="Close sidebar">
+                <i class="bi bi-x-lg"></i>
+            </button>
         </div>
 
-        <nav class="sidebar-nav" aria-label="Main Navigation">
-            <div class="nav-section-title">Operations</div>
+        <!-- Sidebar Navigation -->
+        <nav class="dist-sidebar-nav" aria-label="Distributor Navigation">
+            <div class="dist-nav-heading">MAIN MENU</div>
 
-            {% if request.user.is_staff or request.user.is_superuser %}
-            <a href="{% url 'admin_dashboard' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                </svg>
+            <a href="{% url 'distributor_dashboard' %}"
+               class="dist-nav-item {% block nav_dashboard %}{% endblock %} {% if request.resolver_match.url_name == 'distributor_dashboard' %}active{% endif %}"
+               title="Distributor Dashboard">
+                <i class="bi bi-house-door-fill"></i>
                 <span>Dashboard</span>
             </a>
-            <a href="{% url 'admin_reports' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                </svg>
-                <span>Reports & Analytics</span>
-            </a>
-            {% else %}
-            <a href="{% url 'distributor_dashboard' %}" class="nav-item {% block nav_dashboard %}{% endblock %}">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                </svg>
-                <span>Dashboard</span>
-            </a>
-            {% endif %}
 
-            <a href="{% url 'customer_list' %}" class="nav-item {% block nav_customers %}{% endblock %}">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
-                </svg>
-                <span>Customers</span>
-            </a>
+            <div class="dist-nav-heading">BILLING OPERATIONS</div>
 
-            <a href="{% url 'customer_register' %}" class="nav-item {% block nav_register_customer %}{% endblock %}">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-                </svg>
-                <span>Register Customer</span>
-            </a>
-
-            <a href="{% url 'product_list' %}" class="nav-item {% block nav_products %}{% endblock %}">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                </svg>
-                <span>Products</span>
-            </a>
-
-            <a href="{% url 'invoice_list' %}" class="nav-item {% block nav_invoices %}{% endblock %}">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
+            <a href="{% url 'invoice_list' %}"
+               class="dist-nav-item {% block nav_invoices %}{% endblock %} {% if request.resolver_match.url_name in 'invoice_list,invoice_detail,invoice_preview,create_invoice,invoice_create,invoice_edit,invoice_delete,billing_invoice_list,billing_create_invoice,billing_invoice_detail,billing_invoice_preview,billing_invoice_edit,billing_invoice_delete' %}active{% endif %}"
+               title="Invoices Management">
+                <i class="bi bi-receipt"></i>
                 <span>Invoices</span>
             </a>
 
-            <a href="{% url 'qr_decoder' %}" class="nav-item {% block nav_qr_decoder %}{% endblock %}">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
-                </svg>
+            <a href="{% url 'create_invoice' %}"
+               class="dist-nav-item {% if request.resolver_match.url_name in 'create_invoice,invoice_create,billing_create_invoice' %}active{% endif %}"
+               title="Create New Invoice">
+                <i class="bi bi-plus-circle-fill text-success"></i>
+                <span>Create Invoice</span>
+            </a>
+
+            <a href="{% url 'customer_list' %}"
+               class="dist-nav-item {% block nav_customers %}{% endblock %} {% if request.resolver_match.url_name in 'customer_list,customer_detail,customer_details,customer_edit,add_customer,billing_customer_list,billing_customer_detail,billing_customer_details,billing_edit_customer,billing_add_customer' %}active{% endif %}"
+               title="Customer Directory">
+                <i class="bi bi-people-fill"></i>
+                <span>Customers</span>
+            </a>
+
+            <a href="{% url 'customer_register' %}"
+               class="dist-nav-item {% block nav_register_customer %}{% endblock %} {% if request.resolver_match.url_name in 'customer_register,billing_customer_register' %}active{% endif %}"
+               title="Register New Customer">
+                <i class="bi bi-person-plus-fill"></i>
+                <span>Register Customer</span>
+            </a>
+
+            <a href="{% url 'product_list' %}"
+               class="dist-nav-item {% block nav_products %}{% endblock %} {% if request.resolver_match.url_name in 'product_list,product_add,product_edit,product_details,product_detail,add_product,edit_product,delete_product,product_delete,billing_product_list,billing_add_product,billing_product_detail,billing_edit_product,billing_delete_product,billing_product_details' %}active{% endif %}"
+               title="Products Inventory">
+                <i class="bi bi-box-seam-fill"></i>
+                <span>Products</span>
+            </a>
+
+            <a href="{% url 'qr_decoder' %}"
+               class="dist-nav-item {% block nav_qr_decoder %}{% endblock %} {% if request.resolver_match.url_name in 'qr_decoder,qr_decoder_page,invoice_qr_decoder,billing_qr_decoder,billing_qr_decoder_page' %}active{% endif %}"
+               title="Scan & Decode QR Code">
+                <i class="bi bi-qr-code-scan"></i>
                 <span>Decode QR Code</span>
             </a>
 
-            {% if not request.user.is_staff and not request.user.is_superuser %}
-            <div class="nav-section-title" style="margin-top: 12px;">Account</div>
+            <div class="dist-nav-heading">SETTINGS</div>
 
-            <a href="{% url 'distributor_profile' %}" class="nav-item {% block nav_profile %}{% endblock %}">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                </svg>
-                <span>Profile</span>
+            <a href="{% url 'distributor_profile' %}"
+               class="dist-nav-item {% block nav_profile %}{% endblock %} {% if request.resolver_match.url_name in 'distributor_profile,edit_distributor_profile,distributor_profile_edit' %}active{% endif %}"
+               title="My Business Profile">
+                <i class="bi bi-person-badge-fill"></i>
+                <span>My Profile</span>
             </a>
-            {% endif %}
         </nav>
 
-        <div class="sidebar-footer">
-            <a href="{% url 'logout' %}" class="logout-btn">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-                </svg>
-                <span>Logout</span>
-            </a>
+        <!-- Sidebar Footer Profile -->
+        <div class="dist-sidebar-footer">
+            <div class="d-flex align-items-center justify-content-between">
+                <a href="{% url 'distributor_profile' %}" class="dist-footer-card">
+                    <div class="dist-footer-avatar">
+                        {{ request.user.first_name|default:request.user.username|slice:":1"|upper }}
+                    </div>
+                    <div class="dist-footer-user">
+                        <span class="dist-footer-name">{{ request.user.get_full_name|default:request.user.username }}</span>
+                        <span class="dist-footer-role">Distributor</span>
+                    </div>
+                </a>
+                <a href="{% url 'logout' %}" class="dist-footer-logout" title="Sign Out" aria-label="Sign Out">
+                    <i class="bi bi-box-arrow-right fs-5"></i>
+                </a>
+            </div>
         </div>
     </aside>
 
-    <!-- Main Wrapper -->
-    <div class="main-wrapper">
-        <!-- Top Header -->
-        <header class="top-header">
-            <div class="header-title">
-                {% block breadcrumbs %}
-                <nav class="breadcrumb-nav" aria-label="Breadcrumb">
-                    <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a href="{% if request.user.is_staff or request.user.is_superuser %}{% url 'admin_dashboard' %}{% else %}{% url 'distributor_dashboard' %}{% endif %}">Dashboard</a></li>
-                        {% block breadcrumb_items %}{% endblock %}
-                    </ol>
-                </nav>
-                {% endblock %}
-                <h1>{% block page_heading %}Distributor Portal{% endblock %}</h1>
-                <p>{% block page_subheading %}Manage your billing, customers, and operations.{% endblock %}</p>
+    <!-- Main Content Wrapper -->
+    <div class="dist-main-wrapper">
+        <!-- Top Navbar -->
+        <header class="dist-top-navbar">
+            <div class="dist-navbar-left">
+                <button type="button" class="dist-toggle-btn d-lg-none" id="distToggleBtn" aria-label="Toggle navigation drawer">
+                    <i class="bi bi-list fs-5"></i>
+                </button>
+
+                <div class="dist-navbar-title-box">
+                    {% block breadcrumbs %}{% endblock %}
+                    <h1>{% block page_heading %}Distributor Portal{% endblock %}</h1>
+                    <p class="d-none d-sm-block">{% block page_subheading %}Manage billing, customers and invoices{% endblock %}</p>
+                </div>
             </div>
 
-            <div class="header-actions">
+            <div class="dist-navbar-right">
+                <!-- Status Badge -->
+                <div class="d-none d-md-flex align-items-center gap-2 bg-success-subtle text-success border border-success-subtle py-1 px-3 rounded-pill small fw-semibold">
+                    <span class="spinner-grow spinner-grow-sm text-success" style="width: 8px; height: 8px;" role="status"></span>
+                    <span>Portal Live</span>
+                </div>
+
+                <!-- Custom Header Actions -->
                 {% block header_actions %}{% endblock %}
 
-                {% if request.user.is_staff or request.user.is_superuser %}
-                <div class="user-profile-badge" title="Administrator Account">
-                    <div class="avatar-circle" style="background-color: #2563eb;">
-                        {{ request.user.username|slice:":1"|upper|default:"A" }}
-                    </div>
-                    <div class="user-info">
-                        <span class="user-name">{{ request.user.get_full_name|default:request.user.username }}</span>
-                        <span class="user-role" style="color: #2563eb; font-weight: 600;">Administrator</span>
-                    </div>
+                <!-- Profile Dropdown -->
+                <div class="dropdown">
+                    <button class="dist-user-dropdown-btn dropdown-toggle" type="button" id="distUserMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                        <div class="dist-footer-avatar" style="width: 32px; height: 32px; font-size: 13px;">
+                            {{ request.user.first_name|default:request.user.username|slice:":1"|upper }}
+                        </div>
+                        <span class="d-none d-md-inline fw-semibold small">{{ request.user.username }}</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 mt-2 py-2" aria-labelledby="distUserMenu" style="min-width: 220px;">
+                        <li class="px-3 py-2 border-bottom mb-2 bg-light rounded-top">
+                            <div class="fw-bold text-dark text-truncate">{{ request.user.get_full_name|default:request.user.username }}</div>
+                            <div class="text-muted small text-truncate">{{ request.user.email|default:"Distributor Account" }}</div>
+                        </li>
+                        <li>
+                            <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{% url 'distributor_dashboard' %}">
+                                <i class="bi bi-speedometer2 text-success"></i> Dashboard
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{% url 'distributor_profile' %}">
+                                <i class="bi bi-person-badge text-primary"></i> Business Profile
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{% url 'invoice_list' %}">
+                                <i class="bi bi-receipt text-indigo"></i> My Invoices
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider my-2"></li>
+                        <li>
+                            <a class="dropdown-item py-2 text-danger d-flex align-items-center gap-2" href="{% url 'logout' %}">
+                                <i class="bi bi-box-arrow-right"></i> Sign Out
+                            </a>
+                        </li>
+                    </ul>
                 </div>
-                {% else %}
-                <a href="{% url 'distributor_profile' %}" class="user-profile-badge" title="View Profile">
-                    <div class="avatar-circle">
-                        {{ request.user.username|slice:":1"|upper|default:"D" }}
-                    </div>
-                    <div class="user-info">
-                        <span class="user-name">{{ request.user.get_full_name|default:request.user.username }}</span>
-                        <span class="user-role">Distributor</span>
-                    </div>
-                </a>
-                {% endif %}
             </div>
         </header>
 
-        <!-- Main Content Area -->
-        <main class="content-body" id="main-content">
+        <!-- Main Body Content Area -->
+        <main class="dist-content-area" id="main-content">
+            <!-- Alert Messages Container -->
             {% if messages %}
-            <div class="messages-container" style="margin-bottom: 20px;">
+            <div class="mb-4">
                 {% for message in messages %}
-                <div class="alert alert-{{ message.tags|default:'info' }}" role="alert">
-                    {{ message }}
+                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show d-flex align-items-center gap-2 rounded-3 shadow-sm" role="alert">
+                    <i class="bi bi-info-circle-fill fs-5 flex-shrink-0"></i>
+                    <div>{{ message }}</div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
                 {% endfor %}
             </div>
@@ -167,7 +555,34 @@
         </main>
     </div>
 
-    <!-- Extra Scripts -->
+    <!-- Local Offline Bootstrap 5 Bundle JS -->
+    <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+
+    <!-- Mobile Drawer Script -->
+    <script>
+        (function () {
+            const sidebar = document.getElementById('distSidebar');
+            const toggleBtn = document.getElementById('distToggleBtn');
+            const closeBtn = document.getElementById('distCloseSidebarBtn');
+            const backdrop = document.getElementById('distBackdrop');
+
+            if (toggleBtn && sidebar && backdrop) {
+                toggleBtn.addEventListener('click', function () {
+                    sidebar.classList.toggle('open');
+                    backdrop.classList.toggle('active');
+                });
+            }
+
+            function closeSidebar() {
+                if (sidebar) sidebar.classList.remove('open');
+                if (backdrop) backdrop.classList.remove('active');
+            }
+
+            if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+            if (backdrop) backdrop.addEventListener('click', closeSidebar);
+        })();
+    </script>
+
     {% block extra_js %}{% endblock %}
 </body>
 </html>

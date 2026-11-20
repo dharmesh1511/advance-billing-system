@@ -1,58 +1,57 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Login | Advance Billing System</title>
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Local Offline Bootstrap 5 CSS -->
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}">
+    <!-- Local Offline Bootstrap Icons -->
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
 
     <style>
-        *, *::before, *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
+        :root {
+            --bs-body-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --brand-primary: #10B981;
+            --brand-primary-dark: #059669;
+            --brand-navy: #0B0F19;
+            --brand-card-bg: #FFFFFF;
         }
 
         body {
             min-height: 100vh;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #0b0f19;
+            background-color: var(--brand-navy);
             background-image: 
-                radial-gradient(circle at 15% 15%, rgba(16, 185, 129, 0.15) 0%, transparent 40%),
-                radial-gradient(circle at 85% 85%, rgba(59, 130, 246, 0.12) 0%, transparent 45%),
-                radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+                radial-gradient(circle at 15% 15%, rgba(16, 185, 129, 0.16) 0%, transparent 45%),
+                radial-gradient(circle at 85% 85%, rgba(59, 130, 246, 0.14) 0%, transparent 45%),
+                radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
             background-size: 100% 100%, 100% 100%, 28px 28px;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 24px 16px;
-            color: #1e293b;
+            color: #1E293B;
+            font-family: var(--bs-body-font-family);
         }
 
-        .login-wrapper {
+        .login-card-wrapper {
             width: 100%;
             max-width: 440px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
         }
 
         .login-card {
-            width: 100%;
-            background: #ffffff;
+            background: var(--brand-card-bg);
             border-radius: 20px;
-            padding: 40px 36px;
-            box-shadow: 
-                0 25px 50px -12px rgba(0, 0, 0, 0.35),
-                0 0 0 1px rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45);
             position: relative;
             overflow: hidden;
+            padding: 38px 34px;
         }
 
-        /* Top decorative accent bar */
+        /* Decorative top accent line */
         .login-card::before {
             content: '';
             position: absolute;
@@ -60,35 +59,23 @@
             left: 0;
             right: 0;
             height: 4px;
-            background: linear-gradient(90deg, #10b981, #059669, #3b82f6);
+            background: linear-gradient(90deg, #10B981, #059669, #3B82F6);
         }
 
-        .header-section {
-            text-align: center;
-            margin-bottom: 28px;
-        }
-
-        .brand-badge-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 16px;
-        }
-
-        .brand-logo {
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, #10b981, #047857);
-            color: #ffffff;
+        .brand-logo-badge {
+            width: 50px;
+            height: 50px;
             border-radius: 14px;
+            background: linear-gradient(135deg, #10B981, #047857);
+            color: #FFFFFF;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 20px;
             font-weight: 800;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
             letter-spacing: -0.5px;
+            box-shadow: 0 8px 16px rgba(16, 185, 129, 0.35);
+            margin: 0 auto 14px;
         }
 
         .portal-pill {
@@ -96,463 +83,237 @@
             align-items: center;
             gap: 6px;
             padding: 4px 12px;
-            border-radius: 9999px;
+            border-radius: 20px;
             font-size: 12px;
             font-weight: 600;
-            background-color: #ecfdf5;
-            color: #065f46;
-            border: 1px solid #a7f3d0;
-            letter-spacing: 0.2px;
+            background-color: #ECFDF5;
+            color: #065F46;
+            border: 1px solid #A7F3D0;
         }
 
         .portal-pill-dot {
             width: 6px;
             height: 6px;
             border-radius: 50%;
-            background-color: #10b981;
+            background-color: #10B981;
         }
 
-        h1 {
-            font-size: 24px;
-            font-weight: 800;
-            color: #0f172a;
-            margin-bottom: 6px;
-            letter-spacing: -0.5px;
+        .form-control:focus, .form-check-input:focus {
+            border-color: #10B981;
+            box-shadow: 0 0 0 0.25rem rgba(16, 185, 129, 0.2);
         }
 
-        .subtitle {
-            font-size: 14px;
-            color: #64748b;
-            line-height: 1.5;
+        .input-group-text {
+            background-color: #F8FAFC;
+            color: #64748B;
         }
 
-        /* Alert Notifications */
-        .alert-box {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            padding: 12px 14px;
-            border-radius: 10px;
-            margin-bottom: 22px;
-            font-size: 13.5px;
-            line-height: 1.45;
-        }
-
-        .alert-error {
-            background-color: #fef2f2;
-            border: 1px solid #fecaca;
-            color: #991b1b;
-        }
-
-        .alert-error svg {
-            color: #dc2626;
-            flex-shrink: 0;
-            margin-top: 1px;
-        }
-
-        .alert-success {
-            background-color: #f0fdf4;
-            border: 1px solid #bbf7d0;
-            color: #166534;
-        }
-
-        .alert-success svg {
-            color: #16a34a;
-            flex-shrink: 0;
-            margin-top: 1px;
-        }
-
-        /* Form Controls */
-        .form-group {
-            margin-bottom: 18px;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 6px;
-            color: #334155;
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        .input-wrapper {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-
-        .input-icon {
-            position: absolute;
-            left: 14px;
-            color: #94a3b8;
-            pointer-events: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: color 0.2s ease;
-        }
-
-        .form-control {
-            width: 100%;
-            height: 48px;
-            padding: 0 14px 0 42px;
-            border: 1.5px solid #e2e8f0;
-            border-radius: 10px;
-            font-size: 14px;
-            font-family: inherit;
-            color: #0f172a;
-            background-color: #f8fafc;
-            outline: none;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .form-control::placeholder {
-            color: #94a3b8;
-        }
-
-        .form-control:focus {
-            background-color: #ffffff;
-            border-color: #10b981;
-            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
-        }
-
-        .input-wrapper:focus-within .input-icon {
-            color: #10b981;
-        }
-
-        /* Password Toggle */
-        .password-toggle-btn {
-            position: absolute;
-            right: 12px;
-            background: transparent;
+        .btn-login-admin {
+            background: linear-gradient(135deg, #10B981, #059669);
             border: none;
-            color: #94a3b8;
-            cursor: pointer;
-            padding: 6px;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: color 0.15s ease, background-color 0.15s ease;
-        }
-
-        .password-toggle-btn:hover {
-            color: #475569;
-            background-color: #f1f5f9;
-        }
-
-        .password-toggle-btn:focus {
-            outline: 2px solid #10b981;
-        }
-
-        /* Remember Me & Forgot Password Row */
-        .form-options-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 14px;
-            margin-bottom: 24px;
-            font-size: 13px;
-        }
-
-        .checkbox-label {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            color: #475569;
-            cursor: pointer;
-            user-select: none;
-            font-weight: 500;
-        }
-
-        .checkbox-label input[type="checkbox"] {
-            width: 16px;
-            height: 16px;
-            border-radius: 4px;
-            accent-color: #10b981;
-            cursor: pointer;
-        }
-
-        .forgot-link {
-            color: #059669;
-            text-decoration: none;
+            color: #FFFFFF;
             font-weight: 600;
-            transition: color 0.15s ease;
-        }
-
-        .forgot-link:hover {
-            color: #047857;
-            text-decoration: underline;
-        }
-
-        /* Submit Button */
-        .btn-submit {
-            width: 100%;
-            height: 48px;
-            border: none;
+            padding: 11px 16px;
             border-radius: 10px;
-            background: linear-gradient(135deg, #10b981, #059669);
-            color: #ffffff;
-            font-size: 15px;
-            font-weight: 600;
-            font-family: inherit;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.28);
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
         }
 
-        .btn-submit:hover {
+        .btn-login-admin:hover {
             background: linear-gradient(135deg, #059669, #047857);
+            color: #FFFFFF;
             transform: translateY(-1px);
-            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
         }
 
-        .btn-submit:active {
+        .btn-login-admin:active {
             transform: translateY(0);
         }
 
-        .btn-submit:disabled {
-            opacity: 0.75;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .btn-spinner {
-            animation: spin 0.75s linear infinite;
-        }
-
-        /* Switch Card Footer */
         .card-footer-switch {
-            border-top: 1px solid #f1f5f9;
-            padding-top: 20px;
-            margin-top: 24px;
             text-align: center;
+            padding-top: 18px;
+            margin-top: 22px;
+            border-top: 1px solid #F1F5F9;
             font-size: 13.5px;
-            color: #64748b;
+            color: #64748B;
         }
 
-        .switch-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            color: #059669;
-            text-decoration: none;
+        .card-footer-switch a {
+            color: #10B981;
             font-weight: 600;
-            margin-left: 4px;
-            transition: all 0.15s ease;
+            text-decoration: none;
         }
 
-        .switch-link:hover {
-            color: #047857;
+        .card-footer-switch a:hover {
             text-decoration: underline;
+            color: #059669;
         }
 
-        /* Copyright note below card */
         .footer-note {
-            margin-top: 24px;
             text-align: center;
+            color: #94A3B8;
             font-size: 12.5px;
-            color: #64748b;
-        }
-
-        @media (max-width: 480px) {
-            body {
-                padding: 16px 12px;
-            }
-
-            .login-card {
-                padding: 30px 22px;
-                border-radius: 16px;
-            }
-
-            h1 {
-                font-size: 21px;
-            }
+            margin-top: 18px;
         }
     </style>
 </head>
 <body>
 
-<div class="login-wrapper">
+<div class="login-card-wrapper">
     <div class="login-card">
-        <div class="header-section">
-            <div class="brand-badge-container">
-                <div class="brand-logo" aria-hidden="true">AB</div>
-            </div>
-            <div style="margin-bottom: 12px;">
+        <!-- Logo & Brand Header -->
+        <div class="text-center mb-4">
+            <div class="brand-logo-badge">AB</div>
+            <div class="mb-2">
                 <span class="portal-pill">
-                    <span class="portal-pill-dot" aria-hidden="true"></span>
-                    Admin Console
+                    <span class="portal-pill-dot"></span>
+                    <i class="bi bi-shield-lock-fill me-1"></i> Admin Console
                 </span>
             </div>
-            <h1>Admin Login</h1>
-            <p class="subtitle">Sign in to access admin controls &amp; billing operations</p>
+            <h1 class="h4 fw-bold text-dark mb-1">Advance Billing System</h1>
+            <p class="text-muted small mb-0">Sign in to access executive administration</p>
         </div>
+
+        <!-- Alert Error Messages -->
+        {% if error %}
+        <div class="alert alert-danger d-flex align-items-center gap-2 py-2 px-3 rounded-3 mb-3 small" role="alert">
+            <i class="bi bi-exclamation-triangle-fill fs-6 flex-shrink-0"></i>
+            <div>{{ error }}</div>
+        </div>
+        {% endif %}
 
         {% if messages %}
             {% for message in messages %}
-                <div class="alert-box {% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %}" role="alert">
-                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        {% if message.tags == 'error' %}
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        {% else %}
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                        {% endif %}
-                    </svg>
-                    <span>{{ message }}</span>
+                {% if message.message != error %}
+                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} d-flex align-items-center gap-2 py-2 px-3 rounded-3 mb-3 small" role="alert">
+                    <i class="bi bi-info-circle-fill fs-6 flex-shrink-0"></i>
+                    <div>{{ message }}</div>
                 </div>
+                {% endif %}
             {% endfor %}
-        {% elif error %}
-            <div class="alert-box alert-error" role="alert">
-                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <span>{{ error }}</span>
-            </div>
         {% endif %}
 
-        <form id="loginForm" method="POST" action="{% url 'admin_login' %}">
+        <!-- Login Form -->
+        <form method="POST" action="{% url 'admin_login' %}" id="adminLoginForm" novalidate>
             {% csrf_token %}
-            {% if request.GET.next %}
-                <input type="hidden" name="next" value="{{ request.GET.next }}">
-            {% endif %}
 
-            <div class="form-group">
-                <label for="usernameInput" class="form-label">Username or Email</label>
-                <div class="input-wrapper">
-                    <span class="input-icon" aria-hidden="true">
-                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                        </svg>
-                    </span>
-                    <input
-                        id="usernameInput"
-                        type="text"
-                        name="username"
-                        class="form-control"
-                        placeholder="Enter admin username or email"
-                        autocomplete="username"
-                        required
-                    >
+            <!-- Username or Email Input -->
+            <div class="mb-3">
+                <label for="adminUsername" class="form-label small fw-semibold text-secondary mb-1">Email or Username</label>
+                <div class="input-group">
+                    <span class="input-group-text border-end-0"><i class="bi bi-person-fill"></i></span>
+                    <input type="text"
+                           class="form-control border-start-0 ps-1"
+                           id="adminUsername"
+                           name="username"
+                           value="{{ request.POST.username|default:'' }}"
+                           placeholder="admin or admin@example.com"
+                           autocomplete="username"
+                           required
+                           autofocus>
                 </div>
             </div>
 
-            <div class="form-group">
-                <label for="passwordInput" class="form-label">Password</label>
-                <div class="input-wrapper">
-                    <span class="input-icon" aria-hidden="true">
-                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                        </svg>
-                    </span>
-                    <input
-                        id="passwordInput"
-                        type="password"
-                        name="password"
-                        class="form-control"
-                        style="padding-right: 44px;"
-                        placeholder="Enter admin password"
-                        autocomplete="current-password"
-                        required
-                    >
-                    <button
-                        type="button"
-                        id="togglePassword"
-                        class="password-toggle-btn"
-                        aria-label="Show password"
-                        title="Show or hide password"
-                    >
-                        <svg id="eyeIcon" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                        </svg>
-                        <svg id="eyeOffIcon" style="display: none;" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"></path>
-                        </svg>
+            <!-- Password Input with Show/Hide Toggle -->
+            <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label for="adminPassword" class="form-label small fw-semibold text-secondary mb-0">Password</label>
+                    <a href="{% url 'forgot_password' %}" class="small text-decoration-none text-muted fw-semibold" style="font-size: 12.5px;">
+                        Forgot Password?
+                    </a>
+                </div>
+                <div class="input-group">
+                    <span class="input-group-text border-end-0"><i class="bi bi-key-fill"></i></span>
+                    <input type="password"
+                           class="form-control border-start-0 border-end-0 ps-1"
+                           id="adminPassword"
+                           name="password"
+                           placeholder="Enter admin password"
+                           autocomplete="current-password"
+                           required>
+                    <button class="btn btn-outline-secondary border-start-0 bg-light text-muted"
+                            type="button"
+                            id="togglePasswordBtn"
+                            aria-label="Show or hide password"
+                            title="Show / hide password">
+                        <i class="bi bi-eye" id="passwordEyeIcon"></i>
                     </button>
                 </div>
             </div>
 
-            <div class="form-options-row">
-                <label class="checkbox-label" for="rememberMe">
-                    <input type="checkbox" id="rememberMe" name="remember_me">
-                    <span>Remember me</span>
-                </label>
-                <a href="{% url 'forgot_password' %}" class="forgot-link">
-                    Forgot Password?
-                </a>
+            <!-- Remember Me Checkbox -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="adminRememberMe" name="remember_me">
+                    <label class="form-check-label small text-secondary" for="adminRememberMe">
+                        Remember me for 14 days
+                    </label>
+                </div>
             </div>
 
-            <button type="submit" id="submitBtn" class="btn-submit">
-                <svg id="btnSpinner" class="btn-spinner" style="display: none;" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"></circle>
-                    <path fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                </svg>
-                <span id="btnText">Sign In to Admin Console</span>
+            <!-- Submit Button -->
+            <button type="submit" class="btn btn-login-admin w-100 d-flex align-items-center justify-content-center gap-2" id="adminSubmitBtn">
+                <span class="spinner-border spinner-border-sm d-none" id="adminBtnSpinner" role="status" aria-hidden="true"></span>
+                <span id="adminBtnText">Sign In to Admin Console</span>
+                <i class="bi bi-arrow-right" id="adminBtnIcon"></i>
             </button>
         </form>
 
+        <!-- Switch Portal Footer -->
         <div class="card-footer-switch">
             Are you a Distributor?
-            <a href="{% url 'distributor_login' %}" class="switch-link">
+            <a href="{% url 'distributor_login' %}" class="ms-1">
                 Distributor Login &rarr;
             </a>
         </div>
     </div>
 
+    <!-- Page Footer Note -->
     <p class="footer-note">
-        &copy; Advance Billing System &bull; Enterprise Secure Access
+        &copy; 2026 Advance Billing System &bull; Enterprise Secure Access
     </p>
 </div>
 
+<!-- Local Offline Bootstrap 5 JS Bundle -->
+<script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+
 <script>
-    (function() {
-        "use strict";
+    (function () {
+        'use strict';
 
-        // Password Visibility Toggle
-        var togglePassword = document.getElementById("togglePassword");
-        var passwordInput = document.getElementById("passwordInput");
-        var eyeIcon = document.getElementById("eyeIcon");
-        var eyeOffIcon = document.getElementById("eyeOffIcon");
+        // Password Show/Hide Toggle
+        const toggleBtn = document.getElementById('togglePasswordBtn');
+        const passwordInput = document.getElementById('adminPassword');
+        const eyeIcon = document.getElementById('passwordEyeIcon');
 
-        if (togglePassword && passwordInput) {
-            togglePassword.addEventListener("click", function(e) {
-                e.preventDefault();
-                var isPassword = passwordInput.getAttribute("type") === "password";
-                passwordInput.setAttribute("type", isPassword ? "text" : "password");
-                if (eyeIcon && eyeOffIcon) {
-                    eyeIcon.style.display = isPassword ? "none" : "block";
-                    eyeOffIcon.style.display = isPassword ? "block" : "none";
-                }
-                togglePassword.setAttribute("aria-label", isPassword ? "Hide password" : "Show password");
+        if (toggleBtn && passwordInput && eyeIcon) {
+            toggleBtn.addEventListener('click', function () {
+                const isPassword = passwordInput.getAttribute('type') === 'password';
+                passwordInput.setAttribute('type', isPassword ? 'text' : 'password');
+                eyeIcon.classList.toggle('bi-eye', !isPassword);
+                eyeIcon.classList.toggle('bi-eye-slash', isPassword);
             });
         }
 
         // Form Submit Loading State
-        var loginForm = document.getElementById("loginForm");
-        var submitBtn = document.getElementById("submitBtn");
-        var btnText = document.getElementById("btnText");
-        var btnSpinner = document.getElementById("btnSpinner");
+        const form = document.getElementById('adminLoginForm');
+        const submitBtn = document.getElementById('adminSubmitBtn');
+        const spinner = document.getElementById('adminBtnSpinner');
+        const btnText = document.getElementById('adminBtnText');
+        const btnIcon = document.getElementById('adminBtnIcon');
 
-        if (loginForm && submitBtn) {
-            loginForm.addEventListener("submit", function() {
-                if (loginForm.checkValidity()) {
+        if (form && submitBtn) {
+            form.addEventListener('submit', function () {
+                if (form.checkValidity()) {
                     submitBtn.disabled = true;
-                    if (btnSpinner) btnSpinner.style.display = "inline-block";
-                    if (btnText) btnText.textContent = "Signing in...";
+                    if (spinner) spinner.classList.remove('d-none');
+                    if (btnIcon) btnIcon.classList.add('d-none');
+                    if (btnText) btnText.textContent = 'Signing in...';
                 }
             });
         }
     })();
 </script>
-
 </body>
 </html>

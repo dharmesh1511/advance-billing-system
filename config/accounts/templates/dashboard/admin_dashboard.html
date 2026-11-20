@@ -6,6 +6,65 @@
 {% block page_heading %}Dashboard{% endblock %}
 {% block page_main_title %}Executive Billing Dashboard{% endblock %}
 
+{% block extra_css %}
+<style>
+    .table-actions-group {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        gap: 6px !important;
+        white-space: nowrap !important;
+    }
+    .btn-action {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 5px !important;
+        padding: 5px 10px !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        border-radius: 6px !important;
+        text-decoration: none !important;
+        transition: all 0.15s ease-in-out !important;
+        cursor: pointer !important;
+        line-height: 1.25 !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+        border: 1px solid transparent !important;
+    }
+    .btn-action:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 3px 6px -1px rgba(0, 0, 0, 0.1) !important;
+    }
+    .btn-action-preview {
+        background-color: #EFF6FF !important;
+        color: #1D4ED8 !important;
+        border-color: #BFDBFE !important;
+    }
+    .btn-action-preview:hover {
+        background-color: #DBEAFE !important;
+        color: #1E40AF !important;
+    }
+    .btn-action-view {
+        background-color: #F8FAFC !important;
+        color: #334155 !important;
+        border-color: #CBD5E1 !important;
+    }
+    .btn-action-view:hover {
+        background-color: #F1F5F9 !important;
+        color: #0F172A !important;
+    }
+    .btn-action-pdf {
+        background-color: #FFF1F2 !important;
+        color: #E11D48 !important;
+        border-color: #FECDD3 !important;
+    }
+    .btn-action-pdf:hover {
+        background-color: #FFE4E6 !important;
+        color: #BE123C !important;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="dashboard-wrapper">
 
@@ -70,7 +129,7 @@
                     <span class="kpi-meta text-muted">
                         <i class="bi bi-person-check-fill text-emerald me-1"></i> Active registered clients
                     </span>
-                    <a href="{% url 'customer_list' %}" class="kpi-tag bg-emerald-subtle text-emerald text-decoration-none" title="Manage Customers">
+                    <a href="{% url 'admin_customer_list' %}" class="kpi-tag bg-emerald-subtle text-emerald text-decoration-none" title="Manage Customers">
                         <span>View All</span> <i class="bi bi-chevron-right ms-1"></i>
                     </a>
                 </div>
@@ -93,7 +152,7 @@
                     <span class="kpi-meta text-muted">
                         <i class="bi bi-layers-fill text-amber me-1"></i> Catalog SKUs in inventory
                     </span>
-                    <a href="{% url 'product_list' %}" class="kpi-tag bg-amber-subtle text-amber text-decoration-none" title="Manage Products">
+                    <a href="{% url 'admin_product_list' %}" class="kpi-tag bg-amber-subtle text-amber text-decoration-none" title="Manage Products">
                         <span>View All</span> <i class="bi bi-chevron-right ms-1"></i>
                     </a>
                 </div>
@@ -116,7 +175,7 @@
                     <span class="kpi-meta text-muted">
                         <i class="bi bi-check-circle-fill text-primary me-1"></i> Tax-compliant billed records
                     </span>
-                    <a href="{% url 'invoice_list' %}" class="kpi-tag bg-primary-subtle text-primary text-decoration-none" title="Manage Invoices">
+                    <a href="{% url 'admin_invoice_list' %}" class="kpi-tag bg-primary-subtle text-primary text-decoration-none" title="Manage Invoices">
                         <span>View All</span> <i class="bi bi-chevron-right ms-1"></i>
                     </a>
                 </div>
@@ -209,7 +268,7 @@
                         <a href="{% url 'create_invoice' %}" class="btn btn-sm btn-primary fw-semibold">
                             <i class="bi bi-plus-circle me-1"></i> New Invoice
                         </a>
-                        <a href="{% url 'invoice_list' %}" class="btn btn-outline-action-sm">
+                        <a href="{% url 'admin_invoice_list' %}" class="btn btn-outline-action-sm">
                             <span>View All Invoices</span>
                             <i class="bi bi-arrow-right"></i>
                         </a>
@@ -278,13 +337,15 @@
                                             <i class="bi bi-check2-circle me-1"></i> Paid
                                         </span>
                                     </td>
-                                    <td class="text-end">
-                                        <div class="btn-group btn-group-sm">
-                                            <a href="{% url 'invoice_preview' inv.pk %}" class="btn-action-icon" title="View Invoice Preview">
+                                    <td class="text-end text-nowrap">
+                                        <div class="table-actions-group">
+                                            <a href="{% url 'invoice_preview' inv.pk %}" class="btn btn-sm btn-action btn-action-preview" title="View Invoice Preview">
                                                 <i class="bi bi-eye"></i>
+                                                <span>Preview</span>
                                             </a>
-                                            <a href="{% url 'invoice_pdf_download' inv.pk %}" class="btn-action-icon" title="Download Verified PDF">
-                                                <i class="bi bi-download"></i>
+                                            <a href="{% url 'invoice_pdf_download' inv.pk %}" class="btn btn-sm btn-action btn-action-pdf" title="Download Verified PDF">
+                                                <i class="bi bi-file-earmark-pdf"></i>
+                                                <span>PDF</span>
                                             </a>
                                         </div>
                                     </td>
@@ -328,7 +389,7 @@
                         <a href="{% url 'add_customer' %}" class="btn btn-sm btn-outline-success fw-semibold">
                             <i class="bi bi-plus me-1"></i> Add
                         </a>
-                        <a href="{% url 'customer_list' %}" class="btn btn-outline-action-sm">
+                        <a href="{% url 'admin_customer_list' %}" class="btn btn-outline-action-sm">
                             <span>All</span> <i class="bi bi-arrow-right"></i>
                         </a>
                     </div>
@@ -375,10 +436,17 @@
                                             {{ cust.distributor.get_full_name|default:cust.distributor.username|default:"General" }}
                                         </span>
                                     </td>
-                                    <td class="text-end">
-                                        <a href="{% url 'customer_edit' cust.pk %}" class="btn-action-icon" title="Edit Customer Details">
-                                            <i class="bi bi-pencil-square"></i>
-                                        </a>
+                                    <td class="text-end text-nowrap">
+                                        <div class="table-actions-group">
+                                            <a href="{% url 'customer_detail' cust.pk %}" class="btn btn-sm btn-action btn-action-preview" title="View Customer Details">
+                                                <i class="bi bi-eye"></i>
+                                                <span>View</span>
+                                            </a>
+                                            <a href="{% url 'customer_edit' cust.pk %}" class="btn btn-sm btn-action btn-action-view" title="Edit Customer Details">
+                                                <i class="bi bi-pencil-square"></i>
+                                                <span>Edit</span>
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -417,7 +485,7 @@
                         <a href="{% url 'product_add' %}" class="btn btn-sm btn-outline-warning text-dark fw-semibold">
                             <i class="bi bi-plus me-1"></i> Add
                         </a>
-                        <a href="{% url 'product_list' %}" class="btn btn-outline-action-sm">
+                        <a href="{% url 'admin_product_list' %}" class="btn btn-outline-action-sm">
                             <span>All</span> <i class="bi bi-arrow-right"></i>
                         </a>
                     </div>
@@ -475,10 +543,17 @@
                                             <span class="badge bg-secondary">Inactive</span>
                                         {% endif %}
                                     </td>
-                                    <td class="text-end">
-                                        <a href="{% url 'product_edit' prod.pk %}" class="btn-action-icon" title="Edit Product">
-                                            <i class="bi bi-pencil-square"></i>
-                                        </a>
+                                    <td class="text-end text-nowrap">
+                                        <div class="table-actions-group">
+                                            <a href="{% url 'product_detail' prod.pk %}" class="btn btn-sm btn-action btn-action-preview" title="View Product Details">
+                                                <i class="bi bi-eye"></i>
+                                                <span>View</span>
+                                            </a>
+                                            <a href="{% url 'product_edit' prod.pk %}" class="btn btn-sm btn-action btn-action-view" title="Edit Product">
+                                                <i class="bi bi-pencil-square"></i>
+                                                <span>Edit</span>
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}

@@ -86,9 +86,9 @@ def customer_list(request):
         return redirect("distributor_login")
 
     if is_admin(request.user):
-        queryset = Customer.objects.all().select_related("distributor").order_by("-id")
-    else:
-        queryset = Customer.objects.filter(distributor=request.user).order_by("-id")
+        return redirect("admin_customer_list")
+
+    queryset = Customer.objects.filter(distributor=request.user).order_by("-id")
     total_count = queryset.count()
 
     query = request.GET.get("q", "").strip()
@@ -247,9 +247,9 @@ def product_list(request):
         return redirect("distributor_login")
 
     if is_admin(request.user):
-        queryset = Product.objects.all().select_related("distributor").order_by("-id")
-    else:
-        queryset = Product.objects.filter(distributor=request.user).order_by("-id")
+        return redirect("admin_product_list")
+
+    queryset = Product.objects.filter(distributor=request.user).order_by("-id")
     total_count = queryset.count()
 
     query = request.GET.get("q", "").strip()
@@ -822,29 +822,21 @@ def invoice_list(request):
     if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
 
-    from django.db.models import Count
     if is_admin(request.user):
-        queryset = Invoice.objects.all().select_related(
-            "customer", "distributor"
-        ).prefetch_related(
-            "items"
-        ).annotate(
-            item_count=Count("items", distinct=True),
-            total_quantity=Coalesce(Sum("items__quantity"), Value(0), output_field=IntegerField()),
-            total_item_qty=Coalesce(Sum("items__quantity"), Value(0), output_field=IntegerField())
-        ).order_by("-created_at")
-    else:
-        queryset = Invoice.objects.filter(
-            distributor=request.user
-        ).select_related(
-            "customer"
-        ).prefetch_related(
-            "items"
-        ).annotate(
-            item_count=Count("items", distinct=True),
-            total_quantity=Coalesce(Sum("items__quantity"), Value(0), output_field=IntegerField()),
-            total_item_qty=Coalesce(Sum("items__quantity"), Value(0), output_field=IntegerField())
-        ).order_by("-created_at")
+        return redirect("admin_invoice_list")
+
+    from django.db.models import Count
+    queryset = Invoice.objects.filter(
+        distributor=request.user
+    ).select_related(
+        "customer"
+    ).prefetch_related(
+        "items"
+    ).annotate(
+        item_count=Count("items", distinct=True),
+        total_quantity=Coalesce(Sum("items__quantity"), Value(0), output_field=IntegerField()),
+        total_item_qty=Coalesce(Sum("items__quantity"), Value(0), output_field=IntegerField())
+    ).order_by("-created_at")
 
     total_count = queryset.count()
     query = request.GET.get("q", "").strip()
@@ -925,6 +917,9 @@ def qr_decoder_view(request):
     """
     if not (is_distributor(request.user) or is_admin(request.user)):
         return redirect("distributor_login")
+
+    if is_admin(request.user):
+        return redirect("admin_qr_decoder")
 
     return render(
         request,

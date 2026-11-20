@@ -1,0 +1,632 @@
+{% extends 'adminpanel/base_admin.html' %}
+{% load static %}
+
+{% block title %}Decode QR Code & Verify Invoice | Admin Portal{% endblock %}
+
+{% block page_heading %}QR Decoder{% endblock %}
+{% block page_main_title %}Invoice QR Code Verification{% endblock %}
+
+{% block extra_css %}
+<style>
+    .qr-decoder-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    .decoder-card {
+        background-color: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+        padding: 24px;
+        height: 100%;
+    }
+    .decoder-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border);
+    }
+    .decoder-icon-pill {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #059669, #047857);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        flex-shrink: 0;
+        box-shadow: 0 4px 10px rgba(5, 150, 105, 0.25);
+    }
+    .qr-dropzone {
+        border: 2px dashed #CBD5E1;
+        border-radius: 14px;
+        padding: 36px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-color: #F8FAFC;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+    }
+    .qr-dropzone:hover, .qr-dropzone.dragover {
+        border-color: #059669;
+        background-color: #ECFDF5;
+    }
+    .qr-dropzone-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background-color: #E2E8F0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: #475569;
+        transition: all 0.2s ease;
+    }
+    .qr-dropzone:hover .qr-dropzone-icon {
+        background-color: #D1FAE5;
+        color: #059669;
+    }
+    .qr-preview-wrapper {
+        display: none;
+        position: relative;
+        text-align: center;
+        padding: 16px;
+        background: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        margin-top: 16px;
+    }
+    .qr-preview-img {
+        max-width: 180px;
+        max-height: 180px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        object-fit: contain;
+    }
+    .btn-remove-preview {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: #ffffff;
+        border: 1px solid #E2E8F0;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #64748B;
+        cursor: pointer;
+    }
+    .btn-remove-preview:hover {
+        background: #FEE2E2;
+        color: #DC2626;
+        border-color: #FCA5A5;
+    }
+    /* Results Panel */
+    .result-idle-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        min-height: 380px;
+        text-align: center;
+        color: #64748B;
+        padding: 30px;
+    }
+    .result-idle-icon {
+        font-size: 48px;
+        color: #94A3B8;
+        margin-bottom: 16px;
+    }
+    .result-verified-banner {
+        background: linear-gradient(135deg, #ECFDF5, #D1FAE5);
+        border: 1px solid #A7F3D0;
+        border-radius: 12px;
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+    }
+    .verified-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background-color: #059669;
+        color: #ffffff;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .invoice-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+    .info-tile {
+        background: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 10px;
+        padding: 12px 14px;
+    }
+    .info-tile-label {
+        font-size: 11.5px;
+        font-weight: 600;
+        color: #64748B;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+    }
+    .info-tile-value {
+        font-size: 14px;
+        font-weight: 700;
+        color: #0F172A;
+    }
+    .items-table {
+        margin-bottom: 0;
+        font-size: 13px;
+    }
+    .items-table thead th {
+        background-color: #F1F5F9;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #475569;
+        padding: 10px 12px;
+    }
+    .items-table tbody td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #E2E8F0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="qr-decoder-container">
+
+    <div class="row g-4">
+        <!-- 1. Left Column: Upload Box -->
+        <div class="col-12 col-lg-5">
+            <div class="decoder-card">
+                <div class="decoder-header">
+                    <div class="decoder-icon-pill">
+                        <i class="bi bi-qr-code-scan"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold text-dark m-0">Upload QR Code</h5>
+                        <small class="text-muted">Upload an invoice QR code image to decode</small>
+                    </div>
+                </div>
+
+                <!-- Drag & Drop Dropzone -->
+                <div class="qr-dropzone" id="qrDropzone" onclick="document.getElementById('qrFileInput').click();">
+                    <div class="qr-dropzone-icon">
+                        <i class="bi bi-cloud-arrow-up"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold text-dark">Click to browse or drag & drop</div>
+                        <div class="text-muted small">Supports PNG, JPG, JPEG, WEBP up to 5MB</div>
+                    </div>
+                    <input type="file" id="qrFileInput" accept="image/*" class="d-none">
+                </div>
+
+                <!-- Image Preview Box -->
+                <div class="qr-preview-wrapper" id="qrPreviewWrapper">
+                    <button type="button" class="btn-remove-preview" id="btnRemovePreview" title="Remove image">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                    <img id="qrPreviewImg" class="qr-preview-img" src="" alt="Selected QR Code">
+                    <div class="mt-2 text-muted small" id="qrFileName">filename.png</div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="button" class="btn btn-primary w-100 mt-3 py-2 fw-semibold" id="btnDecodeQr" disabled>
+                    <i class="bi bi-shield-check me-1"></i>
+                    <span id="btnDecodeText">Decode & Verify Invoice</span>
+                </button>
+
+                <!-- Helpful Tips -->
+                <div class="mt-4 pt-3 border-top">
+                    <div class="fw-semibold text-dark small mb-2"><i class="bi bi-info-circle text-primary me-1"></i> How QR Verification Works:</div>
+                    <ul class="text-muted small ps-3 mb-0" style="line-height: 1.6;">
+                        <li>Upload any QR code generated from this platform.</li>
+                        <li>The system parses the encoded GST payload and matches it against the database.</li>
+                        <li>Verified invoice details, totals, and line items will be displayed instantly.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Right Column: Verification Result -->
+        <div class="col-12 col-lg-7">
+            <div class="decoder-card" id="decoderResultContainer">
+
+                <!-- State A: Idle -->
+                <div class="result-idle-state" id="stateIdle">
+                    <div class="result-idle-icon">
+                        <i class="bi bi-receipt-cutoff"></i>
+                    </div>
+                    <h5 class="fw-bold text-dark">No QR Code Inspected Yet</h5>
+                    <p class="text-muted small mb-0" style="max-width: 380px;">
+                        Upload or drop an invoice QR code image in the panel on the left to verify authenticity and inspect billing line items.
+                    </p>
+                </div>
+
+                <!-- State B: Loading -->
+                <div class="result-idle-state d-none" id="stateLoading">
+                    <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h5 class="fw-bold text-dark">Analyzing & Verifying QR Code...</h5>
+                    <p class="text-muted small mb-0">Decoding cryptographic payload and fetching record from database.</p>
+                </div>
+
+                <!-- State C: Error -->
+                <div class="d-none" id="stateError">
+                    <div class="alert alert-danger d-flex align-items-start gap-3 rounded-3 shadow-sm mb-0">
+                        <i class="bi bi-exclamation-triangle-fill fs-4 flex-shrink-0"></i>
+                        <div>
+                            <h6 class="fw-bold mb-1" id="errorTitle">QR Decode Failed</h6>
+                            <p class="small mb-0" id="errorMessage">Unable to decode or verify QR code.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- State D: Success Verified Output -->
+                <div class="d-none" id="stateSuccess">
+                    <!-- Top Verification Banner -->
+                    <div class="result-verified-banner">
+                        <div>
+                            <div class="verified-chip mb-1">
+                                <i class="bi bi-patch-check-fill"></i> Verified Authentic
+                            </div>
+                            <h4 class="fw-bold text-dark m-0" id="resInvoiceNumber">INV-#</h4>
+                        </div>
+                        <div class="text-end">
+                            <div class="text-muted small">Invoice Date</div>
+                            <div class="fw-bold text-dark" id="resInvoiceDate">-</div>
+                        </div>
+                    </div>
+
+                    <!-- Meta Information Grid -->
+                    <div class="invoice-info-grid">
+                        <div class="info-tile">
+                            <div class="info-tile-label">Customer</div>
+                            <div class="info-tile-value" id="resCustomerName">-</div>
+                            <div class="text-muted small" id="resCustomerPhone">-</div>
+                        </div>
+                        <div class="info-tile">
+                            <div class="info-tile-label">Distributor</div>
+                            <div class="info-tile-value text-indigo" id="resDistributorName">-</div>
+                            <div class="text-muted small" id="resDistributorPhone">-</div>
+                        </div>
+                        <div class="info-tile">
+                            <div class="info-tile-label">Grand Total</div>
+                            <div class="info-tile-value text-success fs-5" id="resGrandTotal">₹0.00</div>
+                            <div class="text-muted small" id="resPaymentStatus">-</div>
+                        </div>
+                    </div>
+
+                    <!-- Customer Address (if any) -->
+                    <div class="p-2 mb-3 bg-light rounded-2 border small" id="resAddressBox" style="display: none;">
+                        <span class="text-muted fw-semibold">Billing Address:</span>
+                        <span id="resCustomerAddress" class="text-dark"></span>
+                    </div>
+
+                    <!-- Line Items Table -->
+                    <div class="card border rounded-3 overflow-hidden mb-3">
+                        <div class="card-header bg-light py-2 px-3 fw-bold small text-muted d-flex justify-content-between">
+                            <span>INVOICE ITEMS (<span id="resItemCount">0</span>)</span>
+                            <span id="resItemsTotalSummary"></span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table items-table align-middle">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 40px;">#</th>
+                                        <th>Product</th>
+                                        <th class="text-center">Qty</th>
+                                        <th class="text-end">Rate</th>
+                                        <th class="text-center">GST</th>
+                                        <th class="text-end">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="resItemsBody">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Financial Summary & Action Links -->
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2 border-top">
+                        <div class="d-flex gap-2">
+                            <a href="#" id="resViewInvoiceBtn" class="btn btn-sm btn-primary">
+                                <i class="bi bi-eye me-1"></i> View Full Invoice
+                            </a>
+                            <a href="#" id="resDownloadPdfBtn" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-file-earmark-pdf me-1"></i> Download PDF
+                            </a>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetDecoderState()">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i> Decode Another
+                        </button>
+                    </div>
+
+                    <!-- Raw Decoded Payload (Collapsible) -->
+                    <div class="mt-3">
+                        <a class="text-muted small text-decoration-none" data-bs-toggle="collapse" href="#rawPayloadCollapse" role="button">
+                            <i class="bi bi-code-slash me-1"></i> Show Raw Decoded QR Payload
+                        </a>
+                        <div class="collapse mt-2" id="rawPayloadCollapse">
+                            <pre class="bg-light p-3 rounded-3 border text-dark small" style="max-height: 150px; overflow-y: auto;" id="resRawPayload"></pre>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        const dropzone = document.getElementById('qrDropzone');
+        const fileInput = document.getElementById('qrFileInput');
+        const previewWrapper = document.getElementById('qrPreviewWrapper');
+        const previewImg = document.getElementById('qrPreviewImg');
+        const fileNameEl = document.getElementById('qrFileName');
+        const btnRemove = document.getElementById('btnRemovePreview');
+        const btnDecode = document.getElementById('btnDecodeQr');
+        const btnDecodeText = document.getElementById('btnDecodeText');
+
+        // State containers
+        const stateIdle = document.getElementById('stateIdle');
+        const stateLoading = document.getElementById('stateLoading');
+        const stateError = document.getElementById('stateError');
+        const stateSuccess = document.getElementById('stateSuccess');
+        const errorTitle = document.getElementById('errorTitle');
+        const errorMessage = document.getElementById('errorMessage');
+
+        let selectedFile = null;
+
+        // Drag and Drop handlers
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.remove('dragover');
+            }, false);
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files && files.length > 0) {
+                handleFileSelected(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                handleFileSelected(e.target.files[0]);
+            }
+        });
+
+        btnRemove.addEventListener('click', (e) => {
+            e.stopPropagation();
+            resetFileInput();
+        });
+
+        function handleFileSelected(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('Please upload a valid image file (PNG, JPG, JPEG, WEBP).');
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File size exceeds 5MB limit.');
+                return;
+            }
+
+            selectedFile = file;
+            fileNameEl.textContent = file.name;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImg.src = e.target.result;
+                previewWrapper.style.display = 'block';
+                dropzone.style.display = 'none';
+                btnDecode.disabled = false;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resetFileInput() {
+            selectedFile = null;
+            fileInput.value = '';
+            previewImg.src = '';
+            previewWrapper.style.display = 'none';
+            dropzone.style.display = 'flex';
+            btnDecode.disabled = true;
+        }
+
+        window.resetDecoderState = function() {
+            resetFileInput();
+            stateIdle.classList.remove('d-none');
+            stateLoading.classList.add('d-none');
+            stateError.classList.add('d-none');
+            stateSuccess.classList.add('d-none');
+        };
+
+        // Decode QR Button Action
+        btnDecode.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            btnDecode.disabled = true;
+            btnDecodeText.textContent = 'Processing...';
+
+            stateIdle.classList.add('d-none');
+            stateError.classList.add('d-none');
+            stateSuccess.classList.add('d-none');
+            stateLoading.classList.remove('d-none');
+
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+
+            // Fetch CSRF token from cookie
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+
+            try {
+                const response = await fetch('/billing/api/qr/decode/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken') || ''
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                stateLoading.classList.add('d-none');
+                btnDecode.disabled = false;
+                btnDecodeText.textContent = 'Decode & Verify Invoice';
+
+                if (!response.ok) {
+                    const errTitle = response.status === 404 ? 'Invoice Not Found in Records'
+                        : response.status === 415 ? 'Unsupported Image Format'
+                        : response.status === 422 ? 'No QR Code Detected'
+                        : 'Verification Failed';
+
+                    const errMsg = data.message || data.error || data.detail || 'Unable to decode or find matching invoice in system records.';
+                    errorTitle.textContent = errTitle;
+                    errorMessage.textContent = errMsg;
+                    stateError.classList.remove('d-none');
+                    return;
+                }
+
+                // Render Success State
+                renderVerifiedInvoice(data);
+
+            } catch (err) {
+                stateLoading.classList.add('d-none');
+                btnDecode.disabled = false;
+                btnDecodeText.textContent = 'Decode & Verify Invoice';
+
+                errorTitle.textContent = 'Network or Server Error';
+                errorMessage.textContent = 'Failed to connect to the decoding API service. Please try again.';
+                stateError.classList.remove('d-none');
+            }
+        });
+
+        function renderVerifiedInvoice(res) {
+            const invoice = res.invoice || {};
+
+            document.getElementById('resInvoiceNumber').textContent = '#' + (invoice.invoice_number || 'N/A');
+            document.getElementById('resInvoiceDate').textContent = invoice.invoice_date || '-';
+            document.getElementById('resCustomerName').textContent = invoice.customer_name || 'General Customer';
+            document.getElementById('resCustomerPhone').textContent = invoice.customer_phone || '-';
+            document.getElementById('resDistributorName').textContent = invoice.distributor_username || invoice.distributor_name || 'Platform Direct';
+            document.getElementById('resDistributorPhone').textContent = invoice.distributor_phone || '';
+            document.getElementById('resGrandTotal').textContent = '₹' + (invoice.grand_total || '0.00');
+            document.getElementById('resPaymentStatus').textContent = 'Status: ' + (invoice.payment_status || 'Paid');
+
+            // Address
+            const addrParts = [invoice.customer_address, invoice.customer_city, invoice.customer_state, invoice.customer_pincode].filter(Boolean).join(', ');
+            const addrBox = document.getElementById('resAddressBox');
+            if (addrParts) {
+                document.getElementById('resCustomerAddress').textContent = addrParts;
+                addrBox.style.display = 'block';
+            } else {
+                addrBox.style.display = 'none';
+            }
+
+            // Line items
+            const items = invoice.items || [];
+            document.getElementById('resItemCount').textContent = items.length;
+            const itemsBody = document.getElementById('resItemsBody');
+            itemsBody.innerHTML = '';
+
+            if (items.length === 0) {
+                itemsBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No line items in this invoice</td></tr>';
+            } else {
+                items.forEach((item, idx) => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="text-muted">${idx + 1}</td>
+                        <td>
+                            <div class="fw-bold text-dark">${item.product_name || 'Item'}</div>
+                            ${item.sku ? '<span class="text-muted small">SKU: ' + item.sku + '</span>' : ''}
+                        </td>
+                        <td class="text-center fw-semibold">${item.quantity || 1}</td>
+                        <td class="text-end">₹${item.unit_price || '0.00'}</td>
+                        <td class="text-center text-muted">${item.gst_rate || 0}%</td>
+                        <td class="text-end fw-bold text-dark">₹${item.line_total || '0.00'}</td>
+                    `;
+                    itemsBody.appendChild(row);
+                });
+            }
+
+            // Quick Action Links
+            const viewBtn = document.getElementById('resViewInvoiceBtn');
+            const pdfBtn = document.getElementById('resDownloadPdfBtn');
+            if (invoice.id) {
+                viewBtn.href = '/distributor/invoices/' + invoice.id + '/';
+                pdfBtn.href = '/distributor/invoices/' + invoice.id + '/download-pdf/';
+                viewBtn.style.display = 'inline-flex';
+                pdfBtn.style.display = 'inline-flex';
+            } else {
+                viewBtn.style.display = 'none';
+                pdfBtn.style.display = 'none';
+            }
+
+            // Raw payload
+            const rawPayloadEl = document.getElementById('resRawPayload');
+            if (res.results && res.results.length > 0) {
+                rawPayloadEl.textContent = res.results[0].data || '';
+            } else {
+                rawPayloadEl.textContent = JSON.stringify(invoice, null, 2);
+            }
+
+            stateSuccess.classList.remove('d-none');
+        }
+    })();
+</script>
+{% endblock %}

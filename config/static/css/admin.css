@@ -413,40 +413,25 @@ body.admin-app-body {
 }
 
 /* ==========================================================================
-   Sidebar Collapsed Mode (Desktop)
+   Sidebar Options Always Fully Visible
    ========================================================================== */
-.admin-sidebar.collapsed {
-    width: var(--sidebar-collapsed-width);
+.admin-sidebar .brand-info,
+.admin-sidebar .nav-text,
+.admin-sidebar .nav-section-heading,
+.admin-sidebar .nav-external-icon,
+.admin-sidebar .footer-user-info {
+    opacity: 1;
+    pointer-events: auto;
 }
 
-.admin-sidebar.collapsed .brand-info,
-.admin-sidebar.collapsed .nav-text,
-.admin-sidebar.collapsed .nav-section-heading,
-.admin-sidebar.collapsed .nav-external-icon,
-.admin-sidebar.collapsed .footer-user-info {
-    opacity: 0;
-    pointer-events: none;
-    display: none;
+.admin-sidebar .admin-nav-item {
+    display: flex !important;
+    visibility: visible !important;
 }
 
-.admin-sidebar.collapsed .brand-link {
-    justify-content: center;
-    width: 100%;
-}
-
-.admin-sidebar.collapsed .admin-nav-item {
-    justify-content: center;
-    padding: 12px 0;
-}
-
-.admin-sidebar.collapsed .footer-profile-card {
-    justify-content: center;
-    padding: 6px 0;
-    background: transparent;
-}
-
-.admin-sidebar.collapsed .footer-logout-btn {
-    display: none;
+.admin-sidebar .nav-section-heading {
+    display: block !important;
+    visibility: visible !important;
 }
 
 /* Tooltip on collapsed hover */
@@ -1652,3 +1637,197 @@ body.sidebar-is-collapsed .admin-main-wrapper {
         gap: 14px;
     }
 }
+
+/* ==========================================================================
+   Modern SaaS Action Buttons & Badges for Admin Tables
+   ========================================================================== */
+.table-actions-wrap {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 6px !important;
+    white-space: nowrap !important;
+    flex-wrap: nowrap !important;
+}
+
+.btn-saas {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    padding: 5px 11px !important;
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    line-height: 1.35 !important;
+    border-radius: 7px !important;
+    border: 1px solid transparent !important;
+    text-decoration: none !important;
+    white-space: nowrap !important;
+    transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    cursor: pointer !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+.btn-saas:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 3px 6px -1px rgba(0, 0, 0, 0.08) !important;
+}
+
+.btn-saas:active {
+    transform: translateY(0) !important;
+}
+
+.btn-saas i {
+    font-size: 13px !important;
+    line-height: 1 !important;
+}
+
+/* Primary / Details (Soft Blue) */
+.btn-saas-primary {
+    background-color: #EFF6FF !important;
+    color: #1D4ED8 !important;
+    border-color: #BFDBFE !important;
+}
+.btn-saas-primary:hover {
+    background-color: #DBEAFE !important;
+    color: #1E40AF !important;
+    border-color: #93C5FD !important;
+}
+
+/* Invoices (Soft Indigo) */
+.btn-saas-indigo {
+    background-color: #EEF2FF !important;
+    color: #4F46E5 !important;
+    border-color: #C7D2FE !important;
+}
+.btn-saas-indigo:hover {
+    background-color: #E0E7FF !important;
+    color: #4338CA !important;
+    border-color: #A5B4FC !important;
+}
+
+/* Secondary (Soft Slate) */
+.btn-saas-secondary {
+    background-color: #F8FAFC !important;
+    color: #334155 !important;
+    border-color: #CBD5E1 !important;
+}
+.btn-saas-secondary:hover {
+    background-color: #F1F5F9 !important;
+    color: #0F172A !important;
+    border-color: #94A3B8 !important;
+}
+
+/* Danger / PDF (Soft Rose) */
+.btn-saas-danger {
+    background-color: #FFF1F2 !important;
+    color: #E11D48 !important;
+    border-color: #FECDD3 !important;
+}
+.btn-saas-danger:hover {
+    background-color: #FFE4E6 !important;
+    color: #BE123C !important;
+    border-color: #FDA4AF !important;
+}
+
+/* Success / QR (Soft Emerald) */
+.btn-saas-success {
+    background-color: #ECFDF5 !important;
+    color: #059669 !important;
+    border-color: #A7F3D0 !important;
+}
+.btn-saas-success:hover {
+    background-color: #D1FAE5 !important;
+    color: #047857 !important;
+    border-color: #6EE7B7 !important;
+}
+
+/* Icon-only compact square button */
+.btn-saas-icon {
+    width: 30px !important;
+    height: 30px !important;
+    padding: 0 !important;
+    border-radius: 7px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* ==========================================================================
+   Modern Table Action Buttons Group (.btn-action)
+   ========================================================================== */
+.table-actions-group {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 6px !important;
+    white-space: nowrap !important;
+}
+
+.btn-action {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    padding: 5px 10px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    border-radius: 6px !important;
+    text-decoration: none !important;
+    transition: all 0.15s ease-in-out !important;
+    cursor: pointer !important;
+    line-height: 1.25 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+    border: 1px solid transparent !important;
+}
+
+.btn-action:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 3px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+.btn-action-preview {
+    background-color: #EFF6FF !important;
+    color: #1D4ED8 !important;
+    border-color: #BFDBFE !important;
+}
+.btn-action-preview:hover {
+    background-color: #DBEAFE !important;
+    color: #1E40AF !important;
+    border-color: #93C5FD !important;
+}
+
+.btn-action-view {
+    background-color: #F8FAFC !important;
+    color: #334155 !important;
+    border-color: #CBD5E1 !important;
+}
+.btn-action-view:hover {
+    background-color: #F1F5F9 !important;
+    color: #0F172A !important;
+    border-color: #94A3B8 !important;
+}
+
+.btn-action-pdf {
+    background-color: #FFF1F2 !important;
+    color: #E11D48 !important;
+    border-color: #FECDD3 !important;
+}
+.btn-action-pdf:hover {
+    background-color: #FFE4E6 !important;
+    color: #BE123C !important;
+    border-color: #FDA4AF !important;
+}
+
+.btn-action-qr {
+    background-color: #ECFDF5 !important;
+    color: #059669 !important;
+    border-color: #A7F3D0 !important;
+}
+.btn-action-qr:hover {
+    background-color: #D1FAE5 !important;
+    color: #047857 !important;
+    border-color: #6EE7B7 !important;
+}
+
+

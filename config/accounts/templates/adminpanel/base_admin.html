@@ -11,7 +11,7 @@
     <!-- Local Offline Bootstrap Icons -->
     <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
     <!-- Premium Admin Custom CSS -->
-    <link rel="stylesheet" href="{% static 'css/admin.css' %}">
+    <link rel="stylesheet" href="{% static 'css/admin.css' %}?v=2.2">
 
     {% block extra_css %}{% endblock %}
 </head>
@@ -66,8 +66,8 @@
             <!-- MANAGEMENT SECTION -->
             <div class="nav-section-heading">MANAGEMENT</div>
 
-            <a href="{% url 'invoice_list' %}"
-               class="admin-nav-item {% if request.resolver_match.url_name in 'invoice_list,invoice_detail,invoice_preview,create_invoice,invoice_create' %}active{% endif %}"
+            <a href="{% url 'admin_invoice_list' %}"
+               class="admin-nav-item {% if request.resolver_match.url_name in 'admin_invoice_list,invoice_list,invoice_detail,invoice_preview,create_invoice,invoice_create,invoice_edit,invoice_delete,billing_invoice_list,billing_create_invoice,billing_invoice_detail,billing_invoice_preview,billing_invoice_edit,billing_invoice_delete' %}active{% endif %}"
                title="Invoices"
                data-tooltip="Invoices">
                 <div class="nav-icon-container">
@@ -76,8 +76,8 @@
                 <span class="nav-text">Invoices</span>
             </a>
 
-            <a href="{% url 'customer_list' %}"
-               class="admin-nav-item {% if request.resolver_match.url_name in 'customer_list,customer_register,customer_edit,add_customer' %}active{% endif %}"
+            <a href="{% url 'admin_customer_list' %}"
+               class="admin-nav-item {% if request.resolver_match.url_name in 'admin_customer_list,customer_list,customer_register,customer_edit,add_customer,customer_detail,customer_details,customer_delete,billing_customer_list,billing_customer_register,billing_add_customer,billing_customer_detail,billing_customer_details,billing_edit_customer,billing_delete_customer' %}active{% endif %}"
                title="Customers"
                data-tooltip="Customers">
                 <div class="nav-icon-container">
@@ -86,8 +86,8 @@
                 <span class="nav-text">Customers</span>
             </a>
 
-            <a href="{% url 'product_list' %}"
-               class="admin-nav-item {% if request.resolver_match.url_name in 'product_list,product_add,product_edit,product_details' %}active{% endif %}"
+            <a href="{% url 'admin_product_list' %}"
+               class="admin-nav-item {% if request.resolver_match.url_name in 'admin_product_list,product_list,product_add,product_edit,product_details,product_detail,add_product,edit_product,delete_product,product_delete,billing_product_list,billing_add_product,billing_product_detail,billing_edit_product,billing_delete_product,billing_product_details' %}active{% endif %}"
                title="Products"
                data-tooltip="Products">
                 <div class="nav-icon-container">
@@ -96,8 +96,8 @@
                 <span class="nav-text">Products</span>
             </a>
 
-            <a href="{% url 'qr_decoder_page' %}"
-               class="admin-nav-item nav-item-special {% if request.resolver_match.url_name in 'qr_decoder,qr_decoder_page,invoice_qr_decoder' %}active{% endif %}"
+            <a href="{% url 'admin_qr_decoder' %}"
+               class="admin-nav-item nav-item-special {% if request.resolver_match.url_name in 'admin_qr_decoder,qr_decoder,qr_decoder_page,invoice_qr_decoder,billing_qr_decoder,billing_qr_decoder_page' %}active{% endif %}"
                title="Decode QR Code"
                data-tooltip="Decode QR Code">
                 <div class="nav-icon-container">
@@ -286,7 +286,7 @@
     <!-- Local Offline Bootstrap 5 Bundle JS -->
     <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
 
-    <!-- Sidebar Collapse & Responsive Drawer Script -->
+    <!-- Sidebar Script: All options stay visible on desktop, drawer toggle on mobile -->
     <script>
         (function () {
             const sidebar = document.getElementById('adminSidebar');
@@ -295,14 +295,20 @@
             const backdrop = document.getElementById('sidebarBackdrop');
             const body = document.body;
 
-            // Load saved collapsed state for desktop
-            const isCollapsed = localStorage.getItem('advance_billing_sidebar_collapsed') === 'true';
-            if (isCollapsed && window.innerWidth >= 992) {
-                sidebar.classList.add('collapsed');
-                body.classList.add('sidebar-is-collapsed');
+            // Clear any previously saved collapsed state so all options always stay visible
+            try {
+                localStorage.removeItem('advance_billing_sidebar_collapsed');
+            } catch (e) {}
+
+            // Ensure sidebar is always fully expanded on desktop
+            if (sidebar) {
+                sidebar.classList.remove('collapsed');
+            }
+            if (body) {
+                body.classList.remove('sidebar-is-collapsed');
             }
 
-            // Toggle click listener
+            // Toggle click listener: opens/closes mobile drawer on small screens
             if (toggleBtn) {
                 toggleBtn.addEventListener('click', function () {
                     if (window.innerWidth < 992) {
@@ -311,11 +317,9 @@
                         backdrop.classList.toggle('active');
                         body.classList.toggle('mobile-sidebar-open');
                     } else {
-                        // Desktop Collapsible
-                        sidebar.classList.toggle('collapsed');
-                        body.classList.toggle('sidebar-is-collapsed');
-                        const collapsedNow = sidebar.classList.contains('collapsed');
-                        localStorage.setItem('advance_billing_sidebar_collapsed', collapsedNow);
+                        // On desktop, keep sidebar and all options fully visible
+                        sidebar.classList.remove('collapsed');
+                        body.classList.remove('sidebar-is-collapsed');
                     }
                 });
             }
@@ -331,26 +335,20 @@
             }
 
             function closeMobileSidebar() {
-                sidebar.classList.remove('mobile-open');
-                backdrop.classList.remove('active');
-                body.classList.remove('mobile-sidebar-open');
+                if (sidebar) sidebar.classList.remove('mobile-open');
+                if (backdrop) backdrop.classList.remove('active');
+                if (body) body.classList.remove('mobile-sidebar-open');
             }
 
-            // Handle window resizing smoothly
+            // Handle window resizing: ensure desktop keeps all options visible
             window.addEventListener('resize', function () {
                 if (window.innerWidth >= 992) {
                     closeMobileSidebar();
-                    const collapsedPref = localStorage.getItem('advance_billing_sidebar_collapsed') === 'true';
-                    if (collapsedPref) {
-                        sidebar.classList.add('collapsed');
-                        body.classList.add('sidebar-is-collapsed');
-                    } else {
-                        sidebar.classList.remove('collapsed');
-                        body.classList.remove('sidebar-is-collapsed');
-                    }
+                    if (sidebar) sidebar.classList.remove('collapsed');
+                    if (body) body.classList.remove('sidebar-is-collapsed');
                 } else {
-                    sidebar.classList.remove('collapsed');
-                    body.classList.remove('sidebar-is-collapsed');
+                    if (sidebar) sidebar.classList.remove('collapsed');
+                    if (body) body.classList.remove('sidebar-is-collapsed');
                 }
             });
         })();

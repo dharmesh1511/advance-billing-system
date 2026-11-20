@@ -1409,3 +1409,207 @@ def reset_password(request):
         }
     )
 
+
+# ==============================================================================
+# Dedicated Admin Panel Management Views (Rendering inside base_admin.html)
+# ==============================================================================
+
+@admin_required(login_url="/admin/login/")
+def admin_invoice_list(request):
+    """
+    Dedicated Admin Invoices view rendering with base_admin.html.
+    Allows Admins to view, search, and monitor invoices across all distributors.
+    """
+    queryset = Invoice.objects.all().select_related(
+        "customer", "distributor"
+    ).prefetch_related(
+        "items"
+    ).annotate(
+        item_count=Count("items", distinct=True),
+        total_quantity=Coalesce(Sum("items__quantity"), Value(0)),
+    ).order_by("-id")
+
+    total_invoices_count = queryset.count()
+    total_revenue = Invoice.objects.aggregate(s=Coalesce(Sum("grand_total"), Decimal("0.00")))["s"]
+
+    invoice_fields = [f.name for f in Invoice._meta.get_fields()]
+    has_payment_status = "payment_status" in invoice_fields
+    if has_payment_status:
+        paid_count = Invoice.objects.filter(payment_status__iexact="Paid").count()
+        pending_count = Invoice.objects.exclude(payment_status__iexact="Paid").count()
+    else:
+        paid_count = total_invoices_count
+        pending_count = 0
+
+    query = request.GET.get("q", "").strip()
+    if query:
+        queryset = queryset.filter(
+            Q(invoice_number__icontains=query) |
+            Q(customer__name__icontains=query) |
+            Q(customer__email__icontains=query) |
+            Q(distributor__username__icontains=query)
+        )
+
+    status_filter = request.GET.get("status", "").strip()
+    if status_filter and has_payment_status:
+        queryset = queryset.filter(payment_status__iexact=status_filter)
+
+    distributor_id = request.GET.get("distributor_id", "").strip()
+    if distributor_id and distributor_id.isdigit():
+        queryset = queryset.filter(distributor_id=int(distributor_id))
+
+    filtered_count = queryset.count()
+
+    paginator = Paginator(queryset, 10)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    distributors = User.objects.filter(
+        Q(groups__name="Distributor") | Q(distributor_profile__isnull=False)
+    ).distinct().order_by("username")
+
+    return render(
+        request,
+        "adminpanel/admin_invoice_list.html",
+        {
+            "page_obj": page_obj,
+            "query": query,
+            "status_filter": status_filter,
+            "selected_distributor_id": distributor_id,
+            "distributors": distributors,
+            "total_count": total_invoices_count,
+            "filtered_count": filtered_count,
+            "total_revenue": total_revenue,
+            "paid_count": paid_count,
+            "pending_count": pending_count,
+        }
+    )
+
+
+@admin_required(login_url="/admin/login/")
+def admin_customer_list(request):
+    """
+    Dedicated Admin Customers view rendering with base_admin.html.
+    Allows Admins to view and search all customers across all distributors.
+    """
+    queryset = Customer.objects.all().select_related("distributor").annotate(
+        invoices_count=Count("invoices", distinct=True)
+    ).order_by("-id")
+
+    total_customers_count = queryset.count()
+
+    query = request.GET.get("q", "").strip()
+    if query:
+        queryset = queryset.filter(
+            Q(name__icontains=query) |
+            Q(email__icontains=query) |
+            Q(phone__icontains=query) |
+            Q(city__icontains=query) |
+            Q(state__icontains=query) |
+            Q(pincode__icontains=query) |
+            Q(distributor__username__icontains=query)
+        )
+
+    distributor_id = request.GET.get("distributor_id", "").strip()
+    if distributor_id and distributor_id.isdigit():
+        queryset = queryset.filter(distributor_id=int(distributor_id))
+
+    filtered_count = queryset.count()
+
+    paginator = Paginator(queryset, 10)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    distributors = User.objects.filter(
+        Q(groups__name="Distributor") | Q(distributor_profile__isnull=False)
+    ).distinct().order_by("username")
+
+    return render(
+        request,
+        "adminpanel/admin_customer_list.html",
+        {
+            "page_obj": page_obj,
+            "query": query,
+            "selected_distributor_id": distributor_id,
+            "distributors": distributors,
+            "total_count": total_customers_count,
+            "filtered_count": filtered_count,
+        }
+    )
+
+
+@admin_required(login_url="/admin/login/")
+def admin_product_list(request):
+    """
+    Dedicated Admin Products view rendering with base_admin.html.
+    Allows Admins to view inventory, pricing, and stock across all distributors.
+    """
+    queryset = Product.objects.all().select_related("distributor").order_by("-id")
+
+    total_products_count = queryset.count()
+    in_stock_count = Product.objects.filter(stock__gt=5).count()
+    low_stock_count = Product.objects.filter(stock__gt=0, stock__lte=5).count()
+    out_of_stock_count = Product.objects.filter(stock=0).count()
+
+    query = request.GET.get("q", "").strip()
+    if query:
+        queryset = queryset.filter(
+            Q(name__icontains=query) |
+            Q(category__icontains=query) |
+            Q(sku__icontains=query) |
+            Q(description__icontains=query) |
+            Q(distributor__username__icontains=query)
+        )
+
+    stock_status = request.GET.get("stock_status", "").strip()
+    if stock_status == "in_stock":
+        queryset = queryset.filter(stock__gt=5)
+    elif stock_status == "low_stock":
+        queryset = queryset.filter(stock__gt=0, stock__lte=5)
+    elif stock_status == "out_of_stock":
+        queryset = queryset.filter(stock=0)
+
+    distributor_id = request.GET.get("distributor_id", "").strip()
+    if distributor_id and distributor_id.isdigit():
+        queryset = queryset.filter(distributor_id=int(distributor_id))
+
+    filtered_count = queryset.count()
+
+    paginator = Paginator(queryset, 10)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    distributors = User.objects.filter(
+        Q(groups__name="Distributor") | Q(distributor_profile__isnull=False)
+    ).distinct().order_by("username")
+
+    return render(
+        request,
+        "adminpanel/admin_product_list.html",
+        {
+            "page_obj": page_obj,
+            "query": query,
+            "stock_status": stock_status,
+            "selected_distributor_id": distributor_id,
+            "distributors": distributors,
+            "total_count": total_products_count,
+            "filtered_count": filtered_count,
+            "in_stock_count": in_stock_count,
+            "low_stock_count": low_stock_count,
+            "out_of_stock_count": out_of_stock_count,
+        }
+    )
+
+
+@admin_required(login_url="/admin/login/")
+def admin_qr_decoder(request):
+    """
+    Dedicated Admin QR Decoder view rendering with base_admin.html.
+    Allows Admins to upload and inspect QR codes with the Admin sidebar remaining visible.
+    """
+    return render(
+        request,
+        "adminpanel/admin_qr_decoder.html",
+        {}
+    )
+

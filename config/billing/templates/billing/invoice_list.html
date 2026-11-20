@@ -721,6 +721,21 @@
                 <span>Decode QR Code</span>
             </a>
 
+            {% if request.user.is_staff or request.user.is_superuser %}
+            <a href="/django-admin/" target="_blank" class="nav-item" title="Django Core Admin">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path>
+                </svg>
+                <span>Django Admin</span>
+            </a>
+            <a href="{% url 'admin_register' %}" class="nav-item" title="Register Admin Staff">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+                </svg>
+                <span>Register Admin</span>
+            </a>
+            {% endif %}
+
             {% if not request.user.is_staff and not request.user.is_superuser %}
             <a href="{% url 'distributor_profile' %}" class="nav-item">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

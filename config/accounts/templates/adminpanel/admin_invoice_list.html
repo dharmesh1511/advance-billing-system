@@ -1,0 +1,617 @@
+{% extends 'adminpanel/base_admin.html' %}
+{% load static %}
+
+{% block title %}All Invoices | Admin Portal{% endblock %}
+
+{% block page_heading %}Invoices{% endblock %}
+{% block page_main_title %}Invoices Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-filter-bar {
+        background-color: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 18px 20px;
+        margin-bottom: 24px;
+        box-shadow: var(--shadow-sm);
+    }
+    .admin-data-card {
+        background-color: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+    }
+    .admin-data-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background-color: #F8FAFC;
+    }
+    .admin-table {
+        margin-bottom: 0;
+        vertical-align: middle;
+    }
+    .admin-table thead th {
+        background-color: #F8FAFC;
+        font-size: 11.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--secondary-text);
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+    }
+    .admin-table tbody td {
+        padding: 14px 16px;
+        font-size: 13.5px;
+        color: var(--heading-color);
+        border-bottom: 1px solid #F1F5F9;
+    }
+    .admin-table tbody tr:hover {
+        background-color: #F8FAFC;
+    }
+    .inv-badge-paid {
+        background-color: #DEF7EC;
+        color: #03543F;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+    }
+    .inv-badge-pending {
+        background-color: #FEF08A;
+        color: #713F12;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+    }
+    .distributor-tag {
+        background-color: #EEF2FF;
+        color: #4338CA;
+        border: 1px solid #C7D2FE;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+    }
+    /* Modern Action Buttons */
+    .table-actions-group {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        gap: 6px !important;
+        white-space: nowrap !important;
+    }
+    .btn-action {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 5px !important;
+        padding: 5px 10px !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        border-radius: 6px !important;
+        text-decoration: none !important;
+        transition: all 0.15s ease-in-out !important;
+        cursor: pointer !important;
+        line-height: 1.25 !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+        border: 1px solid transparent !important;
+    }
+    .btn-action:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 3px 6px -1px rgba(0, 0, 0, 0.1) !important;
+    }
+    .btn-action-preview {
+        background-color: #EFF6FF !important;
+        color: #1D4ED8 !important;
+        border-color: #BFDBFE !important;
+    }
+    .btn-action-preview:hover {
+        background-color: #DBEAFE !important;
+        color: #1E40AF !important;
+        border-color: #93C5FD !important;
+    }
+    .btn-action-view {
+        background-color: #F8FAFC !important;
+        color: #334155 !important;
+        border-color: #CBD5E1 !important;
+    }
+    .btn-action-view:hover {
+        background-color: #F1F5F9 !important;
+        color: #0F172A !important;
+        border-color: #94A3B8 !important;
+    }
+    .btn-action-pdf {
+        background-color: #FFF1F2 !important;
+        color: #E11D48 !important;
+        border-color: #FECDD3 !important;
+    }
+    .btn-action-pdf:hover {
+        background-color: #FFE4E6 !important;
+        color: #BE123C !important;
+        border-color: #FDA4AF !important;
+    }
+    .btn-action-qr {
+        background-color: #ECFDF5 !important;
+        color: #059669 !important;
+        border-color: #A7F3D0 !important;
+    }
+    .btn-action-qr:hover {
+        background-color: #D1FAE5 !important;
+        color: #047857 !important;
+        border-color: #6EE7B7 !important;
+    }
+    /* QR Preview Modal Styling */
+    .qr-modal-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background-color: rgba(15, 23, 42, 0.65);
+        backdrop-filter: blur(4px);
+        z-index: 1060;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+    }
+    .qr-modal-dialog {
+        background-color: #ffffff;
+        border-radius: 16px;
+        max-width: 480px;
+        width: 100%;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        animation: qrModalFadeIn 0.25s ease-out;
+    }
+    @keyframes qrModalFadeIn {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+    }
+    .qr-modal-header {
+        background: linear-gradient(135deg, #1E293B, #0F172A);
+        color: #ffffff;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .qr-modal-body {
+        padding: 24px;
+        text-align: center;
+    }
+    .qr-image-container {
+        display: inline-block;
+        padding: 16px;
+        background-color: #ffffff;
+        border: 2px dashed #CBD5E1;
+        border-radius: 16px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+    .qr-image-container img {
+        width: 200px;
+        height: 200px;
+        display: block;
+        object-fit: contain;
+    }
+    .qr-meta-card {
+        background-color: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 14px 16px;
+        text-align: left;
+        margin-bottom: 20px;
+        font-size: 13px;
+    }
+    .qr-meta-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 0;
+    }
+    .qr-meta-label {
+        color: #64748B;
+        font-weight: 500;
+    }
+    .qr-meta-value {
+        color: #0F172A;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+
+    <!-- 1. KPI Statistic Summary Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="kpi-card h-100 p-3 bg-white rounded-3 border">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted small fw-semibold">TOTAL INVOICES</span>
+                    <div class="badge bg-primary-subtle text-primary p-2 rounded-2">
+                        <i class="bi bi-file-earmark-text fs-6"></i>
+                    </div>
+                </div>
+                <h3 class="mb-1 fw-bold text-dark">{{ total_count }}</h3>
+                <span class="text-muted small">All system invoices</span>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="kpi-card h-100 p-3 bg-white rounded-3 border">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted small fw-semibold">TOTAL REVENUE</span>
+                    <div class="badge bg-success-subtle text-success p-2 rounded-2">
+                        <i class="bi bi-currency-rupee fs-6"></i>
+                    </div>
+                </div>
+                <h3 class="mb-1 fw-bold text-success">₹{{ total_revenue|floatformat:2 }}</h3>
+                <span class="text-muted small">Cumulative invoice amount</span>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="kpi-card h-100 p-3 bg-white rounded-3 border">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted small fw-semibold">PAID INVOICES</span>
+                    <div class="badge bg-emerald-subtle text-success p-2 rounded-2">
+                        <i class="bi bi-check-circle fs-6"></i>
+                    </div>
+                </div>
+                <h3 class="mb-1 fw-bold text-dark">{{ paid_count }}</h3>
+                <span class="text-success small fw-medium">Successfully settled</span>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="kpi-card h-100 p-3 bg-white rounded-3 border">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted small fw-semibold">PENDING / UNPAID</span>
+                    <div class="badge bg-warning-subtle text-warning p-2 rounded-2">
+                        <i class="bi bi-clock-history fs-6"></i>
+                    </div>
+                </div>
+                <h3 class="mb-1 fw-bold text-warning">{{ pending_count }}</h3>
+                <span class="text-muted small">Awaiting payment</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Search & Filter Bar -->
+    <div class="admin-filter-bar">
+        <form method="GET" action="{% url 'admin_invoice_list' %}" class="row g-3 align-items-end">
+            <!-- Search Text Input -->
+            <div class="col-12 col-md-4">
+                <label for="invSearchInput" class="form-label small fw-semibold text-muted mb-1">Search Invoices</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text"
+                           class="form-control border-start-0"
+                           id="invSearchInput"
+                           name="q"
+                           value="{{ query }}"
+                           placeholder="Invoice #, customer, distributor...">
+                </div>
+            </div>
+
+            <!-- Payment Status Filter -->
+            <div class="col-12 col-sm-6 col-md-3">
+                <label for="statusFilter" class="form-label small fw-semibold text-muted mb-1">Payment Status</label>
+                <select name="status" id="statusFilter" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="Paid" {% if status_filter == 'Paid' %}selected{% endif %}>Paid</option>
+                    <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
+                </select>
+            </div>
+
+            <!-- Distributor Filter -->
+            <div class="col-12 col-sm-6 col-md-3">
+                <label for="distributorFilter" class="form-label small fw-semibold text-muted mb-1">Distributor</label>
+                <select name="distributor_id" id="distributorFilter" class="form-select">
+                    <option value="">All Distributors</option>
+                    {% for d in distributors %}
+                        <option value="{{ d.id }}" {% if selected_distributor_id == d.id|stringformat:"s" %}selected{% endif %}>
+                            {{ d.username }}{% if d.distributor_profile.business_name %} ({{ d.distributor_profile.business_name }}){% endif %}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Submit and Reset Buttons -->
+            <div class="col-12 col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1" title="Filter Invoices">
+                    <i class="bi bi-funnel-fill me-1"></i> Filter
+                </button>
+                {% if query or status_filter or selected_distributor_id %}
+                    <a href="{% url 'admin_invoice_list' %}" class="btn btn-outline-secondary" title="Reset Filters">
+                        <i class="bi bi-x-circle"></i>
+                    </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- 3. Invoices Table Card -->
+    <div class="admin-data-card">
+        <div class="admin-data-header">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-receipt fs-5 text-primary"></i>
+                <span class="fw-bold text-dark">Invoice Records</span>
+                <span class="badge bg-secondary-subtle text-secondary rounded-pill ms-2">
+                    Showing {{ page_obj.start_index|default:0 }}-{{ page_obj.end_index|default:0 }} of {{ filtered_count }}
+                </span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <a href="{% url 'admin_reports' %}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-graph-up me-1"></i> Reports & Export
+                </a>
+            </div>
+        </div>
+
+        {% if page_obj.object_list %}
+            <div class="table-responsive">
+                <table class="table admin-table align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col" style="width: 50px;">#</th>
+                            <th scope="col">Invoice #</th>
+                            <th scope="col">Distributor</th>
+                            <th scope="col">Customer</th>
+                            <th scope="col">Date</th>
+                            <th scope="col" class="text-center">Items</th>
+                            <th scope="col" class="text-end">Grand Total</th>
+                            <th scope="col" class="text-center">Status</th>
+                            <th scope="col" class="text-end text-nowrap" style="min-width: 290px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for invoice in page_obj.object_list %}
+                            <tr>
+                                <td class="text-muted fw-semibold">{{ page_obj.start_index|add:forloop.counter0 }}</td>
+                                <td>
+                                    <span class="fw-bold text-dark">#{{ invoice.invoice_number }}</span>
+                                    <div class="text-muted small">ID: {{ invoice.id }}</div>
+                                </td>
+                                <td>
+                                    {% if invoice.distributor %}
+                                        <span class="distributor-tag" title="Distributor account">
+                                            <i class="bi bi-shop"></i> {{ invoice.distributor.username }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted small">Platform Direct</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="fw-semibold text-dark">{{ invoice.customer.name|default:"General Customer" }}</div>
+                                    <div class="text-muted small">{{ invoice.customer.phone|default:invoice.customer.email|default:"-" }}</div>
+                                </td>
+                                <td>
+                                    <div>{{ invoice.invoice_date|date:"d M Y" }}</div>
+                                    {% if invoice.due_date %}
+                                        <div class="text-muted small">Due: {{ invoice.due_date|date:"d M Y" }}</div>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-light text-dark border">
+                                        {{ invoice.item_count|default:invoice.items.count }} items
+                                    </span>
+                                </td>
+                                <td class="text-end fw-bold text-dark">
+                                    ₹{{ invoice.grand_total|floatformat:2 }}
+                                </td>
+                                <td class="text-center">
+                                    {% if invoice.payment_status %}
+                                        {% if invoice.payment_status|lower == 'paid' %}
+                                            <span class="inv-badge-paid"><i class="bi bi-check2"></i> Paid</span>
+                                        {% else %}
+                                            <span class="inv-badge-pending"><i class="bi bi-clock"></i> {{ invoice.payment_status }}</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="inv-badge-paid"><i class="bi bi-check2"></i> Paid</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end text-nowrap">
+                                    <div class="table-actions-group">
+                                        <!-- Preview HTML Invoice -->
+                                        <a href="{% url 'invoice_preview' invoice.pk %}" class="btn btn-sm btn-action btn-action-preview" title="Preview Invoice" data-bs-toggle="tooltip">
+                                            <i class="bi bi-eye"></i>
+                                            <span>Preview</span>
+                                        </a>
+                                        <!-- View Details -->
+                                        <a href="{% url 'invoice_detail' invoice.pk %}" class="btn btn-sm btn-action btn-action-view" title="View Details" data-bs-toggle="tooltip">
+                                            <i class="bi bi-card-text"></i>
+                                            <span>View</span>
+                                        </a>
+                                        <!-- PDF Download -->
+                                        <a href="{% url 'invoice_pdf_download' invoice.pk %}" class="btn btn-sm btn-action btn-action-pdf" title="Download PDF" data-bs-toggle="tooltip">
+                                            <i class="bi bi-file-earmark-pdf"></i>
+                                            <span>PDF</span>
+                                        </a>
+                                        <!-- Preview QR Code Modal Trigger -->
+                                        <button type="button"
+                                                class="btn btn-sm btn-action btn-action-qr"
+                                                onclick="openAdminQrModal('{{ invoice.pk }}', '{{ invoice.invoice_number|escapejs }}', '{{ invoice.customer.name|default:'General Customer'|escapejs }}', '{{ invoice.item_count|default:invoice.items.count }}', '{{ invoice.grand_total }}')"
+                                                title="Preview Invoice QR Code"
+                                                data-bs-toggle="tooltip"
+                                                aria-label="Preview Invoice QR Code">
+                                            <i class="bi bi-qr-code"></i>
+                                            <span>QR</span>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 4. Pagination -->
+            {% if page_obj.has_other_pages %}
+                <div class="p-3 border-top d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+                    <div class="text-muted small">
+                        Showing <strong>{{ page_obj.start_index }}</strong> to <strong>{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> invoices
+                    </div>
+                    <nav aria-label="Invoice pagination">
+                        <ul class="pagination pagination-sm mb-0">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?{% if query %}q={{ query }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if selected_distributor_id %}distributor_id={{ selected_distributor_id }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                                        &laquo; Previous
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">&laquo; Previous</span></li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?{% if query %}q={{ query }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if selected_distributor_id %}distributor_id={{ selected_distributor_id }}&{% endif %}page={{ num }}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?{% if query %}q={{ query }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if selected_distributor_id %}distributor_id={{ selected_distributor_id }}&{% endif %}page={{ page_obj.next_page_number }}">
+                                        Next &raquo;
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">Next &raquo;</span></li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+            {% endif %}
+
+        {% else %}
+            <!-- Empty State -->
+            <div class="text-center py-5 px-3">
+                <div class="mb-3 text-muted">
+                    <i class="bi bi-inbox fs-1"></i>
+                </div>
+                <h5 class="fw-bold text-dark">No Invoices Found</h5>
+                <p class="text-muted small mb-3">
+                    {% if query or status_filter or selected_distributor_id %}
+                        No invoices match your selected search criteria. Try adjusting or clearing the filters.
+                    {% else %}
+                        No invoices have been generated on the system yet.
+                    {% endif %}
+                </p>
+                {% if query or status_filter or selected_distributor_id %}
+                    <a href="{% url 'admin_invoice_list' %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- QR Code Modal (Embedded Admin Overlay) -->
+<div class="qr-modal-backdrop" id="adminQrModal" role="dialog" aria-modal="true" aria-labelledby="qrModalTitle">
+    <div class="qr-modal-dialog">
+        <div class="qr-modal-header">
+            <div>
+                <h5 class="modal-title fw-bold m-0" id="qrModalTitle">Invoice QR Code</h5>
+                <small class="text-light-subtle" style="font-size: 12px;">Dynamic GST & Verification Payload</small>
+            </div>
+            <button type="button" class="btn-close btn-close-white" onclick="closeAdminQrModal()" aria-label="Close"></button>
+        </div>
+        <div class="qr-modal-body">
+            <div class="qr-image-container">
+                <img id="adminQrModalImg" src="" alt="Invoice QR Code">
+            </div>
+
+            <div class="qr-meta-card">
+                <div class="qr-meta-row">
+                    <span class="qr-meta-label">Invoice Number:</span>
+                    <span class="qr-meta-value" id="qrModalInvNo">-</span>
+                </div>
+                <div class="qr-meta-row">
+                    <span class="qr-meta-label">Customer:</span>
+                    <span class="qr-meta-value" id="qrModalCustomer">-</span>
+                </div>
+                <div class="qr-meta-row">
+                    <span class="qr-meta-label">Total Items:</span>
+                    <span class="qr-meta-value" id="qrModalItems">-</span>
+                </div>
+                <div class="qr-meta-row">
+                    <span class="qr-meta-label">Grand Total:</span>
+                    <span class="qr-meta-value text-success" id="qrModalTotal">-</span>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <a id="adminQrDownloadBtn" href="#" download="" class="btn btn-success flex-grow-1">
+                    <i class="bi bi-download me-1"></i> Download QR
+                </a>
+                <button type="button" class="btn btn-outline-secondary" onclick="closeAdminQrModal()">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize Bootstrap tooltips
+    document.addEventListener('DOMContentLoaded', function () {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+
+    function openAdminQrModal(invoiceId, invoiceNumber, customerName, productCount, grandTotal) {
+        document.getElementById('qrModalInvNo').innerText = '#' + invoiceNumber;
+        document.getElementById('qrModalCustomer').innerText = customerName;
+        document.getElementById('qrModalItems').innerText = productCount + ' items';
+        document.getElementById('qrModalTotal').innerText = '₹' + grandTotal;
+
+        const qrUrl = '/billing/distributor/invoices/' + invoiceId + '/qr/';
+        document.getElementById('adminQrModalImg').src = qrUrl;
+        document.getElementById('adminQrDownloadBtn').href = qrUrl;
+        document.getElementById('adminQrDownloadBtn').download = 'Invoice_' + invoiceNumber + '_QR.png';
+
+        const modal = document.getElementById('adminQrModal');
+        modal.style.display = 'flex';
+    }
+
+    function closeAdminQrModal() {
+        const modal = document.getElementById('adminQrModal');
+        modal.style.display = 'none';
+    }
+
+    window.onclick = function(event) {
+        const modal = document.getElementById('adminQrModal');
+        if (event.target === modal) {
+            closeAdminQrModal();
+        }
+    };
+</script>
+{% endblock %}

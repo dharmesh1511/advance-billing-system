@@ -1,0 +1,411 @@
+{% extends 'adminpanel/base_admin.html' %}
+{% load static %}
+
+{% block title %}All Customers | Admin Portal{% endblock %}
+
+{% block page_heading %}Customers{% endblock %}
+{% block page_main_title %}Customer Directory{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-filter-bar {
+        background-color: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 18px 20px;
+        margin-bottom: 24px;
+        box-shadow: var(--shadow-sm);
+    }
+    .admin-data-card {
+        background-color: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+    }
+    .admin-data-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background-color: #F8FAFC;
+    }
+    .admin-table {
+        margin-bottom: 0;
+        vertical-align: middle;
+    }
+    .admin-table thead th {
+        background-color: #F8FAFC;
+        font-size: 11.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--secondary-text);
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+    }
+    .admin-table tbody td {
+        padding: 14px 16px;
+        font-size: 13.5px;
+        color: var(--heading-color);
+        border-bottom: 1px solid #F1F5F9;
+    }
+    .admin-table tbody tr:hover {
+        background-color: #F8FAFC;
+    }
+    .customer-avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #3B82F6, #1D4ED8);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+    .distributor-tag {
+        background-color: #EEF2FF;
+        color: #4338CA;
+        border: 1px solid #C7D2FE;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .invoice-count-badge {
+        background-color: #F0FDF4;
+        color: #166534;
+        border: 1px solid #BBF7D0;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 20px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+    }
+    /* Modern Action Buttons */
+    .table-actions-group {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        gap: 6px !important;
+        white-space: nowrap !important;
+    }
+    .btn-action {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 5px !important;
+        padding: 5px 10px !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        border-radius: 6px !important;
+        text-decoration: none !important;
+        transition: all 0.15s ease-in-out !important;
+        cursor: pointer !important;
+        line-height: 1.25 !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+        border: 1px solid transparent !important;
+    }
+    .btn-action:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 3px 6px -1px rgba(0, 0, 0, 0.1) !important;
+    }
+    .btn-action-preview {
+        background-color: #EFF6FF !important;
+        color: #1D4ED8 !important;
+        border-color: #BFDBFE !important;
+    }
+    .btn-action-preview:hover {
+        background-color: #DBEAFE !important;
+        color: #1E40AF !important;
+        border-color: #93C5FD !important;
+    }
+    .btn-action-view {
+        background-color: #EEF2FF !important;
+        color: #4F46E5 !important;
+        border-color: #C7D2FE !important;
+    }
+    .btn-action-view:hover {
+        background-color: #E0E7FF !important;
+        color: #4338CA !important;
+        border-color: #A5B4FC !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+
+    <!-- 1. KPI Statistic Summary Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="kpi-card h-100 p-3 bg-white rounded-3 border">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted small fw-semibold">TOTAL CLIENTS</span>
+                    <div class="badge bg-primary-subtle text-primary p-2 rounded-2">
+                        <i class="bi bi-people-fill fs-6"></i>
+                    </div>
+                </div>
+                <h3 class="mb-1 fw-bold text-dark">{{ total_count }}</h3>
+                <span class="text-muted small">Registered in platform</span>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="kpi-card h-100 p-3 bg-white rounded-3 border">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted small fw-semibold">MATCHING CLIENTS</span>
+                    <div class="badge bg-success-subtle text-success p-2 rounded-2">
+                        <i class="bi bi-person-check-fill fs-6"></i>
+                    </div>
+                </div>
+                <h3 class="mb-1 fw-bold text-success">{{ filtered_count }}</h3>
+                <span class="text-muted small">Matching search filters</span>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="kpi-card h-100 p-3 bg-white rounded-3 border">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted small fw-semibold">ACTIVE DISTRIBUTORS</span>
+                    <div class="badge bg-indigo-subtle text-indigo p-2 rounded-2" style="background-color: #EEF2FF; color: #4338CA;">
+                        <i class="bi bi-shop fs-6"></i>
+                    </div>
+                </div>
+                <h3 class="mb-1 fw-bold text-dark">{{ distributors.count }}</h3>
+                <span class="text-muted small">Managing client accounts</span>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="kpi-card h-100 p-3 bg-white rounded-3 border">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted small fw-semibold">QUICK ACTIONS</span>
+                    <div class="badge bg-secondary-subtle text-secondary p-2 rounded-2">
+                        <i class="bi bi-lightning-charge-fill fs-6"></i>
+                    </div>
+                </div>
+                <div class="d-flex gap-2 mt-1">
+                    <a href="/django-admin/billing/customer/add/" target="_blank" class="btn btn-sm btn-outline-primary flex-grow-1">
+                        <i class="bi bi-plus-lg me-1"></i> Add Client
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Search & Filter Bar -->
+    <div class="admin-filter-bar">
+        <form method="GET" action="{% url 'admin_customer_list' %}" class="row g-3 align-items-end">
+            <!-- Search Input -->
+            <div class="col-12 col-md-5">
+                <label for="custSearchInput" class="form-label small fw-semibold text-muted mb-1">Search Customers</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text"
+                           class="form-control border-start-0"
+                           id="custSearchInput"
+                           name="q"
+                           value="{{ query }}"
+                           placeholder="Name, email, phone, city, state...">
+                </div>
+            </div>
+
+            <!-- Distributor Filter -->
+            <div class="col-12 col-sm-6 col-md-4">
+                <label for="custDistributorFilter" class="form-label small fw-semibold text-muted mb-1">Distributor</label>
+                <select name="distributor_id" id="custDistributorFilter" class="form-select">
+                    <option value="">All Distributors</option>
+                    {% for d in distributors %}
+                        <option value="{{ d.id }}" {% if selected_distributor_id == d.id|stringformat:"s" %}selected{% endif %}>
+                            {{ d.username }}{% if d.distributor_profile.business_name %} ({{ d.distributor_profile.business_name }}){% endif %}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Buttons -->
+            <div class="col-12 col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1">
+                    <i class="bi bi-funnel-fill me-1"></i> Filter
+                </button>
+                {% if query or selected_distributor_id %}
+                    <a href="{% url 'admin_customer_list' %}" class="btn btn-outline-secondary" title="Reset Filters">
+                        <i class="bi bi-x-circle"></i>
+                    </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- 3. Customers Table Card -->
+    <div class="admin-data-card">
+        <div class="admin-data-header">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-people fs-5 text-primary"></i>
+                <span class="fw-bold text-dark">Customer Directory</span>
+                <span class="badge bg-secondary-subtle text-secondary rounded-pill ms-2">
+                    Showing {{ page_obj.start_index|default:0 }}-{{ page_obj.end_index|default:0 }} of {{ filtered_count }}
+                </span>
+            </div>
+        </div>
+
+        {% if page_obj.object_list %}
+            <div class="table-responsive">
+                <table class="table admin-table align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col" style="width: 50px;">#</th>
+                            <th scope="col">Customer</th>
+                            <th scope="col">Distributor</th>
+                            <th scope="col">Contact</th>
+                            <th scope="col">Location</th>
+                            <th scope="col" class="text-center text-nowrap">Invoices</th>
+                            <th scope="col" class="text-nowrap">Joined Date</th>
+                            <th scope="col" class="text-end text-nowrap" style="min-width: 190px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for customer in page_obj.object_list %}
+                            <tr>
+                                <td class="text-muted fw-semibold">{{ page_obj.start_index|add:forloop.counter0 }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="customer-avatar">
+                                            {{ customer.name|slice:":1"|upper }}
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold text-dark">{{ customer.name }}</div>
+                                            <div class="text-muted small">ID: {{ customer.id }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if customer.distributor %}
+                                        <span class="distributor-tag" title="Associated Distributor">
+                                            <i class="bi bi-shop"></i> {{ customer.distributor.username }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted small">Platform Direct</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div><i class="bi bi-telephone text-muted me-1 small"></i>{{ customer.phone }}</div>
+                                    {% if customer.email %}
+                                        <div class="text-muted small"><i class="bi bi-envelope text-muted me-1 small"></i>{{ customer.email }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if customer.city or customer.state %}
+                                        <div>{{ customer.city }}{% if customer.city and customer.state %}, {% endif %}{{ customer.state }}</div>
+                                        {% if customer.pincode %}
+                                            <div class="text-muted small">PIN: {{ customer.pincode }}</div>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted small">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center text-nowrap">
+                                    <span class="invoice-count-badge">
+                                        <i class="bi bi-receipt"></i> {{ customer.invoices_count|default:0 }} invoices
+                                    </span>
+                                </td>
+                                <td class="text-nowrap">
+                                    <span class="text-muted small">{{ customer.created_at|date:"d M Y" }}</span>
+                                </td>
+                                <td class="text-end text-nowrap">
+                                    <div class="table-actions-group">
+                                        <a href="{% url 'customer_detail' customer.pk %}" class="btn btn-sm btn-action btn-action-preview" title="View Customer Details">
+                                            <i class="bi bi-person-lines-fill"></i>
+                                            <span>Details</span>
+                                        </a>
+                                        <a href="{% url 'admin_invoice_list' %}?q={{ customer.name|urlencode }}" class="btn btn-sm btn-action btn-action-view" title="View Customer Invoices">
+                                            <i class="bi bi-receipt"></i>
+                                            <span>Invoices</span>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 4. Pagination -->
+            {% if page_obj.has_other_pages %}
+                <div class="p-3 border-top d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+                    <div class="text-muted small">
+                        Showing <strong>{{ page_obj.start_index }}</strong> to <strong>{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> customers
+                    </div>
+                    <nav aria-label="Customer pagination">
+                        <ul class="pagination pagination-sm mb-0">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?{% if query %}q={{ query }}&{% endif %}{% if selected_distributor_id %}distributor_id={{ selected_distributor_id }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                                        &laquo; Previous
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">&laquo; Previous</span></li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?{% if query %}q={{ query }}&{% endif %}{% if selected_distributor_id %}distributor_id={{ selected_distributor_id }}&{% endif %}page={{ num }}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?{% if query %}q={{ query }}&{% endif %}{% if selected_distributor_id %}distributor_id={{ selected_distributor_id }}&{% endif %}page={{ page_obj.next_page_number }}">
+                                        Next &raquo;
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">Next &raquo;</span></li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+            {% endif %}
+
+        {% else %}
+            <!-- Empty State -->
+            <div class="text-center py-5 px-3">
+                <div class="mb-3 text-muted">
+                    <i class="bi bi-people fs-1"></i>
+                </div>
+                <h5 class="fw-bold text-dark">No Customers Found</h5>
+                <p class="text-muted small mb-3">
+                    {% if query or selected_distributor_id %}
+                        No customers match your selected search criteria. Try adjusting or clearing the filters.
+                    {% else %}
+                        No customers have been registered on the system yet.
+                    {% endif %}
+                </p>
+                {% if query or selected_distributor_id %}
+                    <a href="{% url 'admin_customer_list' %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
