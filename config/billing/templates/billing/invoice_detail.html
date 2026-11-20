@@ -1,586 +1,259 @@
+{% extends "billing/base_distributor.html" %}
+{% load static %}
 {% load billing_tags %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invoice {{ invoice.invoice_number }} | Advance Billing System</title>
-    <!-- Bootstrap 5 CSS & Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
 
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f3f4f6;
-            color: #111827;
-            min-height: 100vh;
-            display: flex;
-        }
+{% block title %}Invoice {{ invoice.invoice_number }} | Advance Billing System{% endblock %}
 
-        /* Sidebar Layout - Modern SaaS Theme */
-        .sidebar {
-            width: 260px;
-            height: 100vh;
-            position: sticky;
-            top: 0;
-            background-color: #0f172a;
-            color: #ffffff;
-            display: flex;
-            flex-direction: column;
-            flex-shrink: 0;
-            transition: all 0.3s ease;
-            z-index: 100;
-            overflow-y: auto;
-            overflow-x: hidden;
-            border-right: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 2px 0 16px rgba(0, 0, 0, 0.12);
-        }
+{% block page_heading %}Invoices{% endblock %}
+{% block page_main_title %}Invoice Details{% endblock %}
+{% block nav_invoices %}active{% endblock %}
 
-        .sidebar::-webkit-scrollbar {
-            width: 4px;
-        }
-        .sidebar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 4px;
-        }
-        .sidebar::-webkit-scrollbar-track {
-            background: transparent;
-        }
+{% block extra_css %}
+<style>
+    .invoice-card {
+        background-color: #ffffff;
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border);
+        padding: 32px;
+    }
+    .table-custom {
+        width: 100%;
+        margin-bottom: 0;
+        vertical-align: middle;
+    }
+    .table-custom thead th {
+        background-color: #F8FAFC;
+        font-size: 11.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--secondary-text);
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+    }
+    .table-custom tbody td {
+        padding: 14px 16px;
+        font-size: 13.5px;
+        color: var(--heading-color);
+        border-bottom: 1px solid #F1F5F9;
+    }
+    .summary-box {
+        background-color: #F8FAFC;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        padding: 20px;
+    }
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13.5px;
+        margin-bottom: 8px;
+        color: var(--secondary-text);
+    }
+    .summary-row.total {
+        font-size: 18px;
+        font-weight: 800;
+        color: var(--heading-color);
+        border-top: 2px dashed var(--border);
+        padding-top: 12px;
+        margin-top: 12px;
+        margin-bottom: 0;
+    }
+</style>
+{% endblock %}
 
-        .sidebar-brand {
-            padding: 22px 20px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            background: #0b1120;
-            flex-shrink: 0;
-        }
+{% block content %}
+<div class="container-fluid p-0">
 
-        .brand-logo {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #16a34a, #15803d);
-            color: #ffffff;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-size: 17px;
-            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
-            flex-shrink: 0;
-            letter-spacing: -0.5px;
-        }
-
-        .brand-title {
-            font-size: 15px;
-            font-weight: 700;
-            color: #ffffff;
-            letter-spacing: -0.2px;
-            line-height: 1.25;
-        }
-
-        .sidebar-nav {
-            padding: 16px 12px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            overflow-y: auto;
-        }
-
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
-            color: #94a3b8;
-            text-decoration: none;
-            border-radius: 10px;
-            font-size: 13.5px;
-            font-weight: 500;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-        }
-
-        .nav-item:hover {
-            background-color: rgba(255, 255, 255, 0.07);
-            color: #ffffff;
-            transform: translateX(2px);
-        }
-
-        .nav-item.active {
-            background: linear-gradient(135deg, rgba(22, 163, 74, 0.95), rgba(21, 128, 61, 0.95));
-            color: #ffffff;
-            font-weight: 600;
-            box-shadow: 0 4px 14px rgba(22, 163, 74, 0.32);
-        }
-
-        .nav-item.active::before {
-            content: "";
-            position: absolute;
-            left: -12px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 4px;
-            height: 22px;
-            background-color: #4ade80;
-            border-radius: 0 4px 4px 0;
-            box-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
-        }
-
-        .nav-item svg {
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
-            transition: transform 0.2s ease;
-        }
-
-        .nav-item:hover svg {
-            transform: scale(1.05);
-        }
-
-        .sidebar-footer {
-            padding: 14px 16px;
-            margin-top: auto;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-            background: #0b1120;
-            flex-shrink: 0;
-        }
-
-        .logout-btn {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
-            color: #f87171;
-            background: rgba(239, 68, 68, 0.08);
-            border: 1px solid rgba(239, 68, 68, 0.18);
-            text-decoration: none;
-            border-radius: 10px;
-            font-size: 13.5px;
-            font-weight: 600;
-            transition: all 0.2s ease;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        .logout-btn:hover {
-            background-color: rgba(239, 68, 68, 0.18);
-            color: #ffffff;
-            border-color: rgba(239, 68, 68, 0.35);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
-        }
-
-        .logout-btn svg {
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
-        }
-
-        .main-wrapper {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-width: 0;
-        }
-
-        .top-header {
-            background-color: #ffffff;
-            padding: 20px 32px;
-            border-bottom: 1px solid #e5e7eb;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-
-        .header-title {
-            font-size: 24px;
-            font-weight: 700;
-            color: #111827;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .header-actions {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .content-body {
-            padding: 32px;
-            flex: 1;
-        }
-
-        .invoice-card {
-            background: #ffffff;
-            border-radius: 16px;
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            padding: 32px;
-            margin-bottom: 24px;
-        }
-
-        .badge-status {
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 600;
-            display: inline-block;
-        }
-
-        .badge-paid {
-            background-color: #dcfce7;
-            color: #15803d;
-        }
-
-        .badge-pending {
-            background-color: #fef3c7;
-            color: #b45309;
-        }
-
-        .table-custom {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 16px;
-        }
-
-        .table-custom th {
-            background-color: #f9fafb;
-            color: #374151;
-            font-weight: 600;
-            font-size: 13px;
-            text-transform: uppercase;
-            padding: 12px 16px;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .table-custom td {
-            padding: 14px 16px;
-            border-bottom: 1px solid #f3f4f6;
-            color: #111827;
-            font-size: 14px;
-        }
-
-        .summary-box {
-            background-color: #f9fafb;
-            border-radius: 12px;
-            padding: 20px;
-            border: 1px solid #e5e7eb;
-        }
-
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            font-size: 14px;
-            color: #4b5563;
-        }
-
-        .summary-row.total {
-            border-top: 2px solid #e5e7eb;
-            margin-top: 8px;
-            padding-top: 12px;
-            font-size: 18px;
-            font-weight: 700;
-            color: #111827;
-        }
-
-        @media (max-width: 768px) {
-            body {
-                flex-direction: column;
-            }
-            .sidebar {
-                width: 100%;
-            }
-            .top-header {
-                padding: 16px 20px;
-            }
-            .content-body {
-                padding: 16px;
-            }
-        }
-    </style>
-</head>
-<body>
-
-    <!-- Sidebar Navigation -->
-    <aside class="sidebar">
-        <div class="sidebar-brand">
-            <div class="brand-logo">AB</div>
-            <div class="brand-title">Advance Billing</div>
+    <!-- Top Header Bar Actions -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <a href="{% url 'invoice_list' %}" class="btn btn-sm btn-outline-secondary mb-2">
+                <i class="bi bi-arrow-left me-1"></i> Back to Invoices
+            </a>
+            <h2 class="h4 fw-bold text-dark mb-0">Invoice: {{ invoice.invoice_number }}</h2>
+            <div class="text-muted small">Generated on {{ invoice.invoice_date|date:"F d, Y" }}</div>
         </div>
 
-        <nav class="sidebar-nav">
-            {% if request.user.is_staff or request.user.is_superuser %}
-            <a href="{% url 'admin_dashboard' %}" class="nav-item">
-                <i class="bi bi-speedometer2"></i>
-                <span>Dashboard</span>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'invoice_preview' invoice.pk %}" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1">
+                <i class="bi bi-eye"></i> Preview
             </a>
-            <a href="{% url 'admin_reports' %}" class="nav-item">
-                <i class="bi bi-graph-up-arrow"></i>
-                <span>Reports & Analytics</span>
+            <a href="{% url 'invoice_pdf_download' invoice.pk %}" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1 shadow-sm">
+                <i class="bi bi-file-earmark-pdf"></i> Download PDF
             </a>
-            {% else %}
-            <a href="{% url 'distributor_dashboard' %}" class="nav-item">
-                <i class="bi bi-speedometer2"></i>
-                <span>Dashboard</span>
+            <a href="{% url 'invoice_pdf' invoice.pk %}" target="_blank" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
+                <i class="bi bi-box-arrow-up-right"></i> Open PDF
             </a>
-            {% endif %}
-
-            <a href="{% url 'invoice_list' %}" class="nav-item active">
-                <i class="bi bi-file-earmark-text"></i>
-                <span>Invoices</span>
-            </a>
-            <a href="{% url 'customer_list' %}" class="nav-item">
-                <i class="bi bi-people"></i>
-                <span>Customers</span>
-            </a>
-            <a href="{% url 'product_list' %}" class="nav-item">
-                <i class="bi bi-box-seam"></i>
-                <span>Products</span>
-            </a>
-            <a href="{% url 'qr_decoder' %}" class="nav-item">
-                <i class="bi bi-qr-code-scan"></i>
-                <span>Decode QR Code</span>
-            </a>
-
-            {% if request.user.is_staff or request.user.is_superuser %}
-            <a href="/django-admin/" target="_blank" class="nav-item" title="Django Core Admin">
-                <i class="bi bi-database-fill-gear"></i>
-                <span>Django Admin</span>
-            </a>
-            <a href="{% url 'admin_register' %}" class="nav-item" title="Register Admin Staff">
-                <i class="bi bi-person-plus-fill"></i>
-                <span>Register Admin</span>
-            </a>
-            {% endif %}
-
-            {% if not request.user.is_staff and not request.user.is_superuser %}
-            <a href="{% url 'distributor_profile' %}" class="nav-item">
-                <i class="bi bi-person-gear"></i>
-                <span>Profile Settings</span>
-            </a>
-            {% endif %}
-        </nav>
-    </aside>
-
-    <!-- Main Wrapper -->
-    <div class="main-wrapper">
-        <!-- Top Header Bar -->
-        <header class="top-header">
-            <div>
-                <div class="header-title">
-                    <a href="{% url 'invoice_list' %}" class="text-decoration-none text-secondary me-2">
-                        <i class="bi bi-arrow-left fs-4"></i>
-                    </a>
-                    <span>Invoice Details</span>
-                </div>
-                <div class="text-muted small mt-1">
-                    Invoice Number: <strong class="text-dark">{{ invoice.invoice_number }}</strong>
-                </div>
-            </div>
-
-            <!-- Top-Right Action Area -->
-            <div class="header-actions">
-                <a href="{% url 'invoice_preview' invoice.pk %}"
-                   class="btn btn-outline-primary d-inline-flex align-items-center gap-2 px-3 py-2">
-                    <i class="bi bi-file-earmark-text"></i>
-                    <span>Preview Invoice</span>
-                </a>
-                <a href="{% url 'invoice_pdf_download' invoice.pk %}"
-                   class="btn btn-primary d-inline-flex align-items-center gap-2 px-3 py-2 shadow-sm">
-                    <i class="bi bi-file-earmark-pdf fs-5"></i>
-                    <span class="fw-semibold">Download PDF</span>
-                </a>
-                <a href="{% url 'invoice_pdf' invoice.pk %}" target="_blank"
-                   class="btn btn-outline-secondary d-inline-flex align-items-center gap-2 px-3 py-2">
-                    <i class="bi bi-eye"></i>
-                    <span>View PDF</span>
-                </a>
-            </div>
-        </header>
-
-        <!-- Content Body -->
-        <main class="content-body">
-            <div class="invoice-card">
-                <!-- Header Info Row -->
-                <div class="row g-4 mb-4 pb-4 border-bottom">
-                    <div class="col-md-6">
-                        <div class="text-uppercase text-muted small fw-bold tracking-wider mb-2">Company Information</div>
-                        <h5 class="fw-bold mb-1" style="color: #172b4d;">
-                            {% if profile and profile.full_name %}
-                                {{ profile.full_name }}
-                            {% elif distributor and distributor.get_full_name %}
-                                {{ distributor.get_full_name }}
-                            {% else %}
-                                {{ distributor.username|default:"Business Name" }}
-                            {% endif %}
-                        </h5>
-                        {% if profile and profile.address %}
-                            <div class="text-secondary small">{{ profile.address }}</div>
-                        {% endif %}
-                        {% if profile and profile.city or profile and profile.state %}
-                            <div class="text-secondary small">{{ profile.city }}{% if profile.city and profile.state %}, {% endif %}{{ profile.state }}</div>
-                        {% endif %}
-                        {% if profile and profile.phone %}
-                            <div class="text-secondary small"><i class="bi bi-telephone me-1"></i>{{ profile.phone }}</div>
-                        {% endif %}
-                        {% if profile and profile.email %}
-                            <div class="text-secondary small"><i class="bi bi-envelope me-1"></i>{{ profile.email }}</div>
-                        {% endif %}
-                        {% if profile and profile.gstin %}
-                            <div class="text-secondary small mt-1">GSTIN: <strong>{{ profile.gstin }}</strong></div>
-                        {% endif %}
-                    </div>
-
-                    <div class="col-md-6 text-md-end">
-                        <div class="text-uppercase text-muted small fw-bold tracking-wider mb-2">Invoice Meta</div>
-                        <h4 class="fw-bold text-primary mb-2">{{ invoice.invoice_number }}</h4>
-                        <div class="mb-1"><span class="text-muted">Invoice Date:</span> <strong class="text-dark">{{ invoice.invoice_date|date:"d M Y" }}</strong></div>
-                        {% if invoice.due_date %}
-                            <div class="mb-1"><span class="text-muted">Due Date:</span> <strong>{{ invoice.due_date|date:"d M Y" }}</strong></div>
-                        {% endif %}
-                        <div class="mt-2">
-                            <span class="badge-status badge-paid">
-                                <i class="bi bi-check-circle-fill me-1"></i> {{ invoice.payment_status|default:"Saved"|title }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Customer Details Row -->
-                <div class="row g-4 mb-4 pb-4 border-bottom">
-                    <div class="col-md-8">
-                        <div class="bg-light p-3 rounded-3 border-start border-primary border-4">
-                            <div class="text-uppercase text-primary small fw-bold mb-1">Customer Details (Bill To)</div>
-                            <h6 class="fw-bold text-dark mb-1">{{ customer.name }}</h6>
-                            {% if customer.address %}
-                                <div class="text-secondary small">{{ customer.address }}</div>
-                            {% endif %}
-                            {% if customer.city or customer.state %}
-                                <div class="text-secondary small">{{ customer.city }}{% if customer.city and customer.state %}, {% endif %}{{ customer.state }} {% if customer.pincode %}- {{ customer.pincode }}{% endif %}</div>
-                            {% endif %}
-                            {% if customer.phone %}
-                                <div class="text-secondary small"><i class="bi bi-telephone me-1"></i>Phone: {{ customer.phone }}</div>
-                            {% endif %}
-                            {% if customer.email %}
-                                <div class="text-secondary small"><i class="bi bi-envelope me-1"></i>Email: {{ customer.email }}</div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="col-md-4 text-center text-md-end">
-                        <div class="p-2 border rounded-3 bg-white d-inline-block shadow-sm text-center">
-                            {% if qr_code_url %}
-                                <img src="{{ qr_code_url }}" alt="Scan for Invoice Details" class="img-fluid rounded" style="width: 120px; height: 120px; object-fit: contain; display: block; margin: 0 auto;" />
-                            {% elif invoice.qr_code %}
-                                <img src="{{ invoice.qr_code.url }}" alt="Scan for Invoice Details" class="img-fluid rounded" style="width: 120px; height: 120px; object-fit: contain; display: block; margin: 0 auto;" />
-                            {% elif qr_code %}
-                                <img src="{% if not qr_code|slice:':5' == 'data:' %}data:image/png;base64,{% endif %}{{ qr_code }}" alt="Scan for Invoice Details" class="img-fluid rounded" style="width: 120px; height: 120px; object-fit: contain; display: block; margin: 0 auto;" />
-                            {% else %}
-                                <div class="d-flex flex-column align-items-center justify-content-center text-muted bg-light rounded" style="width: 120px; height: 120px; margin: 0 auto;">
-                                    <i class="bi bi-qr-code fs-3 text-secondary mb-1"></i>
-                                    <span style="font-size: 0.72rem;">QR Unavailable</span>
-                                </div>
-                            {% endif %}
-                            <div class="text-muted small mt-1 fw-semibold text-center" style="font-size: 0.8rem; letter-spacing: 0.2px;">Scan for Invoice Details</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Product Items Table -->
-                <div class="mb-4">
-                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-list-ul me-2"></i>Product Details</h6>
-                    <div class="table-responsive">
-                        <table class="table-custom">
-                            <thead>
-                                <tr>
-                                    <th style="width: 50px;">#</th>
-                                    <th>Product</th>
-                                    <th class="text-center">Qty</th>
-                                    <th class="text-end">Price</th>
-                                    <th class="text-center">Discount</th>
-                                    <th class="text-center">GST</th>
-                                    <th class="text-end">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in items %}
-                                    <tr>
-                                        <td>{{ forloop.counter }}</td>
-                                        <td>
-                                            <div class="fw-semibold text-dark">{{ item.product_name }}</div>
-                                            {% if item.product and item.product.sku %}
-                                                <div class="text-muted small">SKU: {{ item.product.sku }}</div>
-                                            {% endif %}
-                                        </td>
-                                        <td class="text-center fw-semibold">{{ item.quantity }}</td>
-                                        <td class="text-end">₹{{ item.unit_price }}</td>
-                                        <td class="text-center">
-                                            {% if item.discount_percent and item.discount_percent > 0 %}
-                                                <span class="badge bg-success-subtle text-success border border-success-subtle">{{ item.discount_percent }}%</span>
-                                            {% else %}
-                                                0%
-                                            {% endif %}
-                                        </td>
-                                        <td class="text-center">{{ item.gst_rate }}%</td>
-                                        <td class="text-end fw-bold text-dark">₹{{ item.line_total }}</td>
-                                    </tr>
-                                {% empty %}
-                                    <tr>
-                                        <td colspan="7" class="text-center text-muted py-4">No product line items found for this invoice.</td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Summary Row -->
-                <div class="row justify-content-end">
-                    <div class="col-md-5 col-lg-4">
-                        <div class="summary-box">
-                            {% if gross_total and total_discount and total_discount > 0 %}
-                                <div class="summary-row">
-                                    <span>Gross Subtotal:</span>
-                                    <span>₹{{ gross_total }}</span>
-                                </div>
-                                <div class="summary-row text-success">
-                                    <span>Total Discount:</span>
-                                    <span>-₹{{ total_discount }}</span>
-                                </div>
-                            {% endif %}
-                            <div class="summary-row">
-                                <span>Subtotal:</span>
-                                <span>₹{{ invoice.subtotal }}</span>
-                            </div>
-                            <div class="summary-row">
-                                <span>Total GST:</span>
-                                <span>₹{{ invoice.tax_amount }}</span>
-                            </div>
-                            <div class="summary-row total">
-                                <span>Grand Total:</span>
-                                <span class="text-success">₹{{ invoice.grand_total }}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </main>
+        </div>
     </div>
 
-</body>
-</html>
+    <!-- Main Invoice Card -->
+    <div class="invoice-card">
+        <!-- Header Info Row -->
+        <div class="row g-4 mb-4 pb-4 border-bottom">
+            <div class="col-md-6">
+                <div class="text-uppercase text-muted small fw-bold tracking-wider mb-2">Company / Distributor Info</div>
+                <h5 class="fw-bold mb-1 text-dark">
+                    {% if profile and profile.business_name %}
+                        {{ profile.business_name }}
+                    {% elif profile and profile.full_name %}
+                        {{ profile.full_name }}
+                    {% elif distributor and distributor.get_full_name %}
+                        {{ distributor.get_full_name }}
+                    {% else %}
+                        {{ distributor.username|default:"Advance Billing" }}
+                    {% endif %}
+                </h5>
+                {% if profile and profile.address %}
+                    <div class="text-secondary small">{{ profile.address }}</div>
+                {% endif %}
+                {% if profile and profile.phone %}
+                    <div class="text-secondary small"><i class="bi bi-telephone me-1"></i>{{ profile.phone }}</div>
+                {% endif %}
+                {% if profile and profile.email %}
+                    <div class="text-secondary small"><i class="bi bi-envelope me-1"></i>{{ profile.email }}</div>
+                {% endif %}
+            </div>
+
+            <div class="col-md-6 text-md-end">
+                <div class="text-uppercase text-muted small fw-bold tracking-wider mb-2">Invoice Meta</div>
+                <h4 class="fw-bold text-primary mb-2 font-monospace">{{ invoice.invoice_number }}</h4>
+                <div class="mb-1"><span class="text-muted">Invoice Date:</span> <strong class="text-dark">{{ invoice.invoice_date|date:"d M Y" }}</strong></div>
+                {% if invoice.due_date %}
+                    <div class="mb-1"><span class="text-muted">Due Date:</span> <strong>{{ invoice.due_date|date:"d M Y" }}</strong></div>
+                {% endif %}
+                <div class="mt-2">
+                    <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill">
+                        <i class="bi bi-check-circle-fill me-1"></i> {{ invoice.payment_status|default:"Generated"|title }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Customer Details Row -->
+        <div class="row g-4 mb-4 pb-4 border-bottom">
+            <div class="col-md-8">
+                <div class="bg-light p-3 rounded-3 border-start border-primary border-4">
+                    <div class="text-uppercase text-primary small fw-bold mb-1">Billed To (Client Details)</div>
+                    <h6 class="fw-bold text-dark mb-1">{{ customer.name }}</h6>
+                    {% if customer.address %}
+                        <div class="text-secondary small">{{ customer.address }}</div>
+                    {% endif %}
+                    {% if customer.city or customer.state %}
+                        <div class="text-secondary small">
+                            {{ customer.city|default:"" }}{% if customer.city and customer.state %}, {% endif %}{{ customer.state|default:"" }}
+                            {% if customer.pincode %} - {{ customer.pincode }}{% endif %}
+                        </div>
+                    {% endif %}
+                    {% if customer.phone %}
+                        <div class="text-secondary small"><i class="bi bi-telephone me-1"></i>Phone: {{ customer.phone }}</div>
+                    {% endif %}
+                    {% if customer.email %}
+                        <div class="text-secondary small"><i class="bi bi-envelope me-1"></i>Email: {{ customer.email }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="col-md-4 text-center text-md-end">
+                <div class="p-2 border rounded-3 bg-white d-inline-block shadow-sm text-center">
+                    {% if qr_code_url %}
+                        <img src="{{ qr_code_url }}" alt="Scan for Invoice Details" class="img-fluid rounded" style="width: 120px; height: 120px; object-fit: contain; display: block; margin: 0 auto;" />
+                    {% elif invoice.qr_code %}
+                        <img src="{{ invoice.qr_code.url }}" alt="Scan for Invoice Details" class="img-fluid rounded" style="width: 120px; height: 120px; object-fit: contain; display: block; margin: 0 auto;" />
+                    {% elif qr_code %}
+                        <img src="{% if not qr_code|slice:':5' == 'data:' %}data:image/png;base64,{% endif %}{{ qr_code }}" alt="Scan for Invoice Details" class="img-fluid rounded" style="width: 120px; height: 120px; object-fit: contain; display: block; margin: 0 auto;" />
+                    {% else %}
+                        <div class="d-flex flex-column align-items-center justify-content-center text-muted bg-light rounded" style="width: 120px; height: 120px; margin: 0 auto;">
+                            <i class="bi bi-qr-code fs-3 text-secondary mb-1"></i>
+                            <span style="font-size: 0.72rem;">QR Unavailable</span>
+                        </div>
+                    {% endif %}
+                    <div class="text-muted small mt-1 fw-semibold text-center" style="font-size: 0.75rem;">Digital Verification QR</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Product Items Table -->
+        <div class="mb-4">
+            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-list-ul me-2"></i>Product Items &amp; Pricing</h6>
+            <div class="table-responsive border rounded-3 overflow-hidden">
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th>Product</th>
+                            <th class="text-center">Qty</th>
+                            <th class="text-end">Price</th>
+                            <th class="text-center">Discount</th>
+                            <th class="text-center">GST Rate</th>
+                            <th class="text-end">Line Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>
+                                    <div class="fw-semibold text-dark">{{ item.product_name }}</div>
+                                    {% if item.product and item.product.sku %}
+                                        <div class="text-muted small">SKU: {{ item.product.sku }}</div>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center fw-semibold">{{ item.quantity }}</td>
+                                <td class="text-end">₹{{ item.unit_price|floatformat:2 }}</td>
+                                <td class="text-center">
+                                    {% if item.discount_percent and item.discount_percent > 0 %}
+                                        <span class="badge bg-success-subtle text-success">{{ item.discount_percent }}%</span>
+                                    {% else %}
+                                        0%
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">{{ item.gst_rate }}%</td>
+                                <td class="text-end fw-bold text-dark">₹{{ item.line_total|floatformat:2 }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-4">No product line items found for this invoice.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Summary Row -->
+        <div class="row justify-content-end">
+            <div class="col-md-6 col-lg-5 col-xl-4">
+                <div class="summary-box">
+                    {% if gross_total and total_discount and total_discount > 0 %}
+                        <div class="summary-row">
+                            <span>Gross Subtotal:</span>
+                            <span>₹{{ gross_total|floatformat:2 }}</span>
+                        </div>
+                        <div class="summary-row text-success">
+                            <span>Total Discount:</span>
+                            <span>-₹{{ total_discount|floatformat:2 }}</span>
+                        </div>
+                    {% endif %}
+                    <div class="summary-row">
+                        <span>Taxable Subtotal:</span>
+                        <span>₹{{ invoice.subtotal|floatformat:2 }}</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Total GST:</span>
+                        <span>₹{{ invoice.total_gst|floatformat:2 }}</span>
+                    </div>
+                    <div class="summary-row total">
+                        <span>Grand Total:</span>
+                        <span class="text-success">₹{{ invoice.grand_total|floatformat:2 }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

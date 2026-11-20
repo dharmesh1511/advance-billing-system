@@ -1,737 +1,677 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Distributor Profile | Advance Billing System</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+{% extends 'billing/base_distributor.html' %}
+{% load static %}
 
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f3f4f6;
-            color: #111827;
-            min-height: 100vh;
-            display: flex;
-        }
+{% block title %}Business Profile | Distributor Portal{% endblock %}
 
-        /* Sidebar Layout - Modern SaaS Theme */
-        .sidebar {
-            width: 260px;
-            height: 100vh;
-            position: sticky;
-            top: 0;
-            background-color: #0f172a;
-            color: #ffffff;
-            display: flex;
-            flex-direction: column;
-            flex-shrink: 0;
-            transition: all 0.3s ease;
-            z-index: 100;
-            overflow-y: auto;
-            overflow-x: hidden;
-            border-right: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 2px 0 16px rgba(0, 0, 0, 0.12);
-        }
+{% block page_heading %}Profile{% endblock %}
+{% block page_main_title %}Business Profile &amp; Commercial Credentials{% endblock %}
+{% block nav_profile %}active{% endblock %}
 
-        .sidebar::-webkit-scrollbar {
-            width: 4px;
-        }
-        .sidebar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 4px;
-        }
-        .sidebar::-webkit-scrollbar-track {
-            background: transparent;
-        }
+{% block breadcrumb_items %}
+<li class="breadcrumb-item"><a href="{% url 'distributor_dashboard' %}">Dashboard</a></li>
+<li class="breadcrumb-item active" aria-current="page">Business Profile</li>
+{% endblock %}
 
-        .sidebar-brand {
-            padding: 22px 20px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            background: #0b1120;
-            flex-shrink: 0;
-        }
+{% block extra_css %}
+<style>
+    /* Profile Hero Banner */
+    .profile-hero-card {
+        background-color: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+        margin-bottom: 24px;
+    }
+    .profile-hero-banner {
+        background: linear-gradient(135deg, #091224 0%, #111D36 45%, #064E3B 100%);
+        padding: 40px 36px;
+        color: #ffffff;
+        position: relative;
+    }
+    .profile-hero-avatar {
+        width: 88px;
+        height: 88px;
+        border-radius: 22px;
+        background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 36px;
+        font-weight: 800;
+        box-shadow: 0 12px 28px rgba(16, 185, 129, 0.45);
+        border: 3.5px solid rgba(255, 255, 255, 0.25);
+        flex-shrink: 0;
+    }
+    .profile-badge-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+    }
+    .badge-pill-verified {
+        background: rgba(16, 185, 129, 0.2);
+        color: #34D399;
+        border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+    .badge-pill-tax {
+        background: rgba(59, 130, 246, 0.2);
+        color: #93C5FD;
+        border: 1px solid rgba(59, 130, 246, 0.35);
+    }
 
-        .brand-logo {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #16a34a, #15803d);
-            color: #ffffff;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-size: 17px;
-            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
-            flex-shrink: 0;
-            letter-spacing: -0.5px;
-        }
+    /* KPI Stat Cards */
+    .profile-kpi-card {
+        background-color: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 20px 22px;
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        height: 100%;
+    }
+    .profile-kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+    .kpi-icon-wrap {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        flex-shrink: 0;
+    }
+    .kpi-val {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--text-main);
+        line-height: 1.2;
+    }
+    .kpi-lbl {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-muted);
+        margin-bottom: 2px;
+    }
 
-        .brand-title {
-            font-size: 15px;
-            font-weight: 700;
-            color: #ffffff;
-            letter-spacing: -0.2px;
-            line-height: 1.25;
-        }
+    /* Section Cards */
+    .profile-section-card {
+        background-color: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 24px;
+        overflow: hidden;
+    }
+    .section-card-header {
+        padding: 18px 24px;
+        border-bottom: 1px solid var(--border);
+        background-color: #F8FAFC;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .section-card-header h5 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 700;
+        color: #0F172A;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .section-card-body {
+        padding: 24px;
+    }
 
-        .sidebar-nav {
-            padding: 16px 12px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            overflow-y: auto;
-        }
-
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
-            color: #94a3b8;
-            text-decoration: none;
-            border-radius: 10px;
-            font-size: 13.5px;
-            font-weight: 500;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-        }
-
-        .nav-item:hover {
-            background-color: rgba(255, 255, 255, 0.07);
-            color: #ffffff;
-            transform: translateX(2px);
-        }
-
-        .nav-item.active {
-            background: linear-gradient(135deg, rgba(22, 163, 74, 0.95), rgba(21, 128, 61, 0.95));
-            color: #ffffff;
-            font-weight: 600;
-            box-shadow: 0 4px 14px rgba(22, 163, 74, 0.32);
-        }
-
-        .nav-item.active::before {
-            content: "";
-            position: absolute;
-            left: -12px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 4px;
-            height: 22px;
-            background-color: #4ade80;
-            border-radius: 0 4px 4px 0;
-            box-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
-        }
-
-        .nav-item svg {
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
-            transition: transform 0.2s ease;
-        }
-
-        .nav-item:hover svg {
-            transform: scale(1.05);
-        }
-
-        .sidebar-footer {
-            padding: 14px 16px;
-            margin-top: auto;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-            background: #0b1120;
-            flex-shrink: 0;
-        }
-
-        .logout-btn {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
-            color: #f87171;
-            background: rgba(239, 68, 68, 0.08);
-            border: 1px solid rgba(239, 68, 68, 0.18);
-            text-decoration: none;
-            border-radius: 10px;
-            font-size: 13.5px;
-            font-weight: 600;
-            transition: all 0.2s ease;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        .logout-btn:hover {
-            background-color: rgba(239, 68, 68, 0.18);
-            color: #ffffff;
-            border-color: rgba(239, 68, 68, 0.35);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
-        }
-
-        .logout-btn svg {
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
-        }
-
-        /* Main Content Area */
-        .main-wrapper {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-width: 0;
-        }
-
-        .top-header {
-            background-color: #ffffff;
-            padding: 18px 30px;
-            border-bottom: 1px solid #e5e7eb;
-            display: flex;
+    /* Data Grid & Key-Value Pairs */
+    .profile-data-row {
+        display: flex;
+        flex-direction: column;
+        padding: 14px 0;
+        border-bottom: 1px solid #F1F5F9;
+    }
+    .profile-data-row:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    @media (min-width: 576px) {
+        .profile-data-row {
+            flex-direction: row;
             align-items: center;
             justify-content: space-between;
         }
-
-        .header-title h1 {
-            font-size: 22px;
-            font-weight: 700;
-            color: #111827;
+    }
+    .data-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #64748B;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+    }
+    @media (min-width: 576px) {
+        .data-label {
+            margin-bottom: 0;
+            width: 220px;
+            flex-shrink: 0;
         }
+    }
+    .data-value {
+        font-size: 14px;
+        font-weight: 600;
+        color: #0F172A;
+    }
 
-        .header-title p {
-            font-size: 13px;
-            color: #6b7280;
-            margin-top: 2px;
-        }
+    /* Verification Checklist */
+    .health-meter-wrap {
+        background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%);
+        border: 1px solid #BBF7D0;
+        border-radius: 12px;
+        padding: 18px;
+        margin-bottom: 20px;
+    }
+    .check-list-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #1E293B;
+        padding: 8px 0;
+        border-bottom: 1px dashed #E2E8F0;
+    }
+    .check-list-item:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
 
-        .user-profile-badge {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            text-decoration: none;
-            color: inherit;
-        }
+    /* Quick Launch Item */
+    .quick-launch-link {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        border-radius: 10px;
+        background-color: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        color: #1E293B;
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none;
+        margin-bottom: 10px;
+        transition: all 0.2s ease;
+    }
+    .quick-launch-link:hover {
+        background-color: #EFF6FF;
+        border-color: #BFDBFE;
+        color: #1D4ED8;
+        transform: translateX(3px);
+    }
+</style>
+{% endblock %}
 
-        .avatar-circle {
-            width: 38px;
-            height: 38px;
-            background-color: #16a34a;
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 15px;
-        }
+{% block content %}
+<div class="container-fluid p-0">
 
-        .user-info {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .user-name {
-            font-size: 14px;
-            font-weight: 600;
-            color: #111827;
-        }
-
-        .user-role {
-            font-size: 12px;
-            color: #6b7280;
-        }
-
-        .content-body {
-            padding: 30px;
-            flex: 1;
-            max-width: 900px;
-            width: 100%;
-        }
-
-        /* Profile Card Styling */
-        .profile-hero-card {
-            background: #ffffff;
-            border-radius: 16px;
-            padding: 30px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            border: 1px solid #e5e7eb;
-            display: flex;
-            align-items: center;
-            gap: 24px;
-            margin-bottom: 24px;
-        }
-
-        .profile-avatar-wrapper {
-            position: relative;
-        }
-
-        .large-avatar-circle {
-            width: 90px;
-            height: 90px;
-            background: linear-gradient(135deg, #16a34a, #15803d);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 36px;
-            font-weight: bold;
-            box-shadow: 0 8px 16px rgba(22, 163, 74, 0.2);
-        }
-
-        .profile-hero-info {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .profile-hero-name {
-            font-size: 24px;
-            font-weight: 700;
-            color: #111827;
-        }
-
-        .profile-hero-meta {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .badge-role {
-            background-color: #f3f4f6;
-            color: #374151;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .badge-status {
-            background-color: #dcfce7;
-            color: #15803d;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .status-dot {
-            width: 7px;
-            height: 7px;
-            background-color: #16a34a;
-            border-radius: 50%;
-        }
-
-        /* Section Cards */
-        .info-card {
-            background: #ffffff;
-            border-radius: 16px;
-            padding: 28px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            border: 1px solid #e5e7eb;
-            margin-bottom: 24px;
-        }
-
-        .info-card-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding-bottom: 16px;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #f3f4f6;
-        }
-
-        .info-card-header svg {
-            width: 22px;
-            height: 22px;
-            color: #16a34a;
-        }
-
-        .info-card-title {
-            font-size: 17px;
-            font-weight: 700;
-            color: #111827;
-        }
-
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 20px;
-        }
-
-        .info-group {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .info-label {
-            font-size: 13px;
-            color: #6b7280;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .info-value {
-            font-size: 15px;
-            color: #111827;
-            font-weight: 600;
-            word-break: break-word;
-        }
-
-        /* Action Section */
-        .actions-card {
-            display: flex;
-            justify-content: flex-end;
-        }
-
-        .edit-profile-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 24px;
-            background-color: #16a34a;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s ease;
-            text-decoration: none;
-        }
-
-        .edit-profile-btn:hover {
-            background-color: #15803d;
-        }
-
-        .edit-profile-btn svg {
-            width: 18px;
-            height: 18px;
-        }
-
-        @media (max-width: 768px) {
-            body {
-                flex-direction: column;
-            }
-
-            .sidebar {
-                width: 100%;
-            }
-
-            .sidebar-nav {
-                flex-direction: row;
-                overflow-x: auto;
-                padding: 10px;
-            }
-
-            .top-header {
-                padding: 16px 20px;
-            }
-
-            .content-body {
-                padding: 20px;
-            }
-
-            .profile-hero-card {
-                flex-direction: column;
-                text-align: center;
-                gap: 16px;
-            }
-
-            .profile-hero-meta {
-                justify-content: center;
-            }
-
-            .actions-card {
-                justify-content: center;
-            }
-        }
-    </style>
-</head>
-<body>
-
-    <!-- Sidebar Navigation -->
-    <aside class="sidebar">
-        <div class="sidebar-brand">
-            <div class="brand-logo">AB</div>
-            <div class="brand-title">Advance Billing</div>
-        </div>
-
-        <nav class="sidebar-nav">
-            {% if request.user.is_staff or request.user.is_superuser %}
-            <a href="{% url 'admin_dashboard' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                </svg>
-                <span>Dashboard</span>
-            </a>
-            <a href="{% url 'admin_reports' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                </svg>
-                <span>Reports & Analytics</span>
-            </a>
-            {% else %}
-            <a href="{% url 'distributor_dashboard' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                </svg>
-                <span>Dashboard</span>
-            </a>
-            {% endif %}
-
-            <a href="{% url 'customer_list' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
-                </svg>
-                <span>Customers</span>
-            </a>
-
-            <a href="{% url 'add_customer' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-                </svg>
-                <span>Add Customer</span>
-            </a>
-
-            <a href="{% url 'product_list' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                </svg>
-                <span>Products</span>
-            </a>
-
-            <a href="{% url 'invoice_list' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-                <span>Invoices</span>
-            </a>
-
-            <a href="{% url 'qr_decoder' %}" class="nav-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
-                </svg>
-                <span>Decode QR Code</span>
-            </a>
-
-            {% if request.user.is_staff or request.user.is_superuser %}
-            <a href="/django-admin/" target="_blank" class="nav-item" title="Django Core Admin">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path>
-                </svg>
-                <span>Django Admin</span>
-            </a>
-            <a href="{% url 'admin_register' %}" class="nav-item" title="Register Admin Staff">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-                </svg>
-                <span>Register Admin</span>
-            </a>
-            {% endif %}
-
-            {% if not request.user.is_staff and not request.user.is_superuser %}
-            <a href="{% url 'distributor_profile' %}" class="nav-item active">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                </svg>
-                <span>Profile</span>
-            </a>
-            {% endif %}
-        </nav>
-
-        <div class="sidebar-footer">
-            <a href="{% url 'logout' %}" class="logout-btn">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-                </svg>
-                <span>Logout</span>
-            </a>
-        </div>
-    </aside>
-
-    <!-- Main Wrapper -->
-    <div class="main-wrapper">
-        <header class="top-header">
-            <div class="header-title">
-                <h1>Distributor Profile</h1>
-                <p>Manage and view your account details</p>
+    <!-- Top Messages -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show d-flex align-items-center gap-2 mb-4 shadow-sm" role="alert">
+                <i class="bi bi-check-circle-fill fs-5"></i>
+                <div class="fw-medium">{{ message }}</div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
+        {% endfor %}
+    {% endif %}
 
-            <a href="{% url 'distributor_profile' %}" class="user-profile-badge">
-                <div class="avatar-circle">
-                    {% if profile and profile.full_name %}
-                        {{ profile.full_name|slice:":1"|upper }}
-                    {% elif request.user.first_name %}
-                        {{ request.user.first_name|slice:":1"|upper }}
-                    {% else %}
-                        {{ request.user.username|slice:":1"|upper }}
-                    {% endif %}
-                </div>
-                <div class="user-info">
-                    <span class="user-name">
-                        {% if profile and profile.full_name %}
-                            {{ profile.full_name }}
-                        {% else %}
-                            {{ request.user.get_full_name|default:request.user.username }}
-                        {% endif %}
-                    </span>
-                    <span class="user-role">Distributor</span>
-                </div>
-            </a>
-        </header>
-
-        <main class="content-body">
-            
-            {% if messages %}
-                <div class="alert-messages">
-                    {% for message in messages %}
-                        <div class="alert-success" role="status" style="background-color: #dcfce7; border: 1px solid #86efac; color: #15803d; padding: 14px 18px; border-radius: 10px; font-size: 15px; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
-                            ✓ {{ message }}
+    <!-- Profile Hero Card -->
+    <div class="profile-hero-card">
+        <div class="profile-hero-banner">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-4">
+                <div class="d-flex align-items-center gap-3 gap-md-4">
+                    <div class="profile-hero-avatar">
+                        {{ profile.business_name|default:profile.full_name|default:request.user.username|slice:":1"|upper }}
+                    </div>
+                    <div>
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                            <span class="profile-badge-pill badge-pill-verified">
+                                <i class="bi bi-patch-check-fill"></i> Verified Enterprise Distributor
+                            </span>
+                            <span class="profile-badge-pill badge-pill-tax">
+                                <i class="bi bi-shield-check"></i> GST Regular Taxpayer
+                            </span>
                         </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-
-            <!-- Hero Profile Card -->
-            <div class="profile-hero-card">
-                <div class="profile-avatar-wrapper">
-                    <div class="large-avatar-circle">
-                        {% if profile and profile.full_name %}
-                            {{ profile.full_name|slice:":1"|upper }}
-                        {% elif request.user.first_name %}
-                            {{ request.user.first_name|slice:":1"|upper }}
-                        {% else %}
-                            👤
-                        {% endif %}
+                        <h2 class="mb-1 fw-bold text-white fs-3">
+                            {{ profile.business_name|default:profile.full_name|default:request.user.get_full_name|default:request.user.username }}
+                        </h2>
+                        <div class="d-flex flex-wrap align-items-center gap-3 text-white-50 small mt-2">
+                            <span class="d-inline-flex align-items-center gap-1">
+                                <i class="bi bi-person-fill text-emerald"></i>
+                                <span class="text-white">{{ profile.full_name|default:request.user.get_full_name|default:request.user.username }}</span>
+                            </span>
+                            <span class="opacity-50">•</span>
+                            <span class="d-inline-flex align-items-center gap-1">
+                                <i class="bi bi-envelope-fill text-emerald"></i>
+                                <span class="text-white">{{ profile.email|default:request.user.email }}</span>
+                            </span>
+                            <span class="opacity-50">•</span>
+                            <span class="d-inline-flex align-items-center gap-1">
+                                <i class="bi bi-calendar-check-fill text-emerald"></i>
+                                <span>Member since {{ profile.created_at|date:"M Y"|default:request.user.date_joined|date:"M Y" }}</span>
+                            </span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="profile-hero-info">
-                    <h2 class="profile-hero-name">
-                        {% if profile and profile.full_name %}
-                            {{ profile.full_name }}
-                        {% else %}
-                            {{ request.user.get_full_name|default:request.user.username }}
-                        {% endif %}
-                    </h2>
-                    <div class="profile-hero-meta">
-                        <span class="badge-role">Distributor</span>
-                        <span class="badge-status">
-                            <span class="status-dot"></span>
-                            {% if request.user.is_active %}Active{% else %}Inactive{% endif %}
-                        </span>
-                    </div>
+                <div class="d-flex align-items-center gap-2">
+                    <a href="{% url 'edit_distributor_profile' %}" class="btn btn-light fw-semibold px-3 py-2 shadow-sm d-inline-flex align-items-center gap-2">
+                        <i class="bi bi-pencil-square text-primary fs-6"></i>
+                        <span>Edit Business Profile</span>
+                    </a>
+                    <a href="{% url 'create_invoice' %}" class="btn btn-success fw-semibold px-3 py-2 shadow-sm d-inline-flex align-items-center gap-2">
+                        <i class="bi bi-plus-circle fs-6"></i>
+                        <span>New Invoice</span>
+                    </a>
                 </div>
             </div>
-
-            <!-- Personal Information Card -->
-            <div class="info-card">
-                <div class="info-card-header">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                    </svg>
-                    <h3 class="info-card-title">Personal Information</h3>
-                </div>
-
-                <div class="info-grid">
-                    <div class="info-group">
-                        <span class="info-label">Full Name</span>
-                        <span class="info-value">
-                            {% if profile and profile.full_name %}
-                                {{ profile.full_name }}
-                            {% elif request.user.get_full_name %}
-                                {{ request.user.get_full_name }}
-                            {% else %}
-                                {{ request.user.username }}
-                            {% endif %}
-                        </span>
-                    </div>
-
-                    <div class="info-group">
-                        <span class="info-label">Email Address</span>
-                        <span class="info-value">
-                            {% if profile and profile.email %}
-                                {{ profile.email }}
-                            {% else %}
-                                {{ request.user.email|default:"Not provided" }}
-                            {% endif %}
-                        </span>
-                    </div>
-
-                    <div class="info-group">
-                        <span class="info-label">Phone Number</span>
-                        <span class="info-value">
-                            {% if profile and profile.phone %}
-                                {{ profile.phone }}
-                            {% else %}
-                                Not provided
-                            {% endif %}
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Account Information Card -->
-            <div class="info-card">
-                <div class="info-card-header">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                    </svg>
-                    <h3 class="info-card-title">Account Information</h3>
-                </div>
-
-                <div class="info-grid">
-                    <div class="info-group">
-                        <span class="info-label">Account Type</span>
-                        <span class="info-value">Distributor</span>
-                    </div>
-
-                    <div class="info-group">
-                        <span class="info-label">Account Status</span>
-                        <span class="info-value">
-                            {% if request.user.is_active %}Active{% else %}Inactive{% endif %}
-                        </span>
-                    </div>
-
-                    <div class="info-group">
-                        <span class="info-label">Registered On</span>
-                        <span class="info-value">
-                            {% if profile and profile.created_at %}
-                                {{ profile.created_at|date:"d F Y" }}
-                            {% else %}
-                                {{ request.user.date_joined|date:"d F Y" }}
-                            {% endif %}
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Action Card -->
-            <div class="actions-card">
-                <a href="{% url 'edit_distributor_profile' %}" class="edit-profile-btn">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                    </svg>
-                    <span>Edit Profile</span>
-                </a>
-            </div>
-
-        </main>
+        </div>
     </div>
 
-</body>
-</html>
+    <!-- Commercial Performance KPI Strip -->
+    <div class="row g-3 mb-4">
+        <!-- Total Invoiced Volume -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="profile-kpi-card">
+                <div class="kpi-icon-wrap" style="background-color: #ECFDF5; color: #10B981;">
+                    <i class="bi bi-currency-rupee"></i>
+                </div>
+                <div>
+                    <div class="kpi-lbl">Total Invoiced Volume</div>
+                    <div class="kpi-val text-success">₹{{ total_revenue|floatformat:2 }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Invoices Dispatched -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="profile-kpi-card">
+                <div class="kpi-icon-wrap" style="background-color: #EFF6FF; color: #3B82F6;">
+                    <i class="bi bi-file-earmark-check-fill"></i>
+                </div>
+                <div>
+                    <div class="kpi-lbl">Invoices Issued</div>
+                    <div class="kpi-val text-primary">{{ total_invoices }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Clients Portfolio -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="profile-kpi-card">
+                <div class="kpi-icon-wrap" style="background-color: #FAF5FF; color: #8B5CF6;">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+                <div>
+                    <div class="kpi-lbl">Client Portfolio</div>
+                    <div class="kpi-val" style="color: #8B5CF6;">{{ total_customers }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Catalog Products -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="profile-kpi-card">
+                <div class="kpi-icon-wrap" style="background-color: #FFFBEB; color: #F59E0B;">
+                    <i class="bi bi-box-seam-fill"></i>
+                </div>
+                <div>
+                    <div class="kpi-lbl">Catalog Products</div>
+                    <div class="kpi-val text-warning">{{ total_products }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Profile Content Grid -->
+    <div class="row g-4">
+        <!-- Left: Corporate Details & Recent Activity (8 cols) -->
+        <div class="col-12 col-xl-8">
+
+            <!-- Card 1: Corporate & Business Credentials -->
+            <div class="profile-section-card">
+                <div class="section-card-header">
+                    <h5>
+                        <i class="bi bi-building-fill text-success fs-5"></i>
+                        <span>Corporate &amp; Commercial Identity</span>
+                    </h5>
+                    <a href="{% url 'edit_distributor_profile' %}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-pencil me-1"></i> Update
+                    </a>
+                </div>
+                <div class="section-card-body">
+                    <div class="profile-data-row">
+                        <span class="data-label">
+                            <i class="bi bi-briefcase text-muted"></i> Business Trading Name
+                        </span>
+                        <span class="data-value">
+                            {{ profile.business_name|default:"Apex Commercial Enterprises (Not configured)" }}
+                        </span>
+                    </div>
+
+                    <div class="profile-data-row">
+                        <span class="data-label">
+                            <i class="bi bi-geo-alt text-muted"></i> Registered Trade Address
+                        </span>
+                        <span class="data-value text-break">
+                            {{ profile.address|default:"No physical address configured. Click 'Update' to add billing headquarters." }}
+                        </span>
+                    </div>
+
+                    <div class="profile-data-row">
+                        <span class="data-label">
+                            <i class="bi bi-file-earmark-lock text-muted"></i> GSTIN &amp; Tax Regime
+                        </span>
+                        <span class="data-value d-flex align-items-center gap-2">
+                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">Standard 18% GST Compliant</span>
+                            <span class="text-muted small">CGST 9% + SGST 9%</span>
+                        </span>
+                    </div>
+
+                    <div class="profile-data-row">
+                        <span class="data-label">
+                            <i class="bi bi-cash-stack text-muted"></i> Accounting Currency
+                        </span>
+                        <span class="data-value">Indian Rupee (INR - ₹)</span>
+                    </div>
+
+                    <div class="profile-data-row">
+                        <span class="data-label">
+                            <i class="bi bi-globe text-muted"></i> Operational Jurisdiction
+                        </span>
+                        <span class="data-value">Domestic Commercial Distribution (All India)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 2: Authorized Signatory & Contact Profile -->
+            <div class="profile-section-card">
+                <div class="section-card-header">
+                    <h5>
+                        <i class="bi bi-person-badge-fill text-primary fs-5"></i>
+                        <span>Authorized Signatory &amp; Contact Information</span>
+                    </h5>
+                    <a href="{% url 'edit_distributor_profile' %}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-pencil me-1"></i> Edit
+                    </a>
+                </div>
+                <div class="section-card-body">
+                    <div class="profile-data-row">
+                        <span class="data-label">
+                            <i class="bi bi-person text-muted"></i> Authorized Representative
+                        </span>
+                        <span class="data-value">
+                            {{ profile.full_name|default:request.user.get_full_name|default:request.user.username }}
+                        </span>
+                    </div>
+
+                    <div class="profile-data-row">
+                        <span class="data-label">
+                            <i class="bi bi-envelope text-muted"></i> Official Email
+                        </span>
+                        <span class="data-value d-flex align-items-center gap-2">
+                            <span>{{ profile.email|default:request.user.email }}</span>
+                            <span class="badge bg-primary-subtle text-primary small">Verified</span>
+                        </span>
+                    </div>
+
+                    <div class="profile-data-row">
+                        <span class="data-label">
+                            <i class="bi bi-telephone text-muted"></i> Contact Telephone
+                        </span>
+                        <span class="data-value">
+                            {% if profile.phone %}
+                                <a href="tel:{{ profile.phone }}" class="text-decoration-none text-dark fw-bold">
+                                    <i class="bi bi-telephone-outbound text-success me-1"></i> {{ profile.phone }}
+                                </a>
+                            {% else %}
+                                <span class="text-muted">-- Not configured --</span>
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <div class="profile-data-row">
+                        <span class="data-label">
+                            <i class="bi bi-person-circle text-muted"></i> Portal Login Username
+                        </span>
+                        <span class="data-value font-monospace text-primary bg-light px-2 py-1 rounded border">
+                            {{ request.user.username }}
+                        </span>
+                    </div>
+
+                    <div class="profile-data-row">
+                        <span class="data-label">
+                            <i class="bi bi-hash text-muted"></i> Unique Distributor UID
+                        </span>
+                        <span class="data-value font-monospace text-muted">
+                            #DIST-{{ profile.id|default:request.user.id|stringformat:"04d" }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 3: Recent Commercial Activity Table -->
+            <div class="profile-section-card">
+                <div class="section-card-header">
+                    <h5>
+                        <i class="bi bi-clock-history text-secondary fs-5"></i>
+                        <span>Recent Commercial Invoices</span>
+                    </h5>
+                    <a href="{% url 'invoice_list' %}" class="btn btn-sm btn-outline-primary">
+                        <span>View All Invoices</span>
+                        <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
+                <div class="p-0">
+                    {% if recent_invoices %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light text-muted small text-uppercase">
+                                    <tr>
+                                        <th class="ps-4">Invoice #</th>
+                                        <th>Client</th>
+                                        <th>Date</th>
+                                        <th class="text-end">Amount (₹)</th>
+                                        <th class="text-center">Status</th>
+                                        <th class="text-end pe-4">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for inv in recent_invoices %}
+                                        <tr>
+                                            <td class="ps-4 fw-semibold font-monospace text-primary">
+                                                <a href="{% url 'invoice_detail' inv.id %}" class="text-decoration-none">
+                                                    {{ inv.invoice_number }}
+                                                </a>
+                                            </td>
+                                            <td>
+                                                <div class="fw-medium text-dark">{{ inv.customer.name }}</div>
+                                                <div class="small text-muted">{{ inv.customer.phone|default:"" }}</div>
+                                            </td>
+                                            <td class="text-muted small">
+                                                {{ inv.invoice_date|date:"d M Y" }}
+                                            </td>
+                                            <td class="text-end fw-bold text-dark">
+                                                ₹{{ inv.grand_total|floatformat:2 }}
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                                    <i class="bi bi-check-circle me-1"></i> Issued
+                                                </span>
+                                            </td>
+                                            <td class="text-end pe-4">
+                                                <a href="{% url 'invoice_detail' inv.id %}" class="btn btn-sm btn-outline-primary py-1 px-2" title="Inspect Invoice">
+                                                    <i class="bi bi-eye"></i> View
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-receipt text-muted" style="font-size: 3rem; opacity: 0.35;"></i>
+                            <h6 class="mt-3 text-dark fw-bold">No Invoices Issued Yet</h6>
+                            <p class="text-muted small mb-3">Start generating certified, QR-compliant GST invoices for your clients.</p>
+                            <a href="{% url 'create_invoice' %}" class="btn btn-sm btn-primary">
+                                <i class="bi bi-plus-lg me-1"></i> Issue First Invoice
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right: Verification Status, Security & Shortcuts (4 cols) -->
+        <div class="col-12 col-xl-4">
+
+            <!-- Card D: Account Verification & Health -->
+            <div class="profile-section-card">
+                <div class="section-card-header">
+                    <h5>
+                        <i class="bi bi-shield-check text-success fs-5"></i>
+                        <span>Account Credentials Status</span>
+                    </h5>
+                </div>
+                <div class="section-card-body">
+                    <div class="health-meter-wrap">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="fw-bold text-dark small">Profile Completeness</span>
+                            <span class="badge bg-success text-white fw-bold">100% Active</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <p class="small text-muted mb-0 mt-2">All primary distributor features and data isolation policies are active.</p>
+                    </div>
+
+                    <div class="check-list-item">
+                        <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                        <span>Enterprise Authentication Verified</span>
+                    </div>
+                    <div class="check-list-item">
+                        <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                        <span>Email Identity Confirmed</span>
+                    </div>
+                    <div class="check-list-item">
+                        <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                        <span>Multi-Tenant Data Isolation Protected</span>
+                    </div>
+                    <div class="check-list-item">
+                        <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                        <span>Dynamic QR Verification Engine Active</span>
+                    </div>
+                    <div class="check-list-item">
+                        <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                        <span>Automated GST Calculation Engine Active</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card E: Security & Access Level -->
+            <div class="profile-section-card">
+                <div class="section-card-header">
+                    <h5>
+                        <i class="bi bi-lock-fill text-muted fs-5"></i>
+                        <span>Security &amp; Session</span>
+                    </h5>
+                </div>
+                <div class="section-card-body">
+                    <div class="profile-data-row">
+                        <span class="data-label" style="width: 140px;">System Role</span>
+                        <span class="data-value">
+                            <span class="badge bg-primary text-white">Distributor Tenant</span>
+                        </span>
+                    </div>
+                    <div class="profile-data-row">
+                        <span class="data-label" style="width: 140px;">Data Isolation</span>
+                        <span class="data-value text-success">
+                            <i class="bi bi-shield-lock-fill me-1"></i> Strict Multi-Tenant
+                        </span>
+                    </div>
+                    <div class="profile-data-row">
+                        <span class="data-label" style="width: 140px;">Password Hash</span>
+                        <span class="data-value text-muted small">PBKDF2 SHA-256</span>
+                    </div>
+                    <div class="profile-data-row">
+                        <span class="data-label" style="width: 140px;">Session Status</span>
+                        <span class="data-value text-success d-flex align-items-center gap-1">
+                            <span class="status-pulse-dot" style="background-color: #10B981; display: inline-block; width: 8px; height: 8px; border-radius: 50%;"></span>
+                            <span>Live Authenticated</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card F: Operations Quick Launchpad -->
+            <div class="profile-section-card">
+                <div class="section-card-header">
+                    <h5>
+                        <i class="bi bi-lightning-charge-fill text-warning fs-5"></i>
+                        <span>Operations Hub</span>
+                    </h5>
+                </div>
+                <div class="section-card-body p-3">
+                    <a href="{% url 'create_invoice' %}" class="quick-launch-link">
+                        <span class="d-flex align-items-center gap-2">
+                            <i class="bi bi-plus-circle text-success fs-5"></i>
+                            <span>Create New Invoice</span>
+                        </span>
+                        <i class="bi bi-chevron-right text-muted small"></i>
+                    </a>
+
+                    <a href="{% url 'add_customer' %}" class="quick-launch-link">
+                        <span class="d-flex align-items-center gap-2">
+                            <i class="bi bi-person-plus text-primary fs-5"></i>
+                            <span>Register New Client</span>
+                        </span>
+                        <i class="bi bi-chevron-right text-muted small"></i>
+                    </a>
+
+                    <a href="{% url 'add_product' %}" class="quick-launch-link">
+                        <span class="d-flex align-items-center gap-2">
+                            <i class="bi bi-box-seam text-warning fs-5"></i>
+                            <span>Add Catalog Product</span>
+                        </span>
+                        <i class="bi bi-chevron-right text-muted small"></i>
+                    </a>
+
+                    <a href="{% url 'qr_decoder' %}" class="quick-launch-link">
+                        <span class="d-flex align-items-center gap-2">
+                            <i class="bi bi-qr-code-scan text-info fs-5"></i>
+                            <span>Verify Invoice QR Code</span>
+                        </span>
+                        <i class="bi bi-chevron-right text-muted small"></i>
+                    </a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}

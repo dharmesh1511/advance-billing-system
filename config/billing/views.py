@@ -75,7 +75,11 @@ def add_customer(request):
         else:
             error = "Please correct the errors indicated below."
     else:
-        form = CustomerForm(user=request.user)
+        initial_data = {}
+        dist_id = request.GET.get("distributor_id") or request.GET.get("distributor")
+        if dist_id and dist_id.isdigit():
+            initial_data["distributor"] = int(dist_id)
+        form = CustomerForm(user=request.user, initial=initial_data)
 
     base_template = "adminpanel/base_admin.html" if is_admin_user else "billing/base_distributor.html"
 
@@ -99,7 +103,9 @@ def customer_list(request):
     if is_admin(request.user):
         return redirect("admin_customer_list")
 
-    queryset = Customer.objects.filter(distributor=request.user).order_by("-id")
+    queryset = Customer.objects.filter(distributor=request.user).annotate(
+        invoices_count=Count("invoices", distinct=True)
+    ).order_by("-id")
     total_count = queryset.count()
 
     query = request.GET.get("q", "").strip()
@@ -281,11 +287,15 @@ def product_list(request):
     if is_admin(request.user):
         return redirect("admin_product_list")
 
-    queryset = Product.objects.filter(distributor=request.user).order_by("-id")
-    total_count = queryset.count()
+    base_qs = Product.objects.filter(distributor=request.user)
+    total_count = base_qs.count()
+    in_stock_count = base_qs.filter(stock__gt=5).count()
+    low_stock_count = base_qs.filter(stock__gt=0, stock__lte=5).count()
+    out_of_stock_count = base_qs.filter(stock=0).count()
+
+    queryset = base_qs.order_by("-id")
 
     query = request.GET.get("q", "").strip()
-
     if query:
         queryset = queryset.filter(
             Q(name__icontains=query) |
@@ -293,6 +303,14 @@ def product_list(request):
             Q(sku__icontains=query) |
             Q(description__icontains=query)
         )
+
+    stock_status = request.GET.get("stock_status", "").strip()
+    if stock_status == "in_stock":
+        queryset = queryset.filter(stock__gt=5)
+    elif stock_status == "low_stock":
+        queryset = queryset.filter(stock__gt=0, stock__lte=5)
+    elif stock_status == "out_of_stock":
+        queryset = queryset.filter(stock=0)
 
     filtered_count = queryset.count()
 
@@ -306,7 +324,11 @@ def product_list(request):
         {
             "page_obj": page_obj,
             "query": query,
+            "stock_status": stock_status,
             "total_count": total_count,
+            "in_stock_count": in_stock_count,
+            "low_stock_count": low_stock_count,
+            "out_of_stock_count": out_of_stock_count,
             "filtered_count": filtered_count,
         }
     )
@@ -882,6 +904,11 @@ def invoice_list(request):
 
     filtered_count = queryset.count()
 
+    rev_agg = Invoice.objects.filter(distributor=request.user).aggregate(
+        total=Coalesce(Sum("grand_total"), Value(Decimal("0.00")))
+    )
+    total_revenue = rev_agg.get("total") or Decimal("0.00")
+
     paginator = Paginator(queryset, 10)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
@@ -894,6 +921,7 @@ def invoice_list(request):
             "query": query,
             "total_count": total_count,
             "filtered_count": filtered_count,
+            "total_revenue": total_revenue,
         }
     )
 

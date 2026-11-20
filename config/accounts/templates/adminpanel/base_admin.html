@@ -26,7 +26,7 @@
         <div class="admin-sidebar-brand">
             <a href="{% url 'admin_dashboard' %}" class="brand-link" title="Advance Billing Dashboard">
                 <div class="brand-logo-pill">
-                    <span>AB</span>
+                    <img src="{% static 'images/logo.png' %}" alt="Advance Billing" class="brand-logo-pill-img">
                 </div>
                 <div class="brand-info">
                     <span class="brand-title">Advance Billing</span>
@@ -45,22 +45,14 @@
 
             <a href="{% url 'admin_dashboard' %}"
                class="admin-nav-item {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}"
-               title="Dashboard"
-               data-tooltip="Dashboard">
-                <div class="nav-icon-container">
-                    <i class="bi bi-house-door-fill"></i>
-                </div>
+               title="Dashboard">
                 <span class="nav-text">Dashboard</span>
             </a>
 
             <a href="{% url 'admin_reports' %}"
                class="admin-nav-item {% if request.resolver_match.url_name in 'admin_reports,admin_reports_export_csv,admin_reports_export_pdf' %}active{% endif %}"
-               title="Reports & Analytics"
-               data-tooltip="Reports & Analytics">
-                <div class="nav-icon-container">
-                    <i class="bi bi-graph-up-arrow"></i>
-                </div>
-                <span class="nav-text">Reports & Analytics</span>
+               title="Reports & Analytics">
+                <span class="nav-text">Reports &amp; Analytics</span>
             </a>
 
             <!-- MANAGEMENT SECTION -->
@@ -68,41 +60,25 @@
 
             <a href="{% url 'admin_invoice_list' %}"
                class="admin-nav-item {% if request.resolver_match.url_name in 'admin_invoice_list,invoice_list,invoice_detail,invoice_preview,create_invoice,invoice_create,invoice_edit,invoice_delete,billing_invoice_list,billing_create_invoice,billing_invoice_detail,billing_invoice_preview,billing_invoice_edit,billing_invoice_delete' %}active{% endif %}"
-               title="Invoices"
-               data-tooltip="Invoices">
-                <div class="nav-icon-container">
-                    <i class="bi bi-file-earmark-text-fill"></i>
-                </div>
+               title="Invoices">
                 <span class="nav-text">Invoices</span>
             </a>
 
             <a href="{% url 'admin_customer_list' %}"
                class="admin-nav-item {% if request.resolver_match.url_name in 'admin_customer_list,customer_list,customer_register,customer_edit,add_customer,customer_detail,customer_details,customer_delete,billing_customer_list,billing_customer_register,billing_add_customer,billing_customer_detail,billing_customer_details,billing_edit_customer,billing_delete_customer' %}active{% endif %}"
-               title="Customers"
-               data-tooltip="Customers">
-                <div class="nav-icon-container">
-                    <i class="bi bi-people-fill"></i>
-                </div>
-                <span class="nav-text">Customers</span>
+               title="Distributors & Clients">
+                <span class="nav-text">Distributors &amp; Clients</span>
             </a>
 
             <a href="{% url 'admin_product_list' %}"
                class="admin-nav-item {% if request.resolver_match.url_name in 'admin_product_list,product_list,product_add,product_edit,product_details,product_detail,add_product,edit_product,delete_product,product_delete,billing_product_list,billing_add_product,billing_product_detail,billing_edit_product,billing_delete_product,billing_product_details' %}active{% endif %}"
-               title="Products"
-               data-tooltip="Products">
-                <div class="nav-icon-container">
-                    <i class="bi bi-box-seam-fill"></i>
-                </div>
+               title="Products">
                 <span class="nav-text">Products</span>
             </a>
 
             <a href="{% url 'admin_qr_decoder' %}"
                class="admin-nav-item nav-item-special {% if request.resolver_match.url_name in 'admin_qr_decoder,qr_decoder,qr_decoder_page,invoice_qr_decoder,billing_qr_decoder,billing_qr_decoder_page' %}active{% endif %}"
-               title="Decode QR Code"
-               data-tooltip="Decode QR Code">
-                <div class="nav-icon-container">
-                    <i class="bi bi-qr-code-scan"></i>
-                </div>
+               title="Decode QR Code">
                 <span class="nav-text">Decode QR Code</span>
             </a>
 
@@ -112,23 +88,14 @@
             <a href="/django-admin/"
                target="_blank"
                class="admin-nav-item"
-               title="Django Admin"
-               data-tooltip="Django Admin">
-                <div class="nav-icon-container">
-                    <i class="bi bi-database-fill-gear"></i>
-                </div>
+               title="Django Admin">
                 <span class="nav-text">Django Admin</span>
-                <i class="bi bi-box-arrow-up-right nav-external-icon"></i>
             </a>
 
             {% if request.user.is_superuser or request.user.is_staff %}
             <a href="{% url 'admin_register' %}"
                class="admin-nav-item {% if request.resolver_match.url_name in 'admin_register,admin_register_alias' %}active{% endif %}"
-               title="Register Admin"
-               data-tooltip="Register Admin">
-                <div class="nav-icon-container">
-                    <i class="bi bi-person-plus-fill"></i>
-                </div>
+               title="Register Admin">
                 <span class="nav-text">Register Admin</span>
             </a>
             {% endif %}
@@ -350,6 +317,15 @@
                     if (sidebar) sidebar.classList.remove('collapsed');
                     if (body) body.classList.remove('sidebar-is-collapsed');
                 }
+            });
+
+            // Ensure clicking a sidebar nav item highlights ONLY that single clicked item
+            const navItems = document.querySelectorAll('.admin-sidebar .admin-nav-item');
+            navItems.forEach(item => {
+                item.addEventListener('click', function () {
+                    navItems.forEach(nav => nav.classList.remove('active'));
+                    this.classList.add('active');
+                });
             });
         })();
     </script>

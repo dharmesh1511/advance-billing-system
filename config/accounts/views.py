@@ -378,6 +378,27 @@ def admin_dashboard(request):
             "user"
         ).order_by("-id")[:5]
 
+        # Distributor & client portfolio hierarchy for Admin Dashboard
+        distributor_portfolios = []
+        dash_distributors = User.objects.filter(
+            Q(groups__name="Distributor") | Q(distributor_profile__isnull=False)
+        ).distinct().order_by("username")
+
+        for d in dash_distributors:
+            d_clients = Customer.objects.filter(distributor=d).annotate(
+                invoices_count=Count("invoices", distinct=True)
+            ).order_by("-id")[:4]
+            d_inv_count = Invoice.objects.filter(distributor=d).count()
+            d_rev = Invoice.objects.filter(distributor=d).aggregate(total=Sum("grand_total"))["total"] or Decimal("0.00")
+            distributor_portfolios.append({
+                "distributor": d,
+                "profile": getattr(d, "distributor_profile", None),
+                "clients": d_clients,
+                "total_clients": Customer.objects.filter(distributor=d).count(),
+                "total_invoices": d_inv_count,
+                "total_revenue": d_rev,
+            })
+
         # Invoice Status Summary metrics
         qr_verified_count = Invoice.objects.exclude(qr_code="").exclude(qr_code__isnull=True).count()
         avg_invoice_val = (total_sales / total_invoices) if total_invoices > 0 else Decimal("0.00")
@@ -439,6 +460,7 @@ def admin_dashboard(request):
         "recent_customers": recent_customers,
         "recent_products": recent_products,
         "recent_distributors": recent_distributors,
+        "distributor_portfolios": distributor_portfolios,
         "invoice_status_summary": invoice_status_summary,
     }
 
@@ -1049,16 +1071,28 @@ def distributor_dashboard(request):
 
 @distributor_required
 def distributor_profile(request):
-
     profile = getattr(request.user, "distributor_profile", None)
     if not profile:
         profile = DistributorProfile.objects.filter(user=request.user).first()
+
+    # Performance and operational stats for business profile
+    invoices_qs = Invoice.objects.filter(distributor=request.user)
+    total_invoices = invoices_qs.count()
+    total_revenue = invoices_qs.aggregate(total=Sum("grand_total"))["total"] or 0
+    total_customers = Customer.objects.filter(distributor=request.user).count()
+    total_products = Product.objects.filter(distributor=request.user).count()
+    recent_invoices = invoices_qs.select_related("customer").order_by("-invoice_date", "-id")[:5]
 
     return render(
         request,
         "dashboard/distributor_profile.html",
         {
-            "profile": profile
+            "profile": profile,
+            "total_invoices": total_invoices,
+            "total_revenue": total_revenue,
+            "total_customers": total_customers,
+            "total_products": total_products,
+            "recent_invoices": recent_invoices,
         }
     )
 
@@ -1090,12 +1124,18 @@ def edit_distributor_profile(request):
             cleaned_name = form.cleaned_data["full_name"]
             cleaned_email = form.cleaned_data["email"]
             cleaned_phone = form.cleaned_data["phone"]
+            business_name = request.POST.get("business_name", "").strip()
+            address = request.POST.get("address", "").strip()
 
             try:
                 with transaction.atomic():
                     profile.full_name = cleaned_name
                     profile.email = cleaned_email
                     profile.phone = cleaned_phone
+                    if business_name:
+                        profile.business_name = business_name
+                    if address:
+                        profile.address = address
                     profile.save()
 
                     name_parts = cleaned_name.split(" ", 1)
@@ -1109,7 +1149,7 @@ def edit_distributor_profile(request):
                     user.username = cleaned_email
                     user.save()
 
-                messages.success(request, "Profile updated successfully.")
+                messages.success(request, "Business profile updated successfully.")
                 return redirect("distributor_profile")
             except Exception as e:
                 error = "Unable to update your profile right now. Please try again."
@@ -1490,7 +1530,8 @@ def admin_invoice_list(request):
 def admin_customer_list(request):
     """
     Dedicated Admin Customers view rendering with base_admin.html.
-    Allows Admins to view and search all customers across all distributors.
+    Allows Admins to view and search all customers organized by Distributor (role hierarchy)
+    or in a comprehensive searchable flat directory table.
     """
     queryset = Customer.objects.all().select_related("distributor").annotate(
         invoices_count=Count("invoices", distinct=True)
@@ -1507,7 +1548,9 @@ def admin_customer_list(request):
             Q(city__icontains=query) |
             Q(state__icontains=query) |
             Q(pincode__icontains=query) |
-            Q(distributor__username__icontains=query)
+            Q(distributor__username__icontains=query) |
+            Q(distributor__first_name__icontains=query) |
+            Q(distributor__last_name__icontains=query)
         )
 
     distributor_id = request.GET.get("distributor_id", "").strip()
@@ -1516,13 +1559,76 @@ def admin_customer_list(request):
 
     filtered_count = queryset.count()
 
+    # Active view mode: 'hierarchy' (grouped by distributor role) or 'table'
+    view_mode = request.GET.get("view", "hierarchy").strip().lower()
+    if view_mode not in ["hierarchy", "table"]:
+        view_mode = "hierarchy"
+
     paginator = Paginator(queryset, 10)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 
+    # Fetch all distributors with role
     distributors = User.objects.filter(
         Q(groups__name="Distributor") | Q(distributor_profile__isnull=False)
     ).distinct().order_by("username")
+
+    # Build hierarchical distributor -> clients mapping
+    distributor_hierarchy = []
+    for dist in distributors:
+        # If filtering by specific distributor in hierarchy view
+        if distributor_id and distributor_id.isdigit() and int(distributor_id) != dist.id:
+            continue
+
+        dist_clients = Customer.objects.filter(distributor=dist).annotate(
+            invoices_count=Count("invoices", distinct=True)
+        ).order_by("-id")
+
+        if query:
+            dist_clients = dist_clients.filter(
+                Q(name__icontains=query) |
+                Q(email__icontains=query) |
+                Q(phone__icontains=query) |
+                Q(city__icontains=query) |
+                Q(state__icontains=query)
+            )
+
+        dist_profile = getattr(dist, "distributor_profile", None)
+        invoices_count = Invoice.objects.filter(distributor=dist).count()
+        total_billed = Invoice.objects.filter(distributor=dist).aggregate(total=Sum("grand_total"))["total"] or Decimal("0.00")
+
+        distributor_hierarchy.append({
+            "distributor": dist,
+            "profile": dist_profile,
+            "clients": dist_clients,
+            "client_count": Customer.objects.filter(distributor=dist).count(),
+            "filtered_client_count": dist_clients.count(),
+            "invoices_count": invoices_count,
+            "total_billed": total_billed,
+        })
+
+    # Direct / platform clients not assigned to any distributor
+    unassigned_clients = Customer.objects.filter(distributor__isnull=True).annotate(
+        invoices_count=Count("invoices", distinct=True)
+    ).order_by("-id")
+    if query:
+        unassigned_clients = unassigned_clients.filter(
+            Q(name__icontains=query) |
+            Q(email__icontains=query) |
+            Q(phone__icontains=query)
+        )
+
+    # Calculate summary counts per distributor for filter badges
+    distributor_stats = []
+    for d in distributors:
+        c_count = Customer.objects.filter(distributor=d).count()
+        distributor_stats.append({
+            "id": d.id,
+            "username": d.username,
+            "name": d.get_full_name() or d.username,
+            "business_name": getattr(getattr(d, "distributor_profile", None), "business_name", ""),
+            "client_count": c_count,
+        })
 
     return render(
         request,
@@ -1532,8 +1638,13 @@ def admin_customer_list(request):
             "query": query,
             "selected_distributor_id": distributor_id,
             "distributors": distributors,
+            "distributor_stats": distributor_stats,
+            "distributor_hierarchy": distributor_hierarchy,
+            "unassigned_clients": unassigned_clients,
+            "unassigned_count": unassigned_clients.count(),
             "total_count": total_customers_count,
             "filtered_count": filtered_count,
+            "view_mode": view_mode,
         }
     )
 

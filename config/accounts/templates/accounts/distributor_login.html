@@ -62,20 +62,24 @@
             background: linear-gradient(90deg, #16A34A, #10B981, #0D9488);
         }
 
-        .brand-logo-badge {
-            width: 50px;
-            height: 50px;
-            border-radius: 14px;
-            background: linear-gradient(135deg, #16A34A, #065F46);
-            color: #FFFFFF;
-            display: flex;
+        .brand-logo-container {
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-            box-shadow: 0 8px 16px rgba(22, 163, 74, 0.35);
-            margin: 0 auto 14px;
+            margin-bottom: 12px;
+        }
+
+        .brand-logo-main {
+            height: 76px;
+            width: auto;
+            max-width: 140px;
+            object-fit: contain;
+            filter: drop-shadow(0 8px 18px rgba(22, 163, 74, 0.25));
+            transition: transform 0.25s ease;
+        }
+
+        .brand-logo-main:hover {
+            transform: scale(1.04);
         }
 
         .portal-pill {
@@ -164,7 +168,9 @@
     <div class="login-card">
         <!-- Logo & Brand Header -->
         <div class="text-center mb-4">
-            <div class="brand-logo-badge">AB</div>
+            <div class="brand-logo-container">
+                <img src="{% static 'images/logo.png' %}" alt="Advance Billing System Logo" class="brand-logo-main">
+            </div>
             <div class="mb-2">
                 <span class="portal-pill">
                     <span class="portal-pill-dot"></span>

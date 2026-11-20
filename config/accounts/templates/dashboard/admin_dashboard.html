@@ -372,7 +372,84 @@
         </div>
     </div>
 
-    <!-- 5. Split Section: Recent Customers & Recent Products Tables -->
+    <!-- 5. Distributors & Client Portfolios (Role Hierarchy) -->
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="table-card">
+                <div class="table-card-header d-flex flex-wrap align-items-center justify-content-between gap-3">
+                    <div>
+                        <h4 class="table-card-title mb-1">
+                            <i class="bi bi-diagram-3-fill text-primary me-2"></i>
+                            Distributors &amp; Client Portfolios (Role Hierarchy)
+                        </h4>
+                        <p class="table-card-subtitle mb-0">
+                            Distributor tenant accounts and their strictly isolated client portfolios.
+                        </p>
+                    </div>
+                    <a href="{% url 'admin_customer_list' %}?view=hierarchy" class="btn btn-outline-action-sm">
+                        <span>View Full Hierarchy</span>
+                        <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
+
+                <div class="p-3 p-md-4">
+                    <div class="row g-3">
+                        {% for dp in distributor_portfolios %}
+                            <div class="col-12 col-md-6">
+                                <div class="p-3 bg-white rounded-3 border h-100 shadow-sm">
+                                    <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="avatar-sm-circle bg-primary text-white fw-bold" style="width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 15px;">
+                                                {{ dp.distributor.username|slice:":1"|upper }}
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold text-dark">{{ dp.distributor.username }}</div>
+                                                <div class="small text-muted">{{ dp.profile.business_name|default:"Distributor Account" }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge bg-primary text-white mb-1"><i class="bi bi-shield-lock-fill"></i> Role: Distributor</span>
+                                            <div class="small text-muted">{{ dp.total_clients }} Clients &bull; {{ dp.total_invoices }} Invoices</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Clients under this distributor -->
+                                    <div class="small fw-semibold text-muted mb-2">Mapped Clients:</div>
+                                    {% if dp.clients %}
+                                        <div class="d-flex flex-wrap gap-2 mb-3">
+                                            {% for cl in dp.clients %}
+                                                <a href="{% url 'customer_detail' cl.pk %}" class="badge bg-light text-dark border text-decoration-none py-2 px-2 d-inline-flex align-items-center gap-1">
+                                                    <i class="bi bi-person-fill text-primary"></i>
+                                                    <span>{{ cl.name }}</span>
+                                                    {% if cl.phone %}<span class="text-muted" style="font-size: 10px;">({{ cl.phone }})</span>{% endif %}
+                                                </a>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <p class="small text-muted mb-3 fst-italic">No clients registered under this distributor yet.</p>
+                                    {% endif %}
+
+                                    <div class="d-flex align-items-center justify-content-between pt-2 border-top">
+                                        <span class="small text-muted">Total Invoiced: <strong class="text-dark">₹{{ dp.total_revenue|floatformat:2 }}</strong></span>
+                                        <a href="{% url 'admin_customer_list' %}?view=hierarchy&distributor_id={{ dp.distributor.id }}" class="btn btn-sm btn-outline-primary py-1 px-2" style="font-size: 12px;">
+                                            <span>Manage Portfolio</span> <i class="bi bi-chevron-right ms-1"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="col-12 text-center py-4 text-muted">
+                                <i class="bi bi-shop fs-2 mb-2 d-block opacity-50"></i>
+                                <span>No distributors configured yet.</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 6. Split Section: Recent Customers & Recent Products Tables -->
     <div class="row g-4 mb-4">
         <!-- Recent Customers Table (6 Cols) -->
         <div class="col-lg-6">
@@ -432,9 +509,13 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <span class="small text-muted">
-                                            {{ cust.distributor.get_full_name|default:cust.distributor.username|default:"General" }}
-                                        </span>
+                                        {% if cust.distributor %}
+                                            <span class="badge bg-indigo-subtle text-indigo border" style="background-color: #EEF2FF; color: #4338CA;">
+                                                <i class="bi bi-shop me-1"></i> {{ cust.distributor.username }}
+                                            </span>
+                                        {% else %}
+                                            <span class="small text-muted">Platform Direct</span>
+                                        {% endif %}
                                     </td>
                                     <td class="text-end text-nowrap">
                                         <div class="table-actions-group">

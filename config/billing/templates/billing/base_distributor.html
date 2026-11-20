@@ -10,519 +10,202 @@
     <link rel="stylesheet" href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}">
     <!-- Local Offline Bootstrap Icons -->
     <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
-
-    <style>
-        :root {
-            --bs-body-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            --dist-sidebar-width: 260px;
-            --dist-navbar-height: 70px;
-            --dist-sidebar-bg: #0F172A;
-            --dist-sidebar-border: rgba(255, 255, 255, 0.08);
-            --dist-primary-green: #10B981;
-            --dist-primary-dark: #059669;
-            --dist-bg-light: #F8FAFC;
-            --dist-text-dark: #0F172A;
-            --dist-text-muted: #64748B;
-        }
-
-        *, *::before, *::after {
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: var(--bs-body-font-family);
-            background-color: var(--dist-bg-light);
-            color: var(--dist-text-dark);
-            min-height: 100vh;
-            margin: 0;
-            overflow-x: hidden;
-        }
-
-        /* Mobile Sidebar Backdrop */
-        .dist-sidebar-backdrop {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(2px);
-            z-index: 1040;
-        }
-
-        .dist-sidebar-backdrop.active {
-            display: block;
-        }
-
-        /* Fixed Left Sidebar */
-        .dist-sidebar {
-            width: var(--dist-sidebar-width);
-            height: 100vh;
-            position: fixed;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            background-color: var(--dist-sidebar-bg);
-            color: #FFFFFF;
-            display: flex;
-            flex-direction: column;
-            z-index: 1050;
-            border-right: 1px solid var(--dist-sidebar-border);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .dist-sidebar::-webkit-scrollbar {
-            width: 4px;
-        }
-        .dist-sidebar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 4px;
-        }
-
-        /* Brand Header */
-        .dist-sidebar-brand {
-            height: var(--dist-navbar-height);
-            padding: 0 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid var(--dist-sidebar-border);
-            background: #0B1120;
-            flex-shrink: 0;
-        }
-
-        .dist-brand-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            text-decoration: none;
-            color: #FFFFFF;
-        }
-
-        .dist-brand-logo {
-            width: 38px;
-            height: 38px;
-            background: linear-gradient(135deg, #10B981, #059669);
-            color: #FFFFFF;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-size: 16px;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
-            flex-shrink: 0;
-        }
-
-        .dist-brand-info {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .dist-brand-title {
-            font-size: 15px;
-            font-weight: 700;
-            letter-spacing: -0.3px;
-            color: #FFFFFF;
-            line-height: 1.2;
-        }
-
-        .dist-brand-badge {
-            font-size: 11px;
-            font-weight: 600;
-            color: #10B981;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        /* Navigation Menu */
-        .dist-sidebar-nav {
-            padding: 16px 12px;
-            flex: 1;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .dist-nav-heading {
-            font-size: 10.5px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: #64748B;
-            padding: 10px 14px 4px;
-        }
-
-        .dist-nav-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
-            color: #94A3B8;
-            text-decoration: none;
-            border-radius: 10px;
-            font-size: 13.5px;
-            font-weight: 500;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .dist-nav-item:hover {
-            background-color: rgba(255, 255, 255, 0.08);
-            color: #FFFFFF;
-            transform: translateX(2px);
-        }
-
-        .dist-nav-item.active {
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(5, 150, 105, 0.25));
-            color: #34D399;
-            font-weight: 600;
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        .dist-nav-item i {
-            font-size: 16px;
-            width: 20px;
-            text-align: center;
-            flex-shrink: 0;
-        }
-
-        .dist-nav-item.active i {
-            color: #34D399;
-        }
-
-        /* Sidebar Footer User Card */
-        .dist-sidebar-footer {
-            padding: 14px 14px;
-            border-top: 1px solid var(--dist-sidebar-border);
-            background: rgba(0, 0, 0, 0.2);
-            flex-shrink: 0;
-        }
-
-        .dist-footer-card {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            text-decoration: none;
-            color: #FFFFFF;
-        }
-
-        .dist-footer-avatar {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #10B981, #047857);
-            color: #FFFFFF;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 14px;
-            flex-shrink: 0;
-        }
-
-        .dist-footer-user {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .dist-footer-name {
-            font-size: 13px;
-            font-weight: 600;
-            color: #FFFFFF;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            display: block;
-        }
-
-        .dist-footer-role {
-            font-size: 11.5px;
-            color: #10B981;
-            display: block;
-        }
-
-        .dist-footer-logout {
-            color: #94A3B8;
-            padding: 6px;
-            border-radius: 8px;
-            transition: all 0.2s ease;
-            text-decoration: none;
-        }
-
-        .dist-footer-logout:hover {
-            color: #EF4444;
-            background: rgba(239, 68, 68, 0.1);
-        }
-
-        /* Main Content Wrapper */
-        .dist-main-wrapper {
-            margin-left: var(--dist-sidebar-width);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            transition: margin-left 0.3s ease;
-        }
-
-        /* Top Header Navbar */
-        .dist-top-navbar {
-            height: var(--dist-navbar-height);
-            background: #FFFFFF;
-            border-bottom: 1px solid #E2E8F0;
-            position: sticky;
-            top: 0;
-            z-index: 1020;
-            padding: 0 28px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .dist-navbar-left {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .dist-toggle-btn {
-            background: none;
-            border: 1px solid #E2E8F0;
-            border-radius: 8px;
-            width: 38px;
-            height: 38px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #475569;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-
-        .dist-toggle-btn:hover {
-            background: #F1F5F9;
-            color: #0F172A;
-        }
-
-        .dist-navbar-title-box h1 {
-            font-size: 18px;
-            font-weight: 700;
-            color: #0F172A;
-            margin: 0;
-            line-height: 1.2;
-        }
-
-        .dist-navbar-title-box p {
-            font-size: 12px;
-            color: #64748B;
-            margin: 2px 0 0;
-        }
-
-        .dist-navbar-right {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-
-        .dist-user-dropdown-btn {
-            background: none;
-            border: 1px solid #E2E8F0;
-            border-radius: 12px;
-            padding: 6px 12px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #0F172A;
-            transition: all 0.15s ease;
-        }
-
-        .dist-user-dropdown-btn:hover {
-            background: #F8FAFC;
-            border-color: #CBD5E1;
-        }
-
-        /* Content Area */
-        .dist-content-area {
-            flex: 1;
-            padding: 28px;
-        }
-
-        @media (max-width: 991.98px) {
-            .dist-sidebar {
-                transform: translateX(-100%);
-            }
-            .dist-sidebar.open {
-                transform: translateX(0);
-            }
-            .dist-main-wrapper {
-                margin-left: 0;
-            }
-            .dist-top-navbar {
-                padding: 0 16px;
-            }
-            .dist-content-area {
-                padding: 20px 16px;
-            }
-        }
-    </style>
+    <!-- Premium Admin & Portal Custom CSS -->
+    <link rel="stylesheet" href="{% static 'css/admin.css' %}?v=2.3">
 
     {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="admin-app-body">
 
-    <!-- Mobile Sidebar Backdrop -->
-    <div class="dist-sidebar-backdrop" id="distBackdrop"></div>
+    <!-- Mobile Sidebar Backdrop Overlay -->
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
-    <!-- Fixed Vertical Sidebar -->
-    <aside class="dist-sidebar" id="distSidebar">
-        <!-- Brand Header -->
-        <div class="dist-sidebar-brand">
-            <a href="{% url 'distributor_dashboard' %}" class="dist-brand-link">
-                <div class="dist-brand-logo">AB</div>
-                <div class="dist-brand-info">
-                    <span class="dist-brand-title">Advance Billing</span>
-                    <span class="dist-brand-badge">Distributor Portal</span>
+    <!-- Fixed Vertical Sidebar (Matching Admin Portal Theme) -->
+    <aside class="admin-sidebar" id="adminSidebar">
+        <!-- Brand Section -->
+        <div class="admin-sidebar-brand">
+            <a href="{% url 'distributor_dashboard' %}" class="brand-link" title="Distributor Dashboard">
+                <div class="brand-logo-pill">
+                    <img src="{% static 'images/logo.png' %}" alt="Advance Billing" class="brand-logo-pill-img">
+                </div>
+                <div class="brand-info">
+                    <span class="brand-title">Advance Billing</span>
+                    <span class="brand-badge" style="color: #34D399;">Distributor Portal</span>
                 </div>
             </a>
-            <button type="button" class="btn btn-sm btn-outline-secondary text-white d-lg-none border-0" id="distCloseSidebarBtn" aria-label="Close sidebar">
+            <button type="button" class="sidebar-close-mobile-btn d-lg-none" id="mobileSidebarCloseBtn" aria-label="Close sidebar">
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
 
-        <!-- Sidebar Navigation -->
-        <nav class="dist-sidebar-nav" aria-label="Distributor Navigation">
-            <div class="dist-nav-heading">MAIN MENU</div>
+        <!-- Navigation Menu -->
+        <nav class="admin-sidebar-nav" aria-label="Sidebar Navigation">
+            <!-- MAIN SECTION -->
+            <div class="nav-section-heading">MAIN</div>
 
             <a href="{% url 'distributor_dashboard' %}"
-               class="dist-nav-item {% block nav_dashboard %}{% endblock %} {% if request.resolver_match.url_name == 'distributor_dashboard' %}active{% endif %}"
-               title="Distributor Dashboard">
-                <i class="bi bi-house-door-fill"></i>
-                <span>Dashboard</span>
+               class="admin-nav-item {% block nav_dashboard %}{% endblock %} {% if request.resolver_match.url_name == 'distributor_dashboard' %}active{% endif %}"
+               title="Dashboard">
+                <span class="nav-text">Dashboard</span>
             </a>
 
-            <div class="dist-nav-heading">BILLING OPERATIONS</div>
+            <!-- OPERATIONS SECTION -->
+            <div class="nav-section-heading">OPERATIONS</div>
 
             <a href="{% url 'invoice_list' %}"
-               class="dist-nav-item {% block nav_invoices %}{% endblock %} {% if request.resolver_match.url_name in 'invoice_list,invoice_detail,invoice_preview,create_invoice,invoice_create,invoice_edit,invoice_delete,billing_invoice_list,billing_create_invoice,billing_invoice_detail,billing_invoice_preview,billing_invoice_edit,billing_invoice_delete' %}active{% endif %}"
-               title="Invoices Management">
-                <i class="bi bi-receipt"></i>
-                <span>Invoices</span>
+               class="admin-nav-item {% block nav_invoices %}{% endblock %} {% if request.resolver_match.url_name in 'invoice_list,invoice_detail,invoice_preview,invoice_edit,invoice_delete,billing_invoice_list,billing_invoice_detail,billing_invoice_preview,billing_invoice_edit,billing_invoice_delete' %}active{% endif %}"
+               title="Invoices">
+                <span class="nav-text">Invoices</span>
             </a>
 
             <a href="{% url 'create_invoice' %}"
-               class="dist-nav-item {% if request.resolver_match.url_name in 'create_invoice,invoice_create,billing_create_invoice' %}active{% endif %}"
-               title="Create New Invoice">
-                <i class="bi bi-plus-circle-fill text-success"></i>
-                <span>Create Invoice</span>
+               class="admin-nav-item {% block nav_create_invoice %}{% endblock %} {% if request.resolver_match.url_name in 'create_invoice,invoice_create,billing_create_invoice' %}active{% endif %}"
+               title="Create Invoice">
+                <span class="nav-text">Create Invoice</span>
             </a>
 
             <a href="{% url 'customer_list' %}"
-               class="dist-nav-item {% block nav_customers %}{% endblock %} {% if request.resolver_match.url_name in 'customer_list,customer_detail,customer_details,customer_edit,add_customer,billing_customer_list,billing_customer_detail,billing_customer_details,billing_edit_customer,billing_add_customer' %}active{% endif %}"
-               title="Customer Directory">
-                <i class="bi bi-people-fill"></i>
-                <span>Customers</span>
-            </a>
-
-            <a href="{% url 'customer_register' %}"
-               class="dist-nav-item {% block nav_register_customer %}{% endblock %} {% if request.resolver_match.url_name in 'customer_register,billing_customer_register' %}active{% endif %}"
-               title="Register New Customer">
-                <i class="bi bi-person-plus-fill"></i>
-                <span>Register Customer</span>
+               class="admin-nav-item {% block nav_customers %}{% endblock %} {% if request.resolver_match.url_name in 'customer_list,customer_detail,customer_details,customer_edit,add_customer,billing_customer_list,billing_customer_detail,billing_customer_details,billing_edit_customer,billing_add_customer,customer_register,billing_customer_register' %}active{% endif %}"
+               title="Customers">
+                <span class="nav-text">Customers</span>
             </a>
 
             <a href="{% url 'product_list' %}"
-               class="dist-nav-item {% block nav_products %}{% endblock %} {% if request.resolver_match.url_name in 'product_list,product_add,product_edit,product_details,product_detail,add_product,edit_product,delete_product,product_delete,billing_product_list,billing_add_product,billing_product_detail,billing_edit_product,billing_delete_product,billing_product_details' %}active{% endif %}"
-               title="Products Inventory">
-                <i class="bi bi-box-seam-fill"></i>
-                <span>Products</span>
+               class="admin-nav-item {% block nav_products %}{% endblock %} {% if request.resolver_match.url_name in 'product_list,product_add,product_edit,product_details,product_detail,add_product,edit_product,delete_product,product_delete,billing_product_list,billing_add_product,billing_product_detail,billing_edit_product,billing_delete_product,billing_product_details' %}active{% endif %}"
+               title="Products">
+                <span class="nav-text">Products</span>
             </a>
 
             <a href="{% url 'qr_decoder' %}"
-               class="dist-nav-item {% block nav_qr_decoder %}{% endblock %} {% if request.resolver_match.url_name in 'qr_decoder,qr_decoder_page,invoice_qr_decoder,billing_qr_decoder,billing_qr_decoder_page' %}active{% endif %}"
-               title="Scan & Decode QR Code">
-                <i class="bi bi-qr-code-scan"></i>
-                <span>Decode QR Code</span>
+               class="admin-nav-item nav-item-special {% block nav_qr_decoder %}{% endblock %} {% if request.resolver_match.url_name in 'qr_decoder,qr_decoder_page,invoice_qr_decoder,billing_qr_decoder,billing_qr_decoder_page' %}active{% endif %}"
+               title="Decode QR Code">
+                <span class="nav-text">Decode QR Code</span>
             </a>
 
-            <div class="dist-nav-heading">SETTINGS</div>
+            <!-- ACCOUNT SECTION -->
+            <div class="nav-section-heading">ACCOUNT</div>
 
             <a href="{% url 'distributor_profile' %}"
-               class="dist-nav-item {% block nav_profile %}{% endblock %} {% if request.resolver_match.url_name in 'distributor_profile,edit_distributor_profile,distributor_profile_edit' %}active{% endif %}"
-               title="My Business Profile">
-                <i class="bi bi-person-badge-fill"></i>
-                <span>My Profile</span>
+               class="admin-nav-item {% block nav_profile %}{% endblock %} {% if request.resolver_match.url_name in 'distributor_profile,edit_distributor_profile,distributor_profile_edit' %}active{% endif %}"
+               title="Business Profile">
+                <span class="nav-text">Business Profile</span>
             </a>
         </nav>
 
         <!-- Sidebar Footer Profile -->
-        <div class="dist-sidebar-footer">
-            <div class="d-flex align-items-center justify-content-between">
-                <a href="{% url 'distributor_profile' %}" class="dist-footer-card">
-                    <div class="dist-footer-avatar">
-                        {{ request.user.first_name|default:request.user.username|slice:":1"|upper }}
-                    </div>
-                    <div class="dist-footer-user">
-                        <span class="dist-footer-name">{{ request.user.get_full_name|default:request.user.username }}</span>
-                        <span class="dist-footer-role">Distributor</span>
-                    </div>
-                </a>
-                <a href="{% url 'logout' %}" class="dist-footer-logout" title="Sign Out" aria-label="Sign Out">
-                    <i class="bi bi-box-arrow-right fs-5"></i>
+        <div class="admin-sidebar-footer">
+            <div class="footer-profile-card">
+                <div class="footer-avatar" style="background: linear-gradient(135deg, #10B981, #059669);">
+                    {{ request.user.first_name|default:request.user.username|slice:":1"|upper }}
+                </div>
+                <div class="footer-user-info">
+                    <span class="footer-user-name">{{ request.user.get_full_name|default:request.user.username }}</span>
+                    <span class="footer-user-role">
+                        {{ request.user.distributor_profile.business_name|default:"Distributor" }}
+                    </span>
+                </div>
+                <a href="{% url 'logout' %}" class="footer-logout-btn" title="Sign Out" data-tooltip="Sign Out">
+                    <i class="bi bi-box-arrow-right"></i>
                 </a>
             </div>
         </div>
     </aside>
 
-    <!-- Main Content Wrapper -->
-    <div class="dist-main-wrapper">
-        <!-- Top Navbar -->
-        <header class="dist-top-navbar">
-            <div class="dist-navbar-left">
-                <button type="button" class="dist-toggle-btn d-lg-none" id="distToggleBtn" aria-label="Toggle navigation drawer">
-                    <i class="bi bi-list fs-5"></i>
+    <!-- Main Content Layout Wrapper -->
+    <div class="admin-main-wrapper" id="mainWrapper">
+        <!-- Sticky Top Navigation Bar -->
+        <header class="admin-top-navbar" id="topNavbar">
+            <!-- Left Side: Toggle, Breadcrumb, Page Title -->
+            <div class="navbar-left">
+                <button type="button" class="navbar-toggle-btn" id="sidebarToggleBtn" aria-label="Toggle Sidebar" title="Collapse / Expand Sidebar">
+                    <i class="bi bi-list"></i>
                 </button>
 
-                <div class="dist-navbar-title-box">
-                    {% block breadcrumbs %}{% endblock %}
-                    <h1>{% block page_heading %}Distributor Portal{% endblock %}</h1>
-                    <p class="d-none d-sm-block">{% block page_subheading %}Manage billing, customers and invoices{% endblock %}</p>
+                <div class="navbar-title-box">
+                    <nav class="admin-breadcrumb" aria-label="Breadcrumb">
+                        <span>Distributor Portal</span>
+                        <i class="bi bi-chevron-right separator"></i>
+                        <span class="current-crumb">{% block page_heading %}Dashboard{% endblock %}</span>
+                    </nav>
+                    <h1 class="navbar-heading">{% block page_main_title %}Dashboard Overview{% endblock %}</h1>
                 </div>
             </div>
 
-            <div class="dist-navbar-right">
-                <!-- Status Badge -->
-                <div class="d-none d-md-flex align-items-center gap-2 bg-success-subtle text-success border border-success-subtle py-1 px-3 rounded-pill small fw-semibold">
-                    <span class="spinner-grow spinner-grow-sm text-success" style="width: 8px; height: 8px;" role="status"></span>
-                    <span>Portal Live</span>
+            <!-- Center Search Bar -->
+            <div class="navbar-center d-none d-xl-flex">
+                <form method="GET" action="{% url 'invoice_list' %}" class="navbar-search-box w-100">
+                    <i class="bi bi-search search-icon"></i>
+                    <input type="text"
+                           class="navbar-search-input"
+                           name="q"
+                           placeholder="Search invoices, clients, products..."
+                           aria-label="Search portal">
+                </form>
+            </div>
+
+            <!-- Right Controls: Status, Shortcuts, Notifications, User Dropdown -->
+            <div class="navbar-right">
+                <!-- Live System Indicator -->
+                <div class="system-status-indicator d-none d-md-flex" title="Distributor portal online">
+                    <span class="status-pulse-dot" style="background-color: #10B981; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);"></span>
+                    <span class="status-text">Portal Live</span>
                 </div>
 
-                <!-- Custom Header Actions -->
-                {% block header_actions %}{% endblock %}
+                <!-- Create Invoice Shortcut Button -->
+                <a href="{% url 'create_invoice' %}" class="btn btn-sm btn-primary d-none d-sm-inline-flex align-items-center gap-1 fw-semibold px-3" title="Create New Invoice">
+                    <i class="bi bi-plus-lg"></i>
+                    <span>New Invoice</span>
+                </a>
 
-                <!-- Profile Dropdown -->
+                <!-- Notification Bell Icon -->
+                <button type="button" class="navbar-icon-btn position-relative" title="Notifications" aria-label="Notifications">
+                    <i class="bi bi-bell"></i>
+                    <span class="notification-indicator-dot"></span>
+                </button>
+
+                <!-- User Profile Dropdown -->
                 <div class="dropdown">
-                    <button class="dist-user-dropdown-btn dropdown-toggle" type="button" id="distUserMenu" data-bs-toggle="dropdown" aria-expanded="false">
-                        <div class="dist-footer-avatar" style="width: 32px; height: 32px; font-size: 13px;">
+                    <button class="navbar-user-dropdown-btn dropdown-toggle"
+                            type="button"
+                            id="distUserDropdownMenu"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false">
+                        <div class="navbar-avatar" style="background: linear-gradient(135deg, #10B981, #059669);">
                             {{ request.user.first_name|default:request.user.username|slice:":1"|upper }}
                         </div>
-                        <span class="d-none d-md-inline fw-semibold small">{{ request.user.username }}</span>
+                        <div class="navbar-user-meta d-none d-md-flex">
+                            <span class="navbar-user-name">{{ request.user.get_full_name|default:request.user.username }}</span>
+                            <span class="navbar-user-tag text-success">
+                                Distributor
+                            </span>
+                        </div>
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 mt-2 py-2" aria-labelledby="distUserMenu" style="min-width: 220px;">
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 mt-2 py-2" aria-labelledby="distUserDropdownMenu" style="min-width: 230px;">
                         <li class="px-3 py-2 border-bottom mb-2 bg-light rounded-top">
                             <div class="fw-bold text-dark text-truncate">{{ request.user.get_full_name|default:request.user.username }}</div>
-                            <div class="text-muted small text-truncate">{{ request.user.email|default:"Distributor Account" }}</div>
+                            <div class="text-muted small text-truncate">{{ request.user.email|default:"Distributor" }}</div>
+                            {% if request.user.distributor_profile.business_name %}
+                                <div class="badge bg-success-subtle text-success small mt-1">{{ request.user.distributor_profile.business_name }}</div>
+                            {% endif %}
                         </li>
                         <li>
                             <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{% url 'distributor_dashboard' %}">
-                                <i class="bi bi-speedometer2 text-success"></i> Dashboard
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{% url 'distributor_profile' %}">
-                                <i class="bi bi-person-badge text-primary"></i> Business Profile
+                                <i class="bi bi-speedometer2 text-success"></i> Dashboard Home
                             </a>
                         </li>
                         <li>
                             <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{% url 'invoice_list' %}">
-                                <i class="bi bi-receipt text-indigo"></i> My Invoices
+                                <i class="bi bi-receipt text-primary"></i> My Invoices
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{% url 'customer_list' %}">
+                                <i class="bi bi-people text-indigo"></i> My Customers
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{% url 'distributor_profile' %}">
+                                <i class="bi bi-person-badge text-dark"></i> Business Profile
                             </a>
                         </li>
                         <li><hr class="dropdown-divider my-2"></li>
@@ -536,19 +219,18 @@
             </div>
         </header>
 
-        <!-- Main Body Content Area -->
-        <main class="dist-content-area" id="main-content">
-            <!-- Alert Messages Container -->
+        <!-- Main Body Content -->
+        <main class="admin-content-area" id="adminContentArea">
             {% if messages %}
-            <div class="mb-4">
-                {% for message in messages %}
-                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show d-flex align-items-center gap-2 rounded-3 shadow-sm" role="alert">
-                    <i class="bi bi-info-circle-fill fs-5 flex-shrink-0"></i>
-                    <div>{{ message }}</div>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                <div class="alerts-container mb-4">
+                    {% for message in messages %}
+                        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show d-flex align-items-center gap-2 shadow-sm rounded-3" role="alert">
+                            <i class="bi bi-info-circle-fill fs-5"></i>
+                            <div>{{ message }}</div>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
-            </div>
             {% endif %}
 
             {% block content %}{% endblock %}
@@ -558,28 +240,80 @@
     <!-- Local Offline Bootstrap 5 Bundle JS -->
     <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
 
-    <!-- Mobile Drawer Script -->
+    <!-- Sidebar Script: All options stay visible on desktop, drawer toggle on mobile -->
     <script>
         (function () {
-            const sidebar = document.getElementById('distSidebar');
-            const toggleBtn = document.getElementById('distToggleBtn');
-            const closeBtn = document.getElementById('distCloseSidebarBtn');
-            const backdrop = document.getElementById('distBackdrop');
+            const sidebar = document.getElementById('adminSidebar');
+            const toggleBtn = document.getElementById('sidebarToggleBtn');
+            const closeBtn = document.getElementById('mobileSidebarCloseBtn');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            const body = document.body;
 
-            if (toggleBtn && sidebar && backdrop) {
+            // Clear any previously saved collapsed state so all options always stay visible
+            try {
+                localStorage.removeItem('advance_billing_dist_sidebar_collapsed');
+            } catch (e) {}
+
+            // Ensure sidebar is always fully expanded on desktop
+            if (sidebar) {
+                sidebar.classList.remove('collapsed');
+            }
+            if (body) {
+                body.classList.remove('sidebar-is-collapsed');
+            }
+
+            // Toggle click listener: opens/closes mobile drawer on small screens
+            if (toggleBtn) {
                 toggleBtn.addEventListener('click', function () {
-                    sidebar.classList.toggle('open');
-                    backdrop.classList.toggle('active');
+                    if (window.innerWidth < 992) {
+                        // Mobile Offcanvas Drawer
+                        sidebar.classList.toggle('mobile-open');
+                        backdrop.classList.toggle('active');
+                        body.classList.toggle('mobile-sidebar-open');
+                    } else {
+                        // On desktop, keep sidebar and all options fully visible
+                        sidebar.classList.remove('collapsed');
+                        body.classList.remove('sidebar-is-collapsed');
+                    }
                 });
             }
 
-            function closeSidebar() {
-                if (sidebar) sidebar.classList.remove('open');
-                if (backdrop) backdrop.classList.remove('active');
+            // Mobile close button
+            if (closeBtn) {
+                closeBtn.addEventListener('click', closeMobileSidebar);
             }
 
-            if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
-            if (backdrop) backdrop.addEventListener('click', closeSidebar);
+            // Backdrop click closes mobile drawer
+            if (backdrop) {
+                backdrop.addEventListener('click', closeMobileSidebar);
+            }
+
+            function closeMobileSidebar() {
+                if (sidebar) sidebar.classList.remove('mobile-open');
+                if (backdrop) backdrop.classList.remove('active');
+                if (body) body.classList.remove('mobile-sidebar-open');
+            }
+
+            // Handle window resizing: ensure desktop keeps all options visible
+            window.addEventListener('resize', function () {
+                if (window.innerWidth >= 992) {
+                    closeMobileSidebar();
+                    if (sidebar) sidebar.classList.remove('collapsed');
+                    if (body) body.classList.remove('sidebar-is-collapsed');
+                } else {
+                    if (sidebar) sidebar.classList.remove('collapsed');
+                    if (body) body.classList.remove('sidebar-is-collapsed');
+                }
+            });
+
+            // Ensure clicking a sidebar nav item highlights ONLY that single clicked item
+            const navItems = document.querySelectorAll('.admin-sidebar .admin-nav-item');
+            navItems.forEach(item => {
+                item.addEventListener('click', function () {
+                    navItems.forEach(nav => nav.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
         })();
     </script>
 
