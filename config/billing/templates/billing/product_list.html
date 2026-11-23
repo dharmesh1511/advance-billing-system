@@ -284,21 +284,28 @@
             <table class="table dist-table align-middle">
                 <thead>
                     <tr>
-                        <th scope="col" style="width: 28%;">Product Details</th>
-                        <th scope="col" style="width: 14%;">SKU Code</th>
-                        <th scope="col" style="width: 14%;">Price</th>
-                        <th scope="col" style="width: 16%;">Stock Level</th>
-                        <th scope="col" style="width: 10%;">GST Rate</th>
-                        <th scope="col" style="width: 18%;" class="text-end">Actions</th>
+                        <th scope="col" style="width: 70px;">ID</th>
+                        <th scope="col" style="width: 20%;">Product Name</th>
+                        <th scope="col" style="width: 20%;">Description</th>
+                        <th scope="col" style="width: 12%;">Price</th>
+                        <th scope="col" style="width: 12%;">Stock Status</th>
+                        <th scope="col" style="width: 12%;">Distributor</th>
+                        <th scope="col" style="width: 10%;">Created Date</th>
+                        <th scope="col" style="width: 14%;" class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for product in page_obj %}
                     <tr>
-                        <!-- Product Name & Category -->
+                        <!-- Product ID -->
                         <td>
-                            <div class="d-flex align-items-center gap-3">
-                                <div class="rounded-3 bg-light p-2 d-flex align-items-center justify-content-center text-primary border" style="width: 38px; height: 38px;">
+                            <span class="badge bg-light text-secondary border font-monospace fw-bold">#{{ product.id }}</span>
+                        </td>
+
+                        <!-- Product Name & Category / SKU -->
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="rounded-3 bg-light p-2 d-flex align-items-center justify-content-center text-primary border" style="width: 36px; height: 36px;">
                                     <i class="bi bi-box fs-5"></i>
                                 </div>
                                 <div>
@@ -307,25 +314,34 @@
                                             {{ product.name }}
                                         </a>
                                     </div>
-                                    <div class="text-muted small">
-                                        <span class="badge bg-light text-muted border">{{ product.category|default:"General" }}</span>
+                                    <div class="d-flex align-items-center gap-1 mt-1">
+                                        <span class="badge bg-light text-muted border" style="font-size: 10.5px;">{{ product.category|default:"General" }}</span>
+                                        {% if product.sku %}
+                                            <span class="product-sku-code" style="font-size: 10.5px;">{{ product.sku }}</span>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
                         </td>
 
-                        <!-- SKU Code -->
+                        <!-- Description -->
                         <td>
-                            <span class="product-sku-code">{{ product.sku|default:"--" }}</span>
+                            {% if product.description %}
+                                <div class="text-muted small text-truncate" style="max-width: 220px;" title="{{ product.description }}">
+                                    {{ product.description }}
+                                </div>
+                            {% else %}
+                                <span class="text-muted small">--</span>
+                            {% endif %}
                         </td>
 
                         <!-- Price -->
                         <td>
-                            <span class="fw-bold text-dark">₹{{ product.price|floatformat:2 }}</span>
-                            <span class="text-muted small">/ {{ product.unit|default:"piece" }}</span>
+                            <div class="fw-bold text-dark">₹{{ product.price|floatformat:2 }}</div>
+                            <span class="text-muted small" style="font-size: 11px;">per {{ product.unit|default:"piece" }}</span>
                         </td>
 
-                        <!-- Stock Level -->
+                        <!-- Stock Status -->
                         <td>
                             {% if product.stock > 5 %}
                                 <span class="stock-badge-good">
@@ -342,15 +358,22 @@
                             {% endif %}
                         </td>
 
-                        <!-- GST Rate -->
+                        <!-- Distributor -->
                         <td>
-                            <span class="badge bg-secondary-subtle text-secondary fw-semibold">
-                                {{ product.gst_rate }}%
+                            <span class="badge bg-light text-dark border px-2 py-1">
+                                <i class="bi bi-shop text-primary me-1"></i>{{ product.distributor.username|default:request.user.username }}
+                            </span>
+                        </td>
+
+                        <!-- Created Date -->
+                        <td class="text-nowrap">
+                            <span class="text-muted small">
+                                <i class="bi bi-calendar3 text-muted me-1"></i>{{ product.created_at|date:"d M Y" }}
                             </span>
                         </td>
 
                         <!-- Actions -->
-                        <td class="text-end">
+                        <td class="text-end text-nowrap">
                             <div class="table-actions-group">
                                 <!-- Details Button -->
                                 <a href="{% url 'product_detail' product.pk %}"
@@ -406,7 +429,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center py-5">
+                        <td colspan="8" class="text-center py-5">
                             <div class="py-4">
                                 <i class="bi bi-box-seam display-4 text-muted mb-3 d-block"></i>
                                 <h5 class="fw-semibold text-dark">No Products Found</h5>

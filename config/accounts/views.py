@@ -1541,10 +1541,11 @@ def admin_customer_list(request):
 
     query = request.GET.get("q", "").strip()
     if query:
-        queryset = queryset.filter(
+        q_filter = (
             Q(name__icontains=query) |
             Q(email__icontains=query) |
             Q(phone__icontains=query) |
+            Q(address__icontains=query) |
             Q(city__icontains=query) |
             Q(state__icontains=query) |
             Q(pincode__icontains=query) |
@@ -1552,6 +1553,10 @@ def admin_customer_list(request):
             Q(distributor__first_name__icontains=query) |
             Q(distributor__last_name__icontains=query)
         )
+        clean_num = query.lstrip("#")
+        if clean_num.isdigit():
+            q_filter |= Q(id=int(clean_num))
+        queryset = queryset.filter(q_filter)
 
     distributor_id = request.GET.get("distributor_id", "").strip()
     if distributor_id and distributor_id.isdigit():
@@ -1664,13 +1669,17 @@ def admin_product_list(request):
 
     query = request.GET.get("q", "").strip()
     if query:
-        queryset = queryset.filter(
+        q_filter = (
             Q(name__icontains=query) |
             Q(category__icontains=query) |
             Q(sku__icontains=query) |
             Q(description__icontains=query) |
             Q(distributor__username__icontains=query)
         )
+        clean_num = query.lstrip("#")
+        if clean_num.isdigit():
+            q_filter |= Q(id=int(clean_num))
+        queryset = queryset.filter(q_filter)
 
     stock_status = request.GET.get("stock_status", "").strip()
     if stock_status == "in_stock":

@@ -308,66 +308,82 @@
                 <table class="table admin-table align-middle">
                     <thead>
                         <tr>
-                            <th scope="col" style="width: 50px;">#</th>
-                            <th scope="col">Product Name</th>
-                            <th scope="col">SKU / Code</th>
-                            <th scope="col">Category</th>
-                            <th scope="col">Distributor</th>
-                            <th scope="col" class="text-end">Price</th>
-                            <th scope="col" class="text-center">Stock</th>
-                            <th scope="col" class="text-center">Status</th>
-                            <th scope="col" class="text-end">Actions</th>
+                            <th scope="col" style="width: 70px;">ID</th>
+                            <th scope="col" style="width: 18%;">Product Name</th>
+                            <th scope="col" style="width: 18%;">Description</th>
+                            <th scope="col" style="width: 11%;">Price</th>
+                            <th scope="col" style="width: 13%;">Distributor</th>
+                            <th scope="col" style="width: 14%;">Stock Status</th>
+                            <th scope="col" style="width: 10%;">Created Date</th>
+                            <th scope="col" class="text-end" style="min-width: 160px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for product in page_obj.object_list %}
                             <tr>
-                                <td class="text-muted fw-semibold">{{ page_obj.start_index|add:forloop.counter0 }}</td>
                                 <td>
-                                    <div class="fw-bold text-dark">{{ product.name }}</div>
+                                    <span class="badge bg-light text-secondary border font-monospace fw-bold">#{{ product.id }}</span>
+                                </td>
+                                <td>
+                                    <div class="fw-bold text-dark">
+                                        <a href="{% url 'product_detail' product.pk %}" class="text-decoration-none text-dark hover-primary">
+                                            {{ product.name }}
+                                        </a>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-1 mt-1">
+                                        <span class="badge bg-light text-muted border" style="font-size: 10.5px;">{{ product.category|default:"General" }}</span>
+                                        {% if product.sku %}
+                                            <span class="product-sku-code" style="font-size: 10.5px;">{{ product.sku }}</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
                                     {% if product.description %}
-                                        <div class="text-muted small text-truncate" style="max-width: 280px;" title="{{ product.description }}">
+                                        <div class="text-muted small text-truncate" style="max-width: 220px;" title="{{ product.description }}">
                                             {{ product.description }}
                                         </div>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if product.sku %}
-                                        <span class="product-sku-code">{{ product.sku }}</span>
                                     {% else %}
-                                        <span class="text-muted small">-</span>
+                                        <span class="text-muted small">--</span>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <span class="badge bg-light text-dark border">{{ product.category|default:"General" }}</span>
+                                    <div class="fw-bold text-dark">₹{{ product.price|floatformat:2 }}</div>
+                                    <span class="text-muted small" style="font-size: 11px;">/ {{ product.unit|default:"piece" }}</span>
                                 </td>
                                 <td>
                                     {% if product.distributor %}
-                                        <span class="distributor-tag" title="Owner Distributor">
-                                            <i class="bi bi-shop"></i> {{ product.distributor.username }}
-                                        </span>
+                                        <div class="d-flex flex-column align-items-start gap-1">
+                                            <span class="distributor-tag" title="Owner Distributor">
+                                                <i class="bi bi-shop"></i> {{ product.distributor.username }}
+                                            </span>
+                                            {% if product.distributor.distributor_profile.business_name %}
+                                                <span class="text-muted small ps-1 text-truncate" style="max-width: 130px;">{{ product.distributor.distributor_profile.business_name }}</span>
+                                            {% endif %}
+                                        </div>
                                     {% else %}
                                         <span class="text-muted small">Platform Direct</span>
                                     {% endif %}
                                 </td>
-                                <td class="text-end fw-bold text-dark">
-                                    ₹{{ product.price|floatformat:2 }}
+                                <td>
+                                    <div class="d-flex flex-column align-items-start gap-1">
+                                        {% if product.stock == 0 %}
+                                            <span class="stock-badge-out"><i class="bi bi-x-circle"></i> Out (0)</span>
+                                        {% elif product.stock <= 5 %}
+                                            <span class="stock-badge-low"><i class="bi bi-exclamation-triangle"></i> Low ({{ product.stock }})</span>
+                                        {% else %}
+                                            <span class="stock-badge-good"><i class="bi bi-check2"></i> {{ product.stock }} in stock</span>
+                                        {% endif %}
+                                        {% if product.is_active %}
+                                            <span class="badge bg-success-subtle text-success rounded-pill px-2 py-0" style="font-size: 10px;">Active</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary-subtle text-secondary rounded-pill px-2 py-0" style="font-size: 10px;">Inactive</span>
+                                        {% endif %}
+                                    </div>
                                 </td>
-                                <td class="text-center">
-                                    {% if product.stock == 0 %}
-                                        <span class="stock-badge-out"><i class="bi bi-x-circle"></i> Out (0)</span>
-                                    {% elif product.stock <= 5 %}
-                                        <span class="stock-badge-low"><i class="bi bi-exclamation-triangle"></i> Low ({{ product.stock }})</span>
-                                    {% else %}
-                                        <span class="stock-badge-good"><i class="bi bi-check2"></i> {{ product.stock }} in stock</span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-center">
-                                    {% if product.is_active %}
-                                        <span class="badge bg-success-subtle text-success rounded-pill px-2 py-1">Active</span>
-                                    {% else %}
-                                        <span class="badge bg-secondary-subtle text-secondary rounded-pill px-2 py-1">Inactive</span>
-                                    {% endif %}
+                                <td class="text-nowrap">
+                                    <span class="text-muted small">
+                                        <i class="bi bi-calendar3 text-muted me-1"></i>{{ product.created_at|date:"d M Y" }}
+                                    </span>
                                 </td>
                                 <td class="text-end text-nowrap">
                                     <div class="table-actions-group">

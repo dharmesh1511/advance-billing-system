@@ -103,7 +103,7 @@ def customer_list(request):
     if is_admin(request.user):
         return redirect("admin_customer_list")
 
-    queryset = Customer.objects.filter(distributor=request.user).annotate(
+    queryset = Customer.objects.filter(distributor=request.user).select_related("distributor").annotate(
         invoices_count=Count("invoices", distinct=True)
     ).order_by("-id")
     total_count = queryset.count()
@@ -111,7 +111,7 @@ def customer_list(request):
     query = request.GET.get("q", "").strip()
 
     if query:
-        queryset = queryset.filter(
+        q_filter = (
             Q(name__icontains=query) |
             Q(email__icontains=query) |
             Q(phone__icontains=query) |
@@ -120,6 +120,10 @@ def customer_list(request):
             Q(state__icontains=query) |
             Q(pincode__icontains=query)
         )
+        clean_num = query.lstrip("#")
+        if clean_num.isdigit():
+            q_filter |= Q(id=int(clean_num))
+        queryset = queryset.filter(q_filter)
 
     filtered_count = queryset.count()
 
@@ -316,7 +320,7 @@ def product_list(request):
     if is_admin(request.user):
         return redirect("admin_product_list")
 
-    base_qs = Product.objects.filter(distributor=request.user)
+    base_qs = Product.objects.filter(distributor=request.user).select_related("distributor")
     total_count = base_qs.count()
     in_stock_count = base_qs.filter(stock__gt=5).count()
     low_stock_count = base_qs.filter(stock__gt=0, stock__lte=5).count()
@@ -326,12 +330,16 @@ def product_list(request):
 
     query = request.GET.get("q", "").strip()
     if query:
-        queryset = queryset.filter(
+        q_filter = (
             Q(name__icontains=query) |
             Q(category__icontains=query) |
             Q(sku__icontains=query) |
             Q(description__icontains=query)
         )
+        clean_num = query.lstrip("#")
+        if clean_num.isdigit():
+            q_filter |= Q(id=int(clean_num))
+        queryset = queryset.filter(q_filter)
 
     stock_status = request.GET.get("stock_status", "").strip()
     if stock_status == "in_stock":
