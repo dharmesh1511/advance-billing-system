@@ -238,10 +238,21 @@ def delete_customer(request, pk):
         except (ProtectedError, RestrictedError):
             messages.error(request, f'"{customer_name}" cannot be deleted because it is used in existing billing records.')
         except Exception as e:
+            logger.exception("Error deleting customer: %s", e)
             messages.error(request, f'Unable to delete "{customer_name}" right now. Please try again.')
         return redirect(redirect_target)
 
-    return redirect(redirect_target)
+    base_template = "adminpanel/base_admin.html" if is_admin_user else "billing/base_distributor.html"
+    return render(
+        request,
+        "billing/customer_confirm_delete.html",
+        {
+            "customer": customer,
+            "is_admin_portal": is_admin_user,
+            "base_template": base_template,
+            "cancel_url": redirect_target,
+        }
+    )
 
 
 
@@ -369,7 +380,9 @@ def edit_product(request, pk):
         if form.is_valid():
             try:
                 prod = form.save(commit=False)
-                if not is_admin_user:
+                if is_admin_user and "distributor" in form.cleaned_data:
+                    prod.distributor = form.cleaned_data["distributor"]
+                else:
                     prod.distributor = request.user
                 prod.save()
                 messages.success(request, f'Product "{prod.name}" updated successfully.')
@@ -384,13 +397,17 @@ def edit_product(request, pk):
     else:
         form = ProductForm(instance=product, user=request.user)
 
+    base_template = "adminpanel/base_admin.html" if is_admin_user else "billing/base_distributor.html"
+
     return render(
         request,
         "billing/edit_product.html",
         {
             "form": form,
             "product": product,
-            "error": error
+            "error": error,
+            "is_admin_portal": is_admin_user,
+            "base_template": base_template,
         }
     )
 
@@ -415,11 +432,22 @@ def delete_product(request, pk):
             messages.success(request, f'"{product_name}" deleted successfully.')
         except (ProtectedError, RestrictedError):
             messages.error(request, f'"{product_name}" cannot be deleted because it is used in existing billing records.')
-        except Exception:
+        except Exception as e:
+            logger.exception("Error deleting product: %s", e)
             messages.error(request, f'Unable to delete "{product_name}" right now. Please try again.')
         return redirect(redirect_target)
 
-    return redirect(redirect_target)
+    base_template = "adminpanel/base_admin.html" if is_admin_user else "billing/base_distributor.html"
+    return render(
+        request,
+        "billing/product_confirm_delete.html",
+        {
+            "product": product,
+            "is_admin_portal": is_admin_user,
+            "base_template": base_template,
+            "cancel_url": redirect_target,
+        }
+    )
 
 
 def generate_unique_invoice_number(user):

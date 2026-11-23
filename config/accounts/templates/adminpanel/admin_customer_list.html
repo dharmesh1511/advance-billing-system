@@ -224,6 +224,16 @@
         background-color: #F1F5F9 !important;
         color: #0F172A !important;
     }
+    .btn-action-delete {
+        background-color: #FEF2F2 !important;
+        color: #DC2626 !important;
+        border-color: #FECACA !important;
+    }
+    .btn-action-delete:hover {
+        background-color: #FEE2E2 !important;
+        color: #B91C1C !important;
+        border-color: #FCA5A5 !important;
+    }
 </style>
 {% endblock %}
 
@@ -512,6 +522,38 @@
                                                         <a href="{% url 'customer_edit' cust.pk %}" class="btn btn-sm btn-action btn-action-edit" title="Edit Client">
                                                             <i class="bi bi-pencil"></i>
                                                         </a>
+                                                        <button type="button" class="btn btn-sm btn-action btn-action-delete text-danger" data-bs-toggle="modal" data-bs-target="#deleteCustomerModalH{{ cust.pk }}" title="Delete Client">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                    </div>
+
+                                                    <!-- Delete Client Modal -->
+                                                    <div class="modal fade" id="deleteCustomerModalH{{ cust.pk }}" tabindex="-1" aria-labelledby="deleteModalLabelH{{ cust.pk }}" aria-hidden="true">
+                                                        <div class="modal-dialog modal-dialog-centered">
+                                                            <div class="modal-content border-0 shadow text-start">
+                                                                <div class="modal-header bg-danger text-white">
+                                                                    <h5 class="modal-title fs-6" id="deleteModalLabelH{{ cust.pk }}">
+                                                                        <i class="bi bi-exclamation-triangle-fill me-2"></i> Confirm Customer Deletion
+                                                                    </h5>
+                                                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                                </div>
+                                                                <div class="modal-body p-4">
+                                                                    <p class="mb-2">Are you sure you want to delete customer <strong>{{ cust.name }}</strong>?</p>
+                                                                    <div class="small text-muted mb-2">
+                                                                        <div>Distributor: <strong>{{ item.distributor.username }}</strong></div>
+                                                                        {% if cust.phone %}<div>Phone: <strong>{{ cust.phone }}</strong></div>{% endif %}
+                                                                    </div>
+                                                                    <p class="text-danger small mb-0">This action cannot be undone. Invoices referencing this customer will protect records from deletion.</p>
+                                                                </div>
+                                                                <div class="modal-footer bg-light">
+                                                                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                    <form method="POST" action="{% url 'customer_delete' cust.pk %}" class="d-inline">
+                                                                        {% csrf_token %}
+                                                                        <button type="submit" class="btn btn-sm btn-danger">Confirm Delete</button>
+                                                                    </form>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -687,6 +729,38 @@
                                             <a href="{% url 'customer_edit' customer.pk %}" class="btn btn-sm btn-action btn-action-edit" title="Edit Customer">
                                                 <i class="bi bi-pencil"></i>
                                             </a>
+                                            <button type="button" class="btn btn-sm btn-action btn-action-delete text-danger" data-bs-toggle="modal" data-bs-target="#deleteCustomerModalT{{ customer.pk }}" title="Delete Customer">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+
+                                        <!-- Delete Customer Modal -->
+                                        <div class="modal fade" id="deleteCustomerModalT{{ customer.pk }}" tabindex="-1" aria-labelledby="deleteModalLabelT{{ customer.pk }}" aria-hidden="true">
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content border-0 shadow text-start">
+                                                    <div class="modal-header bg-danger text-white">
+                                                        <h5 class="modal-title fs-6" id="deleteModalLabelT{{ customer.pk }}">
+                                                            <i class="bi bi-exclamation-triangle-fill me-2"></i> Confirm Customer Deletion
+                                                        </h5>
+                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <div class="modal-body p-4">
+                                                        <p class="mb-2">Are you sure you want to delete customer <strong>{{ customer.name }}</strong>?</p>
+                                                        <div class="small text-muted mb-2">
+                                                            <div>Distributor: <strong>{{ customer.distributor.username }}</strong></div>
+                                                            {% if customer.phone %}<div>Phone: <strong>{{ customer.phone }}</strong></div>{% endif %}
+                                                        </div>
+                                                        <p class="text-danger small mb-0">This action cannot be undone. Invoices referencing this customer will protect records from deletion.</p>
+                                                    </div>
+                                                    <div class="modal-footer bg-light">
+                                                        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                        <form method="POST" action="{% url 'customer_delete' customer.pk %}" class="d-inline">
+                                                            {% csrf_token %}
+                                                            <button type="submit" class="btn btn-sm btn-danger">Confirm Delete</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>

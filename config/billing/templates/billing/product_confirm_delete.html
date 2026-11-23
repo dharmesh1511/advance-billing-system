@@ -1,0 +1,70 @@
+{% extends base_template %}
+{% load static %}
+
+{% block title %}Delete Product: {{ product.name }} | Advance Billing System{% endblock %}
+{% block page_heading %}Products{% endblock %}
+{% block page_main_title %}Delete Product{% endblock %}
+{% block nav_products %}active{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-5">
+    <div class="col-12 col-md-8 col-lg-6 col-xl-5">
+        <div class="card shadow-sm border-0 rounded-3 overflow-hidden">
+            <div class="card-body p-4 text-center">
+                <div class="bg-danger bg-opacity-10 text-danger rounded-circle mx-auto d-flex align-items-center justify-content-center mb-3" style="width: 64px; height: 64px; font-size: 28px;">
+                    <i class="bi bi-trash-fill"></i>
+                </div>
+
+                <h4 class="fw-bold mb-2 text-dark">Delete Product?</h4>
+                <p class="text-muted mb-3">
+                    Are you sure you want to permanently remove product <strong class="text-dark">{{ product.name }}</strong>?
+                </p>
+
+                <div class="bg-light p-3 rounded-3 text-start small mb-4">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Distributor:</span>
+                        <span class="fw-semibold text-dark">{{ product.distributor.username }}</span>
+                    </div>
+                    {% if product.sku %}
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">SKU:</span>
+                        <span class="fw-semibold text-dark">{{ product.sku }}</span>
+                    </div>
+                    {% endif %}
+                    {% if product.category %}
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Category:</span>
+                        <span class="fw-semibold text-dark">{{ product.category }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Price:</span>
+                        <span class="fw-semibold text-dark">₹{{ product.price|floatformat:2 }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Available Stock:</span>
+                        <span class="fw-semibold text-dark">{{ product.stock }} {{ product.unit }}</span>
+                    </div>
+                </div>
+
+                <p class="text-danger small mb-4">
+                    <i class="bi bi-shield-exclamation me-1"></i>
+                    If this product is referenced in existing billing invoices, the database will safely protect historical records and reject deletion.
+                </p>
+
+                <form method="POST" action="{% url 'product_delete' product.pk %}">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-center gap-3">
+                        <a href="{% url cancel_url %}" class="btn btn-outline-secondary px-4">
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn btn-danger px-4 fw-semibold">
+                            <i class="bi bi-trash-fill me-1"></i> Confirm Delete
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
