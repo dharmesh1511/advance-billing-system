@@ -54,6 +54,7 @@ urlpatterns = [
     path("admin/customers/", views.admin_customer_list, name="admin_customer_list"),
     path("admin/customers/add/", billing_views.add_customer, name="admin_add_customer"),
     path("admin/products/", views.admin_product_list, name="admin_product_list"),
+    path("admin/products/add/", billing_views.add_product, name="admin_add_product"),
     path("admin/qr-decoder/", views.admin_qr_decoder, name="admin_qr_decoder"),
     path("distributor/dashboard/", views.distributor_dashboard, name="distributor_dashboard"),
     path("distributor/profile/", views.distributor_profile, name="distributor_profile"),

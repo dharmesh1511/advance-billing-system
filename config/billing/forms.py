@@ -191,9 +191,26 @@ class CustomerForm(forms.ModelForm):
 
 
 class ProductForm(forms.ModelForm):
+    distributor = forms.ModelChoiceField(
+        queryset=User.objects.none(),
+        required=False,
+        empty_label="-- Select Distributor --",
+        widget=forms.Select(attrs={
+            "class": "form-select",
+            "id": "id_distributor",
+        }),
+        error_messages={
+            "required": "Please select a distributor.",
+            "invalid_choice": "Selected distributor is invalid.",
+        },
+        label="Distributor",
+        help_text="Select the distributor this product belongs to"
+    )
+
     class Meta:
         model = Product
         fields = [
+            "distributor",
             "name",
             "category",
             "sku",
@@ -208,56 +225,56 @@ class ProductForm(forms.ModelForm):
             "name": forms.TextInput(attrs={
                 "placeholder": "Enter product name",
                 "id": "id_name",
-                "class": "form-input",
+                "class": "form-control",
                 "required": True
             }),
             "category": forms.TextInput(attrs={
                 "placeholder": "Enter product category (e.g. Electronics)",
                 "id": "id_category",
-                "class": "form-input"
+                "class": "form-control"
             }),
             "sku": forms.TextInput(attrs={
-                "placeholder": "Enter product SKU / code",
+                "placeholder": "Enter product SKU / code (e.g. PRD-001)",
                 "id": "id_sku",
-                "class": "form-input"
+                "class": "form-control"
             }),
             "price": forms.NumberInput(attrs={
-                "placeholder": "Enter selling price (e.g. 499.00)",
+                "placeholder": "0.00",
                 "id": "id_price",
-                "class": "form-input",
+                "class": "form-control",
                 "step": "0.01",
                 "min": "0.01",
                 "required": True
             }),
             "stock": forms.NumberInput(attrs={
-                "placeholder": "Enter available stock quantity",
+                "placeholder": "0",
                 "id": "id_stock",
-                "class": "form-input",
+                "class": "form-control",
                 "min": "0",
                 "step": "1",
                 "required": True
             }),
             "unit": forms.TextInput(attrs={
-                "placeholder": "Enter unit (e.g. piece, kg, box)",
+                "placeholder": "piece, kg, box, litre",
                 "id": "id_unit",
-                "class": "form-input"
+                "class": "form-control"
             }),
             "gst_rate": forms.NumberInput(attrs={
-                "placeholder": "Enter GST rate % (0 to 100)",
+                "placeholder": "0.00",
                 "id": "id_gst_rate",
-                "class": "form-input",
+                "class": "form-control",
                 "step": "0.01",
                 "min": "0",
                 "max": "100"
             }),
             "is_active": forms.CheckboxInput(attrs={
                 "id": "id_is_active",
-                "class": "form-checkbox"
+                "class": "form-check-input"
             }),
             "description": forms.Textarea(attrs={
                 "placeholder": "Enter detailed product description (optional)",
                 "id": "id_description",
-                "class": "form-textarea",
+                "class": "form-control",
                 "rows": 3
             }),
         }
@@ -278,6 +295,55 @@ class ProductForm(forms.ModelForm):
                 "invalid": "GST rate must be between 0% and 100%."
             }
         }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+
+        # Configure Bootstrap 5 styling on all fields
+        for field_name, field in self.fields.items():
+            if field_name == "distributor":
+                field.widget.attrs["class"] = "form-select"
+            elif field_name == "is_active":
+                field.widget.attrs["class"] = "form-check-input"
+            else:
+                current_classes = field.widget.attrs.get("class", "")
+                classes = [c for c in current_classes.split() if c not in ("form-input", "form-textarea")]
+                if "form-control" not in classes:
+                    classes.append("form-control")
+                field.widget.attrs["class"] = " ".join(classes)
+
+        if "gst_rate" in self.fields:
+            self.fields["gst_rate"].required = False
+        if "unit" in self.fields:
+            self.fields["unit"].required = False
+
+        if user and is_admin(user):
+            # Admin users can select any active distributor
+            distributors_qs = (
+                User.objects.filter(
+                    Q(groups__name="Distributor") | Q(distributor_profile__isnull=False)
+                )
+                .distinct()
+                .select_related("distributor_profile")
+                .order_by("username")
+            )
+            self.fields["distributor"].queryset = distributors_qs
+            self.fields["distributor"].required = True
+            self.fields["distributor"].widget.attrs["class"] = "form-select"
+            self.fields["distributor"].label_from_instance = (
+                lambda obj: f"{obj.username} ({obj.distributor_profile.business_name})"
+                if hasattr(obj, "distributor_profile") and obj.distributor_profile and obj.distributor_profile.business_name
+                else (f"{obj.get_full_name()} ({obj.username})" if obj.get_full_name() else obj.username)
+            )
+            if self.instance and self.instance.pk and self.instance.distributor:
+                self.fields["distributor"].initial = self.instance.distributor
+        else:
+            # Distributor user or non-admin:
+            # CRITICAL SECURITY (Req 4, 6): Remove distributor field completely from the form.
+            # Even if a malicious distributor attempts to POST `distributor=<id>`, Django will not process or validate it.
+            if "distributor" in self.fields:
+                del self.fields["distributor"]
 
     def clean_name(self):
         name = self.cleaned_data.get("name", "").strip()
@@ -319,6 +385,16 @@ class ProductForm(forms.ModelForm):
             raise forms.ValidationError("Stock cannot be negative.")
         return stock
 
+    def clean_unit(self):
+        unit = self.cleaned_data.get("unit")
+        if unit:
+            unit = unit.strip()
+            if not unit:
+                return "piece"
+            if len(unit) > 50:
+                raise forms.ValidationError("Unit cannot exceed 50 characters.")
+        return unit or "piece"
+
     def clean_gst_rate(self):
         gst_rate = self.cleaned_data.get("gst_rate")
         if gst_rate is None:
@@ -334,6 +410,31 @@ class ProductForm(forms.ModelForm):
             if not description:
                 return None
         return description
+
+    def clean(self):
+        cleaned_data = super().clean()
+        sku = cleaned_data.get("sku")
+
+        # Determine target distributor for SKU uniqueness check
+        target_distributor = None
+        if self.user and is_admin(self.user):
+            target_distributor = cleaned_data.get("distributor")
+        elif self.user:
+            target_distributor = self.user
+        elif self.instance and self.instance.distributor_id:
+            target_distributor = self.instance.distributor
+
+        if sku and target_distributor:
+            sku_qs = Product.objects.filter(
+                distributor=target_distributor,
+                sku__iexact=sku.strip()
+            )
+            if self.instance and self.instance.pk:
+                sku_qs = sku_qs.exclude(pk=self.instance.pk)
+            if sku_qs.exists():
+                self.add_error("sku", "A product with this SKU already exists for this distributor.")
+
+        return cleaned_data
 
 
 

@@ -277,7 +277,7 @@
                 </span>
             </div>
             <div class="d-flex align-items-center gap-2">
-                <a href="/django-admin/billing/product/add/" target="_blank" class="btn btn-sm btn-outline-primary">
+                <a href="{% url 'admin_add_product' %}{% if selected_distributor_id %}?distributor_id={{ selected_distributor_id }}{% endif %}" class="btn btn-sm btn-primary">
                     <i class="bi bi-plus-lg me-1"></i> Add Product
                 </a>
             </div>
