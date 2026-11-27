@@ -48,61 +48,36 @@ def get_safe_redirect(request, default_route):
 
 
 # =========================
-# PUBLIC PAGES
+# PUBLIC ROUTING (DIRECT DISTRIBUTOR LOGIN)
 # =========================
 
 def home_view(request):
     """
-    Public landing page for Advance Billing System.
-    - If an Admin is authenticated, redirect to Admin Dashboard.
-    - If a Distributor is authenticated, redirect to Distributor Dashboard.
-    - If visitor is unauthenticated, render the public homepage.
+    Directly routes to Distributor Login page (or dashboard if already logged in).
+    Landing page has been removed so visitors land directly on Distributor Login.
     """
     if request.user.is_authenticated:
-        if is_admin(request.user):
-            return redirect("admin_dashboard")
-        elif is_distributor(request.user):
-            return redirect("distributor_dashboard")
-        if request.user.is_staff or request.user.is_superuser:
+        if is_admin(request.user) or request.user.is_staff or request.user.is_superuser:
             return redirect("admin_dashboard")
         return redirect("distributor_dashboard")
 
-    return render(request, "accounts/home.html")
+    return redirect("distributor_login")
 
 
 def features_view(request):
-    """Dedicated Features page showcasing invoicing, customers, products, PDF, and QR engines."""
-    return render(request, "accounts/features.html")
+    return redirect("distributor_login")
 
 
 def how_it_works_view(request):
-    """Dedicated How It Works page showcasing the 5-step workflow and FAQs."""
-    return render(request, "accounts/how_it_works.html")
+    return redirect("distributor_login")
 
 
 def about_view(request):
-    """Dedicated About Us page with platform story, architectural pillars, and compliance info."""
-    return render(request, "accounts/about.html")
+    return redirect("distributor_login")
 
 
 def contact_view(request):
-    """Dedicated Contact page with contact channels and working message submission form."""
-    if request.method == "POST":
-        name = request.POST.get("name", "").strip()
-        email = request.POST.get("email", "").strip()
-        subject = request.POST.get("subject", "").strip()
-        message = request.POST.get("message", "").strip()
-
-        if name and email and message:
-            messages.success(
-                request,
-                f"Thank you {name}! Your message has been received successfully. Our team will contact you shortly."
-            )
-            return redirect("contact")
-        else:
-            messages.error(request, "Please fill in all required fields (Name, Email, Subject, and Message).")
-
-    return render(request, "accounts/contact.html")
+    return redirect("distributor_login")
 
 
 # =========================

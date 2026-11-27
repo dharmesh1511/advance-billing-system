@@ -233,11 +233,11 @@
             <!-- Buttons -->
             <div class="col-12 col-md-3 d-flex gap-2">
                 <button type="submit" class="btn btn-primary flex-grow-1">
-                    <i class="bi bi-funnel-fill me-1"></i> Search
+                    <i class="bi bi-search me-1"></i> Search
                 </button>
                 {% if query %}
-                    <a href="{% url 'customer_list' %}" class="btn btn-outline-secondary" title="Reset Search">
-                        <i class="bi bi-x-circle"></i>
+                    <a href="{% url 'customer_list' %}" class="btn btn-outline-secondary d-inline-flex align-items-center gap-1" title="Reset Search">
+                        <i class="bi bi-x-circle"></i> <span>Reset</span>
                     </a>
                 {% endif %}
             </div>
@@ -420,17 +420,23 @@
                         <td colspan="8" class="text-center py-5">
                             <div class="py-4">
                                 <i class="bi bi-people display-4 text-muted mb-3 d-block"></i>
-                                <h5 class="fw-semibold text-dark">No Customers Found</h5>
-                                <p class="text-muted small mb-3">
-                                    {% if query %}
-                                        No customer records match your search criteria "{{ query }}".
-                                    {% else %}
+                                {% if query %}
+                                    <h5 class="fw-semibold text-dark">No Customers Found</h5>
+                                    <p class="text-muted small mb-3">
+                                        No customers found matching "<strong>{{ query }}</strong>".
+                                    </p>
+                                    <a href="{% url 'customer_list' %}" class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-x-circle me-1"></i> Clear Search
+                                    </a>
+                                {% else %}
+                                    <h5 class="fw-semibold text-dark">No Customers Yet</h5>
+                                    <p class="text-muted small mb-3">
                                         You haven't added any customers yet. Add your first client to start generating invoices.
-                                    {% endif %}
-                                </p>
-                                <a href="{% url 'add_customer' %}" class="btn btn-sm btn-primary">
-                                    <i class="bi bi-plus-lg me-1"></i> Add New Customer
-                                </a>
+                                    </p>
+                                    <a href="{% url 'add_customer' %}" class="btn btn-sm btn-primary">
+                                        <i class="bi bi-plus-lg me-1"></i> Add New Customer
+                                    </a>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>
@@ -441,7 +447,7 @@
 
         <!-- 4. Bootstrap 5 Pagination -->
         {% if page_obj.has_other_pages %}
-        <div class="p-3 border-top bg-light d-flex align-items-center justify-content-between">
+        <div class="p-3 border-top bg-light d-flex flex-column flex-sm-row align-items-center justify-content-between gap-2">
             <span class="small text-muted">
                 Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
             </span>
@@ -452,16 +458,16 @@
                             <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}">&laquo; First</a>
                         </li>
                         <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">Prev</a>
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">Previous</a>
                         </li>
                     {% else %}
-                        <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
-                        <li class="page-item disabled"><span class="page-link">Prev</span></li>
+                        <li class="page-item disabled"><span class="page-link">&laquo; First</span></li>
+                        <li class="page-item disabled"><span class="page-link">Previous</span></li>
                     {% endif %}
 
                     {% for num in page_obj.paginator.page_range %}
                         {% if page_obj.number == num %}
-                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            <li class="page-item active" aria-current="page"><span class="page-link">{{ num }}</span></li>
                         {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                             <li class="page-item">
                                 <a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}">{{ num }}</a>
@@ -478,10 +484,16 @@
                         </li>
                     {% else %}
                         <li class="page-item disabled"><span class="page-link">Next</span></li>
-                        <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+                        <li class="page-item disabled"><span class="page-link">Last &raquo;</span></li>
                     {% endif %}
                 </ul>
             </nav>
+        </div>
+        {% elif page_obj.paginator.count > 0 %}
+        <div class="p-3 border-top bg-light d-flex flex-column flex-sm-row align-items-center justify-content-between gap-2">
+            <span class="small text-muted">
+                Page 1 of 1
+            </span>
         </div>
         {% endif %}
     </div>

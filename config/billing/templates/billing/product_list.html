@@ -251,11 +251,11 @@
             <!-- Buttons -->
             <div class="col-12 col-md-3 d-flex gap-2">
                 <button type="submit" class="btn btn-primary flex-grow-1">
-                    <i class="bi bi-funnel-fill me-1"></i> Filter
+                    <i class="bi bi-search me-1"></i> Search
                 </button>
                 {% if query or stock_status %}
-                    <a href="{% url 'product_list' %}" class="btn btn-outline-secondary" title="Reset Filters">
-                        <i class="bi bi-x-circle"></i>
+                    <a href="{% url 'product_list' %}" class="btn btn-outline-secondary d-inline-flex align-items-center gap-1" title="Reset Filters">
+                        <i class="bi bi-x-circle"></i> <span>Reset</span>
                     </a>
                 {% endif %}
             </div>
@@ -432,17 +432,23 @@
                         <td colspan="8" class="text-center py-5">
                             <div class="py-4">
                                 <i class="bi bi-box-seam display-4 text-muted mb-3 d-block"></i>
-                                <h5 class="fw-semibold text-dark">No Products Found</h5>
-                                <p class="text-muted small mb-3">
-                                    {% if query or stock_status %}
-                                        No products match your active search filters.
-                                    {% else %}
+                                {% if query or stock_status %}
+                                    <h5 class="fw-semibold text-dark">No Products Found</h5>
+                                    <p class="text-muted small mb-3">
+                                        No products found matching "<strong>{{ query|default:stock_status }}</strong>".
+                                    </p>
+                                    <a href="{% url 'product_list' %}" class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-x-circle me-1"></i> Clear Filters
+                                    </a>
+                                {% else %}
+                                    <h5 class="fw-semibold text-dark">No Products Yet</h5>
+                                    <p class="text-muted small mb-3">
                                         You haven't added any products to your catalog yet.
-                                    {% endif %}
-                                </p>
-                                <a href="{% url 'product_add' %}" class="btn btn-sm btn-primary">
-                                    <i class="bi bi-plus-lg me-1"></i> Add Your First Product
-                                </a>
+                                    </p>
+                                    <a href="{% url 'product_add' %}" class="btn btn-sm btn-primary">
+                                        <i class="bi bi-plus-lg me-1"></i> Add Your First Product
+                                    </a>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>
@@ -453,7 +459,7 @@
 
         <!-- 4. Bootstrap 5 Pagination -->
         {% if page_obj.has_other_pages %}
-        <div class="p-3 border-top bg-light d-flex align-items-center justify-content-between">
+        <div class="p-3 border-top bg-light d-flex flex-column flex-sm-row align-items-center justify-content-between gap-2">
             <span class="small text-muted">
                 Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
             </span>
@@ -464,16 +470,16 @@
                             <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}{% if stock_status %}&stock_status={{ stock_status }}{% endif %}">&laquo; First</a>
                         </li>
                         <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if stock_status %}&stock_status={{ stock_status }}{% endif %}">Prev</a>
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if stock_status %}&stock_status={{ stock_status }}{% endif %}">Previous</a>
                         </li>
                     {% else %}
-                        <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
-                        <li class="page-item disabled"><span class="page-link">Prev</span></li>
+                        <li class="page-item disabled"><span class="page-link">&laquo; First</span></li>
+                        <li class="page-item disabled"><span class="page-link">Previous</span></li>
                     {% endif %}
 
                     {% for num in page_obj.paginator.page_range %}
                         {% if page_obj.number == num %}
-                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            <li class="page-item active" aria-current="page"><span class="page-link">{{ num }}</span></li>
                         {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                             <li class="page-item">
                                 <a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}{% if stock_status %}&stock_status={{ stock_status }}{% endif %}">{{ num }}</a>
@@ -490,10 +496,16 @@
                         </li>
                     {% else %}
                         <li class="page-item disabled"><span class="page-link">Next</span></li>
-                        <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+                        <li class="page-item disabled"><span class="page-link">Last &raquo;</span></li>
                     {% endif %}
                 </ul>
             </nav>
+        </div>
+        {% elif page_obj.paginator.count > 0 %}
+        <div class="p-3 border-top bg-light d-flex flex-column flex-sm-row align-items-center justify-content-between gap-2">
+            <span class="small text-muted">
+                Page 1 of 1
+            </span>
         </div>
         {% endif %}
     </div>
